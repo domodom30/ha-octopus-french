@@ -1,0 +1,22 @@
+{
+    "config": {
+      "step": {
+        "init": {
+          "data": {
+            "scan_interval": "Scan Interval",
+            "gas_conversion_factor": "Conversion kWh -> m³"
+          }
+        }
+      }
+    },
+    "options": {
+      "step": {
+        "init": {
+          "data": {
+            "scan_interval": "Scan Interval",
+            "gas_conversion_factor": "Conversion kWh -> m³"
+          }
+        }
+      }
+    }
+  }

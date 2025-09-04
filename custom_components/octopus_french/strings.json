@@ -1,0 +1,22 @@
+{
+    "config": {
+      "step": {
+        "user": {
+          "title": "Octopus Energy French",
+          "description": "Configurez votre intégration Octopus Energy France",
+          "data": {
+            "email": "Email",
+            "password": "Mot de passe"
+          }
+        }
+      },
+      "error": {
+        "invalid_auth": "Identifiants invalides",
+        "no_accounts": "Aucun compte trouvé",
+        "unknown": "Erreur inconnue"
+      },
+      "abort": {
+        "already_configured": "Cette intégration est déjà configurée"
+      }
+    }
+  }
