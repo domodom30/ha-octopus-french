@@ -169,7 +169,6 @@ series:
       const data = [];
       const attributes = entity.attributes;
 
-      // Parcourir tous les attributs pour trouver les mois
       Object.keys(attributes).forEach(key => {
         if (key.startsWith('Month ') && !key.includes(' hp') && !key.includes(' hc')) {
           const monthKey = key.replace('Month ', '');
@@ -183,7 +182,6 @@ series:
         }
       });
 
-      // Trier par date
       data.sort((a, b) => a[0] - b[0]);
       return data;
   - entity: sensor.gas_energy_account_number
@@ -196,9 +194,6 @@ series:
     data_generator: |
       const data = [];
       const attributes = entity.attributes;
-
-      // Pour le gaz, on suppose que les données sont déjà en m³
-      // Si besoin de conversion, ajouter un facteur ici
       const conversionFactor = 11; // Ajuster si nécessaire
 
       Object.keys(attributes).forEach(key => {
@@ -311,7 +306,6 @@ series:
       const data = [];
       const attributes = entity.attributes;
 
-      // Parcourir tous les attributs pour trouver les mois HP
       Object.keys(attributes).forEach(key => {
         if (key.startsWith('Month ') && key.endsWith(' hp')) {
           const monthKey = key.replace('Month ', '').replace(' hp', '');
@@ -325,7 +319,6 @@ series:
         }
       });
 
-      // Trier par date
       data.sort((a, b) => a[0] - b[0]);
       return data;
   - entity: sensor.electricity_energy_a_4411e8f3
@@ -337,7 +330,6 @@ series:
       const data = [];
       const attributes = entity.attributes;
 
-      // Parcourir tous les attributs pour trouver les mois HC
       Object.keys(attributes).forEach(key => {
         if (key.startsWith('Month ') && key.endsWith(' hc')) {
           const monthKey = key.replace('Month ', '').replace(' hc', '');
@@ -351,7 +343,6 @@ series:
         }
       });
 
-      // Trier par date
       data.sort((a, b) => a[0] - b[0]);
       return data;
   - entity: sensor.electricity_energy_a_4411e8f3
@@ -363,7 +354,6 @@ series:
       const data = [];
       const attributes = entity.attributes;
 
-      // Parcourir tous les attributs pour trouver les totaux mensuels
       Object.keys(attributes).forEach(key => {
         if (key.startsWith('Month ') && !key.includes(' hp') && !key.includes(' hc')) {
           const monthKey = key.replace('Month ', '');
@@ -377,7 +367,6 @@ series:
         }
       });
 
-      // Trier par date
       data.sort((a, b) => a[0] - b[0]);
       return data;
 ```yaml
