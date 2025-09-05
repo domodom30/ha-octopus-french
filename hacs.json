@@ -1,5 +1,7 @@
 {
   "name": "Octopus Energy French",
-  "render_readme": true,
-  "homeassistant": "2025.1.0"
+  "domain": "octopus_french",
+  "country": ["FR"],
+  "homeassistant": "2025.0.0",
+  "render_readme": true
 }
