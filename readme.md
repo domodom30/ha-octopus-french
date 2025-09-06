@@ -24,7 +24,7 @@ Cette intégration permet de récupérer les données de votre compte Octopus En
 
 ### Manuellement
 
-1. Copiez le dossier `octopus_energy_french` dans votre dossier `custom_components`
+1. Copiez le dossier `octopus_french` dans votre dossier `custom_components`
 2. Redémarrez Home Assistant
 3. Ajoutez l'intégration via l'interface Configuration → Intégrations
 
