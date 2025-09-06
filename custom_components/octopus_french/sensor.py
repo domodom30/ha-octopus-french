@@ -239,13 +239,31 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
         try:
             total_consumption, monthly_data = self._get_monthly_breakdown()
             ledger = self._get_electricity_ledger()
-            
+
+            # Vérification en amont si ledger existe et est un dictionnaire
+            meter_id = None
+            if ledger and isinstance(ledger, dict):
+                if meter_point := ledger.get("meterPoint"):
+                    if isinstance(meter_point, dict):
+                        meter_id = meter_point.get("external_identifier")
+
+            # Construction des attributs de base
             attributes = {
                 "account_number": self.account_number,
                 "total_consumption": round(total_consumption, 1) if total_consumption is not None else 0,
                 "last_update": datetime.now().isoformat()
             }
-            
+
+            # Ajout du meter_point_id après account_number si disponible
+            if meter_id:
+                # Reconstruction du dictionnaire avec l'ordre souhaité
+                attributes = {
+                    "account_number": attributes["account_number"],
+                    "meter_point_id": meter_id,
+                    "total_consumption": attributes["total_consumption"],
+                    "last_update": attributes["last_update"]
+                }
+
             # Traitement sécurisé des données mensuelles
             if monthly_data:
                 for month_key in sorted(monthly_data.keys(), reverse=True)[:12]:  # Limite à 12 mois
@@ -255,14 +273,10 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                         f"{month_key}_hc": round(month_data.get("hc", 0), 1),
                         f"{month_key}_total": round(month_data.get("total", 0), 1)
                     })
-            
-            # Extraction sécurisée des infos du ledger
-            if ledger:
+
+            # Ajout du solde du ledger seulement si ledger existe
+            if ledger and isinstance(ledger, dict):
                 attributes["ledger_balance"] = ledger.get("balance", 0)
-                
-                if meter_point := ledger.get("meterPoint"):
-                    if isinstance(meter_point, dict) and (meter_id := meter_point.get("external_identifier")):
-                        attributes["meter_point_id"] = meter_id
             
             return attributes
             
@@ -398,7 +412,6 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
                     if valid_readings:
                         attributes["first_reading_date"] = valid_readings[-1].get("readingDate")
                         attributes["last_reading_date"] = valid_readings[0].get("readingDate")
-                        attributes["reading_count"] = len(valid_readings)
             
             return attributes
             
