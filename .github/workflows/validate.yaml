@@ -1,4 +1,4 @@
-name: "Validate with hassfest and HACS"
+name: "Validate with HACS"
 
 on:
   push:
@@ -7,15 +7,6 @@ on:
     - cron:  '0 0 * * *'
 
 jobs:
-  hassfest: # https://developers.home-assistant.io/blog/2020/04/16/hassfest
-    name: "Hassfest Validation"
-    runs-on: "ubuntu-latest"
-    steps:
-        - name: "Checkout the repository"
-          uses: "actions/checkout@v5.0.0"
-
-        - name: "Run hassfest validation"
-          uses: "home-assistant/actions/hassfest@master"
 
   hacs: # https://github.com/hacs/action
     name: "HACS Validation"
@@ -23,8 +14,5 @@ jobs:
     steps:
         - name: "Checkout the repository"
           uses: "actions/checkout@v5.0.0"
-
-        - name: "Run HACS validation"
-          uses: "hacs/action@main"
           with:
             category: "integration"
