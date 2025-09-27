@@ -1,13 +1,12 @@
 # Intégration Octopus Energy French pour Home Assistant
 
-Cette intégration permet de récupérer les données de votre compte Octopus Energy France dans Home Assistant, incluant les soldes de vos compteurs, la consommation électrique et gaz, ainsi que le solde de votre cagnotte.
+Cette intégration permet de récupérer les données de votre compte Octopus Energy France dans Home Assistant, incluant les soldes de vos compteurs, la consommation électrique et gaz par mois, ainsi que le solde de votre cagnotte.
 
 ## Fonctionnalités
 
-- **Sensors de solde** : Affiche le solde de vos compteurs électrique et gaz
+- **Sensors de solde** : Affiche la consommation de vos compteurs électrique et gaz / mois
 - **Sensor de cagnotte** : Montre le solde de votre cagnotte Octopus
 - **Détails de consommation** : Ventilation mensuelle HP/HC pour l'électricité
-- **Mises à jour automatiques** : Actualisation configurable des données
 - **Multi-comptes** : Support de plusieurs comptes Octopus
 
 ## Installation
