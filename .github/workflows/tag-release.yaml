@@ -4,7 +4,7 @@ on:
   push:
     paths:
       - 'custom_components/octopus_germany/manifest.json'
-
+  workflow_dispatch:
 jobs:
   tag-and-release:
     runs-on: ubuntu-latest
