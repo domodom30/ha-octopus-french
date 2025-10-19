@@ -178,7 +178,7 @@
           "gas_nature": {
             "name": "Gas Type",
             "state": {
-              "Naturel": "Natural"
+              "naturel": "Natural"
             }
           },
           "annual_consumption": {
