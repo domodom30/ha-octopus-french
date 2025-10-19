@@ -339,13 +339,10 @@ class OctopusElectricityConsumptionSensor(OctopusFrenchBaseSensor):
             return {}
 
         latest = readings[0]
-        calendar_label = (
-            "Heures Creuses" if self._calendar_class == "HC" else "Heures Pleines"
-        )
 
         return {
             "prm_id": self.coordinator.data.get("prm_id"),
-            "calendar_type": calendar_label,
+            "calendar_type": self._calendar_class.lower(),
             "period_start": latest.get("periodStartAt"),
             "period_end": latest.get("periodEndAt"),
             "reliability": latest.get("consumptionReliability"),
@@ -409,6 +406,17 @@ class OctopusGasIndexSensor(OctopusFrenchBaseSensor):
 
 class OctopusGasConsumptionSensor(OctopusFrenchBaseSensor):
     """Sensor for gas consumption."""
+
+    def __init__(
+        self,
+        coordinator,
+        description: OctopusFrenchSensorEntityDescription,
+        account_number: str,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, description, account_number)
+        self._attr_translation_key = "gas_consumption"
+        self._attr_has_entity_name = True
 
     @property
     def available(self) -> bool:
