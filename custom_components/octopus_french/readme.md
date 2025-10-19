@@ -1,411 +1,263 @@
-# Intégration Octopus Energy French pour Home Assistant
+# Octopus Energy France Integration for Home Assistant
 
-Cette intégration permet de récupérer les données de votre compte Octopus Energy France dans Home Assistant, incluant les soldes de vos compteurs, la consommation électrique et gaz, ainsi que le solde de votre cagnotte.
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
+[![GitHub Release](https://img.shields.io/github/release/domodom30/octopus_french)](https://github.com/domodom30/octopus_french/releases)
+[![License](https://img.shields.io/github/license/domodom30/octopus_french)](LICENSE)
 
-## Fonctionnalités
+This custom integration allows you to monitor your Octopus Energy France account directly in Home Assistant. Track your electricity and gas consumption, meter readings, costs, and off-peak hours (Heures Creuses).
 
-- **Sensors de solde** : Affiche le solde de vos compteurs électrique et gaz
-- **Sensor de cagnotte** : Montre le solde de votre cagnotte Octopus
-- **Détails de consommation** : Ventilation mensuelle HP/HC pour l'électricité
-- **Mises à jour automatiques** : Actualisation configurable des données
-- **Multi-comptes** : Support de plusieurs comptes Octopus
+## Features
+
+- **Account Balance**: Monitor your "Cagnotte" (savings pot) balance
+- **Contract Information**: View your account and meter details
+- **Electricity Monitoring**:
+  - Separate sensors for HC (Heures Creuses/Off-Peak) and HP (Heures Pleines/Peak) periods
+  - Real-time meter index readings
+  - Consumption tracking
+  - Cost calculation based on current tariffs
+  - Binary sensor indicating active off-peak periods
+- **Gas Monitoring**:
+  - Meter index readings
+  - Consumption tracking in m³
+  - Cost calculation with automatic kWh conversion
+- **Automatic Updates**: Data refreshed every 30 minutes
+- **Off-Peak Schedule**: Detailed HC schedule with time ranges and durations
 
 ## Installation
 
-### Via HACS (recommandé)
+### HACS (Recommended)
 
-1. Ajoutez ce dépôt comme dépôt personnalisé dans HACS
-2. Recherchez "Octopus Energy French" dans HACS
-3. Installez l'intégration
-4. Redémarrez Home Assistant
+1. Open HACS in Home Assistant
+2. Go to "Integrations"
+3. Click the three dots in the top right corner
+4. Select "Custom repositories"
+5. Add this repository URL: `https://github.com/domodom30/octopus_french`
+6. Select category: "Integration"
+7. Click "Add"
+8. Search for "Octopus Energy France"
+9. Click "Download"
+10. Restart Home Assistant
 
+### Manual Installation
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=domodom30&repository=ha-octopus-french&category=integration)
-
-### Manuellement
-
-1. Copiez le dossier `octopus_energy_french` dans votre dossier `custom_components`
-2. Redémarrez Home Assistant
-3. Ajoutez l'intégration via l'interface Configuration → Intégrations
+1. Download the `custom_components/octopus_french` folder from this repository
+2. Copy it to your `custom_components` directory in your Home Assistant configuration folder
+3. Restart Home Assistant
 
 ## Configuration
 
-1. Allez dans Configuration → Intégrations
-2. Cliquez sur "+ Ajouter une intégration"
-3. Recherchez "Octopus Energy French"
-4. Entrez vos identifiants Octopus Energy :
+1. Go to Settings → Devices & Services
+2. Click "+ Add Integration"
+3. Search for "Octopus Energy France"
+4. Enter your Octopus Energy France credentials:
    - Email
-   - Mot de passe
-5. Sélectionnez le numéro de compte à suivre
-6. Configurez les options (intervalle de mise à jour, etc.)
+   - Password
+5. If you have multiple accounts, select the account you want to monitor
+6. Click "Submit"
 
-## Capteurs disponibles
+## Sensors
 
-### Octopus Energy Cagnotte
-- **Type** : Monétaire (€)
-- **Attributs** : 
-  - Solde brut (centimes)
-  - Solde en euros
-  - Numéro de compte
+### Balance Sensor
+- **Name**: Cagnotte
+- **Unit**: EUR (€)
+- **Description**: Your account balance/savings pot
+- **Attributes**: Ledger type, name, and number
 
-### Electricity Energy
-- **Type** : Énergie (kWh)
-- **Attributs** :
-  - Consommation totale
-  - Ventilation mensuelle HP/HC
-  - Dernière mise à jour
-  - Identifiant du point de mesure
+### Contract Sensor
+- **Name**: Contrat
+- **Description**: Contract and meter information
+- **Attributes**:
+  - Account number
+  - Electricity meter details (PRM ID, max power, off-peak label, teleoperation status)
+  - Gas meter details (PCE reference, annual consumption, smart meter status)
 
-### Gas Energy  
-- **Type** : Énergie (kWh)
-- **Attributs** :
-  - Consommation totale mensuelle
-  - Dernière mise à jour
-  - Dates des premières/dernières lectures
-  - Identifiant du point de mesure
+### Electricity Sensors
 
-## Options de configuration
+#### Index Sensors
+- **Index Électricité HC**: Off-peak electricity meter reading (kWh)
+- **Index Électricité HP**: Peak electricity meter reading (kWh)
 
-- **Intervalle de mise à jour** : 1 à 24 heures (par défaut : 4h)
+#### Consumption Sensors
+- **Électricité HC**: Off-peak electricity consumption (kWh)
+- **Électricité HP**: Peak electricity consumption (kWh)
 
-## Dépannage
+#### Cost Sensors
+- **Coût Électricité HC**: Off-peak electricity cost (€)
+- **Coût Électricité HP**: Peak electricity cost (€)
 
-### Problèmes d'authentification
-- Vérifiez vos identifiants Octopus Energy
-- Assurez-vous que votre compte est actif
+**Attributes**: PRM ID, period dates, consumption, price per kWh, status
 
-### Données manquantes
-- Les compteurs sans consommation peuvent ne pas apparaître
+### Gas Sensors
 
-### Dashboard
+#### Index Sensor
+- **Index Gaz**: Gas meter reading (m³)
 
-![graph.png](imgs/graph.png) ![dashboard.png](imgs/dashboard.png)
+#### Consumption Sensor
+- **Gaz**: Gas consumption (m³)
 
-### Ex: Consommation de gaz avec ApexChart
+#### Cost Sensor
+- **Coût Gaz**: Gas cost (€)
+
+**Attributes**: PCE reference, period dates, consumption in m³ and kWh, price per kWh
+
+### Binary Sensor
+
+#### Heures Creuses Active
+- **State**: ON when currently in off-peak period, OFF otherwise
+- **Icon**: Clock with checkmark when active, clock outline when inactive
+- **Attributes**:
+  - `hc_schedule_available`: Boolean indicating if HC schedule is configured
+  - `total_hc_hours`: Total hours of off-peak periods per day
+  - `hc_type`: Type of off-peak schedule
+  - `hc_range_X`: Individual time ranges (e.g., "22:00 - 06:00")
+
+## Automation Examples
+
+### Turn on water heater during off-peak hours
 
 ```yaml
-type: custom:apexcharts-card
-graph_span: 1y
-span:
-  start: year
-header:
-  show: true
-  title: 🔥 Consommation gaz
-  show_states: true
-  colorize_states: true
-yaxis:
-  - id: kwh
-    show: true
-    decimals: 0
-    min: 0
-    opposite: false
-  - id: m3
-    show: true
-    decimals: 0
-    min: 0
-    opposite: true
-apex_config:
-  chart:
-    background: rgba(0,0,0,0)
-    foreColor: "#ffffff"
-    fontFamily: Roboto, sans-serif
-    stacked: false
-  theme:
-    mode: dark
-  plotOptions:
-    bar:
-      columnWidth: 80%
-      borderRadius: 4
-  dataLabels:
-    enabled: false
-  grid:
-    show: true
-    borderColor: "#444444"
-    strokeDashArray: 3
-  xaxis:
-    labels:
-      style:
-        colors: "#ffffff"
-        fontSize: 11px
-  yaxis:
-    - title:
-        text: kWh
-        style:
-          color: "#ff9800"
-    - opposite: true
-      title:
-        text: m³
-        style:
-          color: "#03a9f4"
-  legend:
-    show: true
-    position: bottom
-    horizontalAlign: left
-    fontSize: 12px
-    fontWeight: 400
-    labels:
-      colors: "#ffffff"
-    markers:
-      width: 20
-      height: 20
-      radius: 4
-  tooltip:
-    theme: dark
-    style:
-      fontSize: 12px
-    x:
-      formatter: |
-        EVAL:(timestamp) => {
-          const date = new Date(timestamp);
-          return date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-        }    
-series:
-  - entity: sensor.gas_energy_account_number
-    name: kWh consommés
-    type: column
-    yaxis_id: kwh
-    color: "#ff9800"
-    data_generator: |
-      const data = [];
-      const attributes = entity.attributes;
-
-      Object.keys(attributes).forEach(key => {
-
-        if (key.match(/^\d{4}-\d{2}$/) || key.startsWith('Month ')) {
-          let monthKey, value;
-          
-          if (key.match(/^\d{4}-\d{2}$/)) {
-            monthKey = key;
-            value = parseFloat(attributes[key]);
-          } else if (key.startsWith('Month ')) {
-            monthKey = key.replace('Month ', '');
-            value = parseFloat(attributes[key]);
-          }
-          
-          if (!isNaN(value) && monthKey) {
-            const [year, month] = monthKey.split('-');
-            const monthIdx = parseInt(month, 10) - 1;
-            data.push([new Date(year, monthIdx, 1).getTime(), value]);
-          }
-        }
-      });
-
-      // Trier par date
-      data.sort((a, b) => a[0] - b[0]);
-      return data;
-  - entity: sensor.gas_energy_account_number
-    name: m³ consommés
-    type: line
-    yaxis_id: m3
-    stroke_width: 0
-    color: "#03a9f4"
-    unit: m³
-    data_generator: |
-      const data = [];
-      const attributes = entity.attributes;
-      const conversionFactor = 10.7;
-
-      Object.keys(attributes).forEach(key => {
-        if (key.match(/^\d{4}-\d{2}$/) || key.startsWith('Month ')) {
-          let monthKey, value;
-          
-          if (key.match(/^\d{4}-\d{2}$/)) {
-            monthKey = key;
-            value = parseFloat(attributes[key]);
-          } else if (key.startsWith('Month ')) {
-            monthKey = key.replace('Month ', '');
-            value = parseFloat(attributes[key]);
-          }
-          
-          if (!isNaN(value) && monthKey) {
-            const [year, month] = monthKey.split('-');
-            const monthIdx = parseInt(month, 10) - 1;
-
-            const value_m3 = value / conversionFactor;
-            data.push([new Date(year, monthIdx, 1).getTime(), Math.round(value_m3)]);
-          }
-        }
-      });
-
-      // Trier par date
-      data.sort((a, b) => a[0] - b[0]);
-      return data;
-
-
+automation:
+  - alias: "Water Heater - Off-Peak Hours"
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.heures_creuses_actives
+        to: "on"
+    action:
+      - service: switch.turn_on
+        target:
+          entity_id: switch.water_heater
 ```
 
-### Ex: Consommation électricité avec ApexChart
-
-```yaml 
-
-type: custom:apexcharts-card
-graph_span: 1y
-span:
-  start: year
-header:
-  show: true
-  title: ⚡ Consommation électricité
-  show_states: true
-  colorize_states: true
-yaxis:
-  - id: kwh
-    show: true
-    decimals: 0
-    min: 0
-apex_config:
-  chart:
-    background: rgba(0,0,0,0)
-    foreColor: "#ffffff"
-    fontFamily: Roboto, sans-serif
-    stacked: true
-  theme:
-    mode: dark
-  plotOptions:
-    bar:
-      columnWidth: 80%
-      borderRadius: 4
-  dataLabels:
-    enabled: false
-  grid:
-    show: true
-    borderColor: "#444444"
-    strokeDashArray: 3
-    xaxis:
-      lines:
-        show: false
-    yaxis:
-      lines:
-        show: true
-  xaxis:
-    labels:
-      style:
-        colors: "#ffffff"
-        fontSize: 11px
-  yaxis:
-    labels:
-      style:
-        colors: "#ffffff"
-        fontSize: 11px
-  legend:
-    show: true
-    position: bottom
-    horizontalAlign: left
-    fontSize: 12px
-    fontWeight: 400
-    labels:
-      colors: "#ffffff"
-    markers:
-      width: 20
-      height: 20
-      radius: 4
-    onItemClick:
-      toggleDataSeries: true
-  tooltip:
-    theme: dark
-    style:
-      fontSize: 12px
-    x:
-      formatter: |
-        EVAL:(timestamp) => {
-          const date = new Date(timestamp);
-          return date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-        }
-series:
-  - entity: sensor.electricity_energy_account_number
-    name: Heures pleines
-    type: column
-    yaxis_id: kwh
-    color: "#4caf50"
-    data_generator: |
-      const data = [];
-      const attributes = entity.attributes;
-
-      // Parcourir tous les attributs pour trouver les mois HP
-      Object.keys(attributes).forEach(key => {
-        // Support des formats "2025-08 hp" et "Month 2025-08 hp"
-        if ((key.endsWith(' hp') || key.includes('_hp')) && !key.includes('total')) {
-          let monthKey, value;
-          
-          if (key.includes('_hp')) {
-            monthKey = key.replace('_hp', '');
-            value = parseFloat(attributes[key]);
-          }
-          
-          if (!isNaN(value) && monthKey && monthKey.match(/^\d{4}-\d{2}$/)) {
-            const [year, month] = monthKey.split('-');
-            const monthIdx = parseInt(month, 10) - 1;
-            data.push([new Date(year, monthIdx, 1).getTime(), value]);
-          }
-        }
-      });
-
-      // Trier par date
-      data.sort((a, b) => a[0] - b[0]);
-      return data;
-  - entity: sensor.electricity_energy_account_number
-    name: Heures creuses
-    type: column
-    yaxis_id: kwh
-    color: "#fc03e3"
-    data_generator: |
-      const data = [];
-      const attributes = entity.attributes;
-
-      // Parcourir tous les attributs pour trouver les mois HC
-      Object.keys(attributes).forEach(key => {
-        // Support des formats "2025-08 hc" et "Month 2025-08 hc"
-        if ((key.endsWith(' hc') || key.includes('_hc')) && !key.includes('total')) {
-          let monthKey, value;
-          
-          if (key.includes('_hc')) {
-            monthKey = key.replace('_hc', '');
-            value = parseFloat(attributes[key]);
-          }
-          
-          if (!isNaN(value) && monthKey && monthKey.match(/^\d{4}-\d{2}$/)) {
-            const [year, month] = monthKey.split('-');
-            const monthIdx = parseInt(month, 10) - 1;
-            data.push([new Date(year, monthIdx, 1).getTime(), value]);
-          }
-        }
-      });
-
-      // Trier par date
-      data.sort((a, b) => a[0] - b[0]);
-      return data;
-  - entity: sensor.electricity_energy_account_number
-    name: Total mensuel
-    type: line
-    yaxis_id: kwh
-    color: "#ffeb3b"
-    stroke_width: 0
-    data_generator: |
-      const data = [];
-      const attributes = entity.attributes;
-
-      // Parcourir tous les attributs pour trouver les totaux mensuels
-      Object.keys(attributes).forEach(key => {
-        if (key.endsWith('_total')) {
-          const monthKey = key.replace('_total', '');
-          const value = parseFloat(attributes[key]);
-          console.log('Mois:', monthKey);
-          if (!isNaN(value) && monthKey && monthKey.match(/^\d{4}-\d{2}$/)) {
-            const [year, month] = monthKey.split('-');
-            const monthIdx = parseInt(month, 10) - 1;
-            data.push([new Date(year, monthIdx, 1).getTime(), value]);
-          }
-        }
-      });
-
-      // Trier par date
-      data.sort((a, b) => a[0] - b[0]);
-      return data;
+### Turn off water heater when peak hours start
 
 ```yaml
+automation:
+  - alias: "Water Heater - Peak Hours"
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.heures_creuses_actives
+        to: "off"
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.water_heater
+```
 
-### Logs
-Les logs détaillés sont disponibles dans les logs Home Assistant avec le filtre :
+### Notify when balance is low
+
+```yaml
+automation:
+  - alias: "Low Balance Alert"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.cagnotte
+        below: 10
+    action:
+      - service: notify.mobile_app
+        data:
+          title: "Octopus Energy"
+          message: "Your balance is low: {{ states('sensor.cagnotte') }}€"
+```
+
+### Daily energy consumption report
+
+```yaml
+automation:
+  - alias: "Daily Energy Report"
+    trigger:
+      - platform: time
+        at: "23:00:00"
+    action:
+      - service: notify.mobile_app
+        data:
+          title: "Daily Energy Report"
+          message: >
+            HC: {{ states('sensor.electricite_hc') }} kWh ({{ states('sensor.cout_electricite_hc') }}€)
+            HP: {{ states('sensor.electricite_hp') }} kWh ({{ states('sensor.cout_electricite_hp') }}€)
+            Gas: {{ states('sensor.gaz') }} m³ ({{ states('sensor.cout_gaz') }}€)
+```
+
+## Lovelace Card Example
+
+```yaml
+type: entities
+title: Octopus Energy France
+entities:
+  - entity: sensor.cagnotte
+  - entity: binary_sensor.heures_creuses_actives
+  - entity: sensor.electricite_hc
+  - entity: sensor.electricite_hp
+  - entity: sensor.cout_electricite_hc
+  - entity: sensor.cout_electricite_hp
+  - entity: sensor.gaz
+  - entity: sensor.cout_gaz
+```
+
+## Energy Dashboard Integration
+
+This integration is compatible with Home Assistant's Energy Dashboard:
+
+1. Go to Settings → Dashboards → Energy
+2. Click "Add Consumption" under Electricity grid consumption
+3. Select:
+   - `sensor.electricite_hc` for off-peak consumption
+   - `sensor.electricite_hp` for peak consumption
+4. For Gas consumption, select `sensor.gaz`
+
+## Troubleshooting
+
+### Sensors not appearing
+- Check that your account has active electricity and/or gas contracts
+- Verify your credentials are correct
+- Check the Home Assistant logs for errors: Settings → System → Logs
+
+### Data not updating
+- The integration updates every 30 minutes by default
+- You can manually refresh by clicking "Reload" in the integration settings
+- Check your internet connection
+
+### Authentication errors
+- Verify your email and password are correct
+- Try logging into the Octopus Energy France website with the same credentials
+- If you recently changed your password, reconfigure the integration
+
+### Binary sensor not working
+- Ensure your electricity contract has an off-peak schedule configured
+- Check the `hc_schedule_available` attribute
+- Verify the off-peak hours in the sensor attributes match your contract
+
+## Debug Logging
+
+To enable debug logging for troubleshooting:
+
 ```yaml
 logger:
+  default: info
   logs:
-    custom_components.octopus_energy_french: debug
+    custom_components.octopus_french: debug
+```
+
+## API Rate Limiting
+
+The integration respects Octopus Energy's API limits:
+- Automatic token refresh before expiration
+- Retry logic with exponential backoff
+- Update interval of 30 minutes
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## Support
+
+If you encounter any issues or have questions:
+- Check the [Issues](https://github.com/domodom30/octopus_french/issues) page
+- Create a new issue with detailed information and logs
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Disclaimer
+
+This integration is not officially affiliated with or endorsed by Octopus Energy France. Use at your own risk.

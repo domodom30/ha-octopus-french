@@ -1,22 +1,247 @@
 {
-    "config": {
-      "step": {
-        "user": {
-          "title": "Octopus Energy French",
-          "description": "Configurez votre intégration Octopus Energy France",
-          "data": {
-            "email": "Email",
-            "password": "Mot de passe"
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Octopus Energy France",
+        "description": "Please enter your Octopus Energy France credentials",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
+      },
+      "select_account": {
+        "title": "Account Selection",
+        "description": "{accounts_found} accounts found. Please select the account to use:",
+        "data": {
+          "account_number": "Account"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid authentication",
+      "no_accounts": "No active accounts found",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This account is already configured"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "balance": {
+        "name": "Pot Balance",
+        "state_attributes": {
+          "ledger_type": {
+            "name": "Ledger Type",
+            "state": {
+              "electricity": "Electricity",
+              "gas": "Gas",
+              "pot": "Balance Pot"
+            }
+          },
+          "ledger_name": {
+            "name": "Ledger Name"
+          },
+          "ledger_number": {
+            "name": "Ledger Number"
+          },
+          "account_number": {
+            "name": "Account Number"
           }
         }
       },
-      "error": {
-        "invalid_auth": "Identifiants invalides",
-        "no_accounts": "Aucun compte trouvé",
-        "unknown": "Erreur inconnue"
+      "electricity_index": {
+        "name": "Electricity Index {calendar_class}",
+        "state_attributes": {
+          "prm_id": {
+            "name": "PRM"
+          },
+          "calendar_type": {
+            "name": "Time Period",
+            "state": {
+              "HC": "Off-Peak Hours",
+              "HP": "Peak Hours"
+            }
+          },
+          "index_start": {
+            "name": "Start Index"
+          },
+          "index_end": {
+            "name": "End Index"
+          },
+          "period_start": {
+            "name": "Period Start"
+          },
+          "period_end": {
+            "name": "Period End"
+          },
+          "calendar_temp_class": {
+            "name": "Tariff Class"
+          },
+          "status": {
+            "name": "Status",
+            "state": {
+              "PROCESSED": "Processed",
+              "PENDING": "Pending",
+              "ERROR": "Error"
+            }
+          }
+        }
       },
-      "abort": {
-        "already_configured": "Cette intégration est déjà configurée"
+      "gas_index": {
+        "name": "Gas Index",
+        "state_attributes": {
+          "pce_ref": {
+            "name": "PCE"
+          },
+          "index_start": {
+            "name": "Start Index"
+          },
+          "index_end": {
+            "name": "End Index"
+          },
+          "period_start": {
+            "name": "Period Start"
+          },
+          "period_end": {
+            "name": "Period End"
+          },
+          "reading_date": {
+            "name": "Reading Date"
+          },
+          "reading_type": {
+            "name": "Reading Type",
+            "state": {
+              "REAL": "Actual",
+              "ESTIMATED": "Estimated",
+              "SELF_REPORTED": "Self-Reported"
+            }
+          },
+          "status": {
+            "name": "Status",
+            "state": {
+              "PROCESSED": "Processed",
+              "PENDING": "Pending",
+              "ERROR": "Error"
+            }
+          }
+        }
+      },
+      "electricity_meter": {
+        "name": "Electricity Meter",
+        "state_attributes": {
+          "prm_id": {
+            "name": "PRM"
+          },
+          "meter_kind": {
+            "name": "Meter Type",
+            "state": {
+              "Linky": "Linky"
+            }
+          },
+          "subscribed_max_power": {
+            "name": "Subscribed Power (kVA)"
+          },
+          "off_peak_label": {
+            "name": "Off-Peak Hours"
+          },
+          "is_teleoperable": {
+            "name": "Remotely Operable",
+            "state": {
+              "true": "Yes",
+              "false": "No"
+            }
+          },
+          "powered_status": {
+            "name": "Power Status",
+            "state": {
+              "ALIM": "Powered",
+              "LIMI": "Limited",
+              "COUP": "Cut Off"
+            }
+          },
+          "distributor_status": {
+            "name": "Distributor Status",
+            "state": {
+              "SERVC": "In Service",
+              "RESIL": "Terminated"
+            }
+          }
+        }
+      },
+      "gas_meter": {
+        "name": "Gas Meter",
+        "state_attributes": {
+          "pce_ref": {
+            "name": "PCE"
+          },
+          "gas_nature": {
+            "name": "Gas Type",
+            "state": {
+              "Naturel": "Natural"
+            }
+          },
+          "annual_consumption": {
+            "name": "Annual Consumption (kWh)"
+          },
+          "is_smart_meter": {
+            "name": "Smart Meter",
+            "state": {
+              "true": "Yes",
+              "false": "No"
+            }
+          }
+        }
+      },
+      "cost_electricity": {
+        "name": "Electricity Cost {calendar_class}",
+        "state_attributes": {
+          "prm_id": {
+            "name": "PRM"
+          },
+          "consumption_kwh": {
+            "name": "Consumption (kWh)"
+          },
+          "price_per_kwh_cents": {
+            "name": "Price per kWh (cents)"
+          },
+          "price_per_kwh_euros": {
+            "name": "Price per kWh (€)"
+          },
+          "period_start": {
+            "name": "Period Start"
+          },
+          "period_end": {
+            "name": "Period End"
+          }
+        }
+      },
+      "cost_gas": {
+        "name": "Gas Cost",
+        "state_attributes": {
+          "pce_ref": {
+            "name": "PCE"
+          },
+          "consumption_m3": {
+            "name": "Consumption (m³)"
+          },
+          "consumption_kwh": {
+            "name": "Consumption (kWh)"
+          },
+          "price_per_kwh_cents": {
+            "name": "Price per kWh (cents)"
+          },
+          "price_per_kwh_euros": {
+            "name": "Price per kWh (€)"
+          },
+          "period_start": {
+            "name": "Period Start"
+          },
+          "period_end": {
+            "name": "Period End"
+          }
+        }
       }
     }
   }
+}

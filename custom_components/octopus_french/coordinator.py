@@ -1,55 +1,103 @@
-"""Coordinator for Octopus Energy French integration."""
+"""Data update coordinator for Octopus French Energy."""
+
 from __future__ import annotations
 
+from contextlib import suppress
 from datetime import timedelta
-import json
-from typing import Any
+import logging
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import (
-    DOMAIN,
-    DEFAULT_SCAN_INTERVAL
-)
-from .lib.octopus_french import OctopusFrenchClient
-from .utils.logger import LOGGER
+from .const import SCAN_INTERVAL
+
+if TYPE_CHECKING:
+    from .octopus_french import OctopusFrenchApiClient
+
+_LOGGER = logging.getLogger(__name__)
 
 
-class OctopusDataUpdateCoordinator(DataUpdateCoordinator):
-    """Class to manage fetching Octopus Energy French data."""
+class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
+    """Class to manage fetching data from the API."""
 
     def __init__(
         self,
         hass: HomeAssistant,
-        client: OctopusFrenchClient,
+        api_client: OctopusFrenchApiClient,
         account_number: str,
-        scan_interval: int = DEFAULT_SCAN_INTERVAL,  # Paramètre explicite
     ) -> None:
-        """Initialize."""
-        self.client = client
-        self.account_number = account_number
-
-        # Utiliser l'intervalle passé en paramètre
-        update_interval = timedelta(hours=scan_interval)
-
+        """Initialize coordinator."""
         super().__init__(
             hass,
-            LOGGER,
-            name=f"{DOMAIN}_{account_number}",  # Nom unique par compte
-            update_interval=update_interval,
+            _LOGGER,
+            name="Octopus French Energy",
+            update_interval=timedelta(hours=SCAN_INTERVAL),
         )
+        self.api_client = api_client
+        self.account_number = account_number
 
     async def _async_update_data(self) -> dict[str, Any]:
-        """Fetch data from Octopus Energy French API."""
+        """Fetch data from API."""
         try:
-            ledgers = await self.client.get_data_ledgers(self.account_number)
-            self.ledgers = ledgers
-            return ledgers or {}
-        
-        
+            account_data = await self.api_client.get_account_data(self.account_number)
+
+            if not account_data:
+                raise UpdateFailed("No account data received")
+
+            supply_points = account_data.get("supply_points", {})
+
+            await self._fetch_gas_readings(account_data, supply_points)
+            await self._fetch_electricity_readings(account_data, supply_points)
+
+            tarifs = await self.api_client.get_tarifs(self.account_number)
+            account_data["tarifs"] = tarifs
+
+            return account_data
+
+        except UpdateFailed:
+            raise
         except Exception as err:
-            LOGGER.error("Error fetching Octopus Energy data for account %s: %s", 
-                        self.account_number, err)
-            # Retourner un dictionnaire vide au lieu de None
-            return {}
+            raise UpdateFailed(f"Error communicating with API: {err}") from err
+
+    async def _fetch_gas_readings(
+        self, account_data: dict[str, Any], supply_points: dict[str, Any]
+    ) -> None:
+        """Fetch gas readings and add to account data."""
+        account_data["gas_readings"] = []
+
+        gas_points = supply_points.get("gas", [])
+        if not gas_points:
+            return
+
+        pce_ref = gas_points[0].get("id")
+        if not pce_ref:
+            return
+
+        with suppress(Exception):
+            gas_readings = await self.api_client.get_gas_readings(
+                self.account_number, pce_ref
+            )
+            account_data["gas_readings"] = gas_readings
+            account_data["pce_ref"] = pce_ref
+
+    async def _fetch_electricity_readings(
+        self, account_data: dict[str, Any], supply_points: dict[str, Any]
+    ) -> None:
+        """Fetch electricity readings and add to account data."""
+        account_data["electricity_readings"] = []
+
+        electricity_points = supply_points.get("electricity", [])
+        if not electricity_points:
+            return
+
+        prm_id = electricity_points[0].get("id")
+        if not prm_id:
+            return
+
+        with suppress(Exception):
+            electricity_readings = await self.api_client.get_electricity_readings(
+                self.account_number, prm_id
+            )
+            account_data["electricity_readings"] = electricity_readings
+            account_data["prm_id"] = prm_id
