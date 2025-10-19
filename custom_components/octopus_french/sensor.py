@@ -690,7 +690,7 @@ GAS_SENSORS: tuple[OctopusFrenchSensorEntityDescription, ...] = (
     ),
     OctopusFrenchSensorEntityDescription(
         key="gas_consumption",
-        name="Gaz",
+        name="Cons. Gaz",
         icon="mdi:fire",
         device_class=SensorDeviceClass.GAS,
         state_class=SensorStateClass.TOTAL_INCREASING,
@@ -850,7 +850,7 @@ async def async_setup_entry(
             )
         )
         _LOGGER.info(
-            "Created 2 gas sensors (index + consumption) for account %s",
+            "Created 3 gas sensors (index + consumption) for account %s",
             account_number,
         )
 
