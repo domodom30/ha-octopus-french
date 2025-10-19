@@ -4,6 +4,7 @@
 [![GitHub Release](https://img.shields.io/github/release/domodom30/ha-octopus-french)](https://github.com/domodom30/ha-octopus-french/releases)
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 ![installation_badge](https://img.shields.io/badge/dynamic/json?color=41BDF5&logo=home-assistant&label=integration%20usage&suffix=%20installs&cacheSeconds=15600&url=https://analytics.home-assistant.io/custom_integrations.json&query=$.octopus_french.total)
+
 This custom integration allows you to monitor your Octopus Energy France account directly in Home Assistant. Track your electricity and gas consumption, meter readings, costs, and off-peak hours (Heures Creuses).
 
 ## Features
@@ -254,9 +255,6 @@ If you encounter any issues or have questions:
 - Check the [Issues](https://github.com/domodom30/ha-octopus-french/issues) page
 - Create a new issue with detailed information and logs
 
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Disclaimer
 

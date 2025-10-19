@@ -255,9 +255,6 @@ If you encounter any issues or have questions:
 - Check the [Issues](https://github.com/domodom30/ha-octopus-french/issues) page
 - Create a new issue with detailed information and logs
 
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Disclaimer
 
