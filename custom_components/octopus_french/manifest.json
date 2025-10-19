@@ -1,13 +1,13 @@
 {
+  "domain": "octopus_french",
+  "name": "Octopus Energy French",
   "codeowners": ["@domodom30"],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/domodom30/ha-octopus_french",
-  "domain": "octopus_french",
   "integration_type": "service",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/domodom30/ha-octopus-french/issues",
-  "name": "Octopus Energy French",
   "requirements": [],
   "version": "1.6.0"
 }
