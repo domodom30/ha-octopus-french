@@ -59,8 +59,8 @@
           "calendar_type": {
             "name": "Time Period",
             "state": {
-              "HC": "Off-Peak Hours",
-              "HP": "Peak Hours"
+              "hc": "Off-Peak Hours",
+              "hp": "Peak Hours"
             }
           },
           "index_start": {
@@ -81,9 +81,9 @@
           "status": {
             "name": "Status",
             "state": {
-              "PROCESSED": "Processed",
-              "PENDING": "Pending",
-              "ERROR": "Error"
+              "alim": "Powered",
+              "limi": "Limited",
+              "coup": "Cut Off"
             }
           }
         }
@@ -112,17 +112,17 @@
           "reading_type": {
             "name": "Reading Type",
             "state": {
-              "REAL": "Actual",
-              "ESTIMATED": "Estimated",
-              "SELF_REPORTED": "Self-Reported"
+              "real": "Actual",
+              "estimated": "Estimated",
+              "self_reported": "Self-Reported"
             }
           },
           "status": {
             "name": "Status",
             "state": {
-              "PROCESSED": "Processed",
-              "PENDING": "Pending",
-              "ERROR": "Error"
+              "processed": "Processed",
+              "pending": "Pending",
+              "error": "Error"
             }
           }
         }
@@ -155,16 +155,16 @@
           "powered_status": {
             "name": "Power Status",
             "state": {
-              "ALIM": "Powered",
-              "LIMI": "Limited",
-              "COUP": "Cut Off"
+              "alim": "Powered",
+              "limi": "Limited",
+              "coup": "Cut Off"
             }
           },
           "distributor_status": {
             "name": "Distributor Status",
             "state": {
-              "SERVC": "In Service",
-              "RESIL": "Terminated"
+              "servc": "In Service",
+              "resil": "Terminated"
             }
           }
         }

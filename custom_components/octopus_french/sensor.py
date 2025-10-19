@@ -105,7 +105,7 @@ class OctopusBalanceSensor(OctopusFrenchBaseSensor):
             return {}
 
         return {
-            "ledger_type": self._ledger_type,
+            "ledger_type": self._ledger_type.lower(),
             "ledger_name": ledger.get("name", ""),
             "ledger_number": ledger.get("number", ""),
         }
@@ -164,8 +164,8 @@ class OctopusElectricityMeterSensor(OctopusFrenchBaseSensor):
             "subscribed_max_power": meter.get("subscribedMaxPower"),
             "off_peak_label": meter.get("offPeakLabel"),
             "is_teleoperable": meter.get("isTeleoperable"),
-            "powered_status": meter.get("poweredStatus"),
-            "distributor_status": meter.get("distributorStatus"),
+            "powered_status": meter.get("poweredStatus").lower(),
+            "distributor_status": meter.get("distributorStatus").lower(),
         }
 
 
@@ -273,19 +273,16 @@ class OctopusElectricityIndexSensor(OctopusFrenchBaseSensor):
             return {}
 
         latest = readings[0]
-        calendar_label = (
-            "Heures Creuses" if self._calendar_class == "HC" else "Heures Pleines"
-        )
 
         return {
             "prm_id": self.coordinator.data.get("prm_id"),
-            "calendar_type": calendar_label,
+            "calendar_type": self._calendar_class.lower(),
             "index_start": latest.get("indexStartValue"),
             "index_end": latest.get("indexEndValue"),
             "period_start": latest.get("periodStartAt"),
             "period_end": latest.get("periodEndAt"),
             "calendar_temp_class": latest.get("calendarTempClass"),
-            "status": latest.get("statusProcessed"),
+            "status": latest.get("statusProcessed").lower(),
         }
 
 
@@ -405,8 +402,8 @@ class OctopusGasIndexSensor(OctopusFrenchBaseSensor):
             "period_start": latest.get("periodStartAt"),
             "period_end": latest.get("periodEndAt"),
             "reading_date": latest.get("readingDate"),
-            "reading_type": latest.get("readingType"),
-            "status": latest.get("statusProcessed"),
+            "reading_type": latest.get("readingType").lower(),
+            "status": latest.get("statusProcessed").lower(),
         }
 
 

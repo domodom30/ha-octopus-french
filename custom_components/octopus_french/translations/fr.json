@@ -59,8 +59,8 @@
           "calendar_type": {
             "name": "Type d'horaire",
             "state": {
-              "HC": "Heures Creuses",
-              "HP": "Heures Pleines"
+              "hc": "Heures Creuses",
+              "hp": "Heures Pleines"
             }
           },
           "index_start": {
@@ -81,9 +81,9 @@
           "status": {
             "name": "Statut",
             "state": {
-              "PROCESSED": "Traité",
-              "PENDING": "En attente",
-              "ERROR": "Erreur"
+              "processed": "Traité",
+              "pending": "En attente",
+              "error": "Erreur"
             }
           }
         }
@@ -112,17 +112,17 @@
           "reading_type": {
             "name": "Type de relève",
             "state": {
-              "REAL": "Réelle",
-              "ESTIMATED": "Estimée",
-              "SELF_REPORTED": "Auto-relevée"
+              "real": "Réelle",
+              "estimated": "Estimée",
+              "self_reported": "Auto-relevée"
             }
           },
           "status": {
             "name": "Statut",
             "state": {
-              "PROCESSED": "Traité",
-              "PENDING": "En attente",
-              "ERROR": "Erreur"
+              "processed": "Traité",
+              "pending": "En attente",
+              "error": "Erreur"
             }
           }
         }
@@ -136,7 +136,7 @@
           "meter_kind": {
             "name": "Type de compteur",
             "state": {
-              "Linky": "Linky"
+              "linky": "Linky"
             }
           },
           "subscribed_max_power": {
@@ -155,16 +155,16 @@
           "powered_status": {
             "name": "Statut alimentation",
             "state": {
-              "ALIM": "Alimenté",
-              "LIMI": "Limité",
-              "COUP": "Coupé"
+              "alim": "Alimenté",
+              "limi": "Limité",
+              "coup": "Coupé"
             }
           },
           "distributor_status": {
             "name": "Statut distributeur",
             "state": {
-              "SERVC": "En service",
-              "RESIL": "Résilié"
+              "servc": "En service",
+              "resil": "Résilié"
             }
           }
         }
@@ -178,7 +178,7 @@
           "gas_nature": {
             "name": "Nature du gaz",
             "state": {
-              "Naturel": "Naturel"
+              "naturel": "Naturel"
             }
           },
           "annual_consumption": {
@@ -198,6 +198,13 @@
         "state_attributes": {
           "prm_id": {
             "name": "PRM"
+          },
+          "calendar_type": {
+            "name": "Type d'horaire",
+            "state": {
+              "hc": "Heures Creuses",
+              "hp": "Heures Pleines"
+            }
           },
           "consumption_kwh": {
             "name": "Consommation (kWh)"
