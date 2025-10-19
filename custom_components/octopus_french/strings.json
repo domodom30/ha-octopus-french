@@ -136,7 +136,7 @@
           "meter_kind": {
             "name": "Meter Type",
             "state": {
-              "Linky": "Linky"
+              "linky": "Linky"
             }
           },
           "subscribed_max_power": {
