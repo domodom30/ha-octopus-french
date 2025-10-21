@@ -3,15 +3,21 @@
 from __future__ import annotations
 
 from contextlib import suppress
+import logging
+
+import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.const import Platform, UnitOfApparentPower
+from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.helpers import device_registry as dr
 
-from .const import DOMAIN
+from .const import DEFAULT_SCAN_INTERVAL, DOMAIN, SERVICE_FORCE_UPDATE
 from .coordinator import OctopusFrenchDataUpdateCoordinator
 from .octopus_french import OctopusFrenchApiClient
+
+_LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.SENSOR]
 
@@ -34,27 +40,65 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         api_client, entry.data.get("account_number", "")
     )
 
+    scan_interval = entry.options.get("scan_interval", DEFAULT_SCAN_INTERVAL)
+
     # Initialize coordinator
     coordinator = OctopusFrenchDataUpdateCoordinator(
         hass=hass,
         api_client=api_client,
         account_number=account_number,
+        scan_interval=scan_interval,
     )
 
     # Fetch initial data
     await _async_fetch_initial_data(coordinator, api_client)
 
-    # Store data
+    # Store data (Méthode 2 - avec dictionnaire)
     hass.data[DOMAIN][entry.entry_id] = {
         "coordinator": coordinator,
         "api": api_client,
         "account_number": account_number,
     }
 
+    # Create devices for all meters
+    await _async_create_devices(hass, entry, coordinator)
+
     # Setup platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    await _async_setup_services(hass)
+
+    entry.async_on_unload(entry.add_update_listener(update_listener))
     return True
+
+
+async def _async_setup_services(hass: HomeAssistant) -> None:
+    """Set up services for Octopus Energy France."""
+
+    async def handle_force_update(call: ServiceCall) -> None:
+        """Handle the force_update service call."""
+
+        # Refresh all coordinators
+        for entry_id, data in hass.data[DOMAIN].items():
+            if isinstance(data, dict) and "coordinator" in data:
+                coordinator = data["coordinator"]
+                await coordinator.async_request_refresh()
+                _LOGGER.info("Forced update for entry %s", entry_id)
+
+    # Register services
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_FORCE_UPDATE,
+        handle_force_update,
+        schema=vol.Schema({}),
+    )
+
+    _LOGGER.info("Services registered successfully")
+
+
+async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Handle options update."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def _async_authenticate(api_client: OctopusFrenchApiClient) -> None:
@@ -101,6 +145,55 @@ async def _async_get_account_number(
     return configured_account or ""
 
 
+async def _async_create_devices(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    coordinator: OctopusFrenchDataUpdateCoordinator,
+) -> None:
+    """Create devices for all meters."""
+    device_registry = dr.async_get(hass)
+    account_number = entry.data.get("account_number")
+    supply_points = coordinator.data.get("supply_points", {})
+
+    device_registry.async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, account_number)},
+        name="Compte Octopus Energy",
+        model="Compte client",
+    )
+
+    # Créer un device pour chaque compteur électrique
+    for elec_meter in supply_points.get("electricity", []):
+        prm_id = elec_meter.get("id")
+        meter_kind = elec_meter.get("meterKind", "N/A")
+        suscribed_max_power = elec_meter.get("subscribedMaxPower", "N/A")
+        status = elec_meter.get("distributorStatus")
+        powered = elec_meter.get("poweredStatus")
+
+        # Ne pas créer de device pour les compteurs résiliés
+        if status == "RESIL" and powered == "LIMI":
+            continue
+
+        device_registry.async_get_or_create(
+            config_entry_id=entry.entry_id,
+            identifiers={(DOMAIN, prm_id)},
+            name=f"{meter_kind} {prm_id}",
+            model=f"{elec_meter.get('meterKind', 'N/A')} - {suscribed_max_power} {UnitOfApparentPower.KILO_VOLT_AMPERE}",
+        )
+
+    # Créer un device pour chaque compteur gaz
+    for gas_meter in supply_points.get("gas", []):
+        pce_ref = gas_meter.get("id")
+        is_smart = gas_meter.get("isSmartMeter", False)
+
+        device_registry.async_get_or_create(
+            config_entry_id=entry.entry_id,
+            identifiers={(DOMAIN, pce_ref)},
+            name=f"Gazpar {pce_ref}",
+            model="Gazpar" if is_smart else "Compteur gaz traditionnel",
+        )
+
+
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     # Unload platforms
@@ -114,5 +207,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if api_client := data.get("api"):
             with suppress(Exception):
                 await api_client.close()
-
+    if not hass.data[DOMAIN]:
+        hass.services.async_remove(DOMAIN, SERVICE_FORCE_UPDATE)
+        _LOGGER.info("Services unregistered")
     return unload_ok

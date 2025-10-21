@@ -11,6 +11,8 @@ from typing import Any
 import aiohttp
 import jwt
 
+from .const import LEDGER_TYPE_ELECTRICITY, LEDGER_TYPE_GAS
+
 _LOGGER = logging.getLogger(__name__)
 
 GRAPHQL_ENDPOINT = "https://api.oefr-kraken.energy/v1/graphql/"
@@ -29,13 +31,16 @@ mutation obtainKrakenToken($input: ObtainJSONWebTokenInput!) {
 """
 
 QUERY_GET_ACCOUNTS = """
-query {
+{
   viewer {
     accounts {
       number
       ledgers {
         balance
         ledgerType
+        name
+        number
+        id
       }
     }
   }
@@ -93,6 +98,23 @@ query getAccountData($accountNumber: String!) {
     }
   }
 }
+"""
+
+QUERY_GET_BILLS = """
+    query paiement($ledgerNumber: String!) {
+      paymentRequests(ledgerNumber: $ledgerNumber) {
+        paymentRequest(first: 1) {
+          edges {
+            node {
+              paymentStatus
+              totalAmount
+              customerAmount
+              expectedPaymentDate
+            }
+          }
+        }
+      }
+    }
 """
 
 QUERY_GET_TARIFS = """
@@ -468,7 +490,7 @@ class OctopusFrenchApiClient:
                             ledgers[ledger_type] = {
                                 "balance": ledger.get("balance", 0),
                                 "name": ledger_type.lower(),
-                                "number": f"{account_number}_{ledger_type}",
+                                "number": ledger.get("number", ""),
                             }
 
         return ledgers
@@ -558,7 +580,7 @@ class OctopusFrenchApiClient:
             ledger_type = agreement.get("chargingLedger", {}).get("ledgerType")
 
             # Parse electricity tarifs
-            if ledger_type == "FRA_ELECTRICITY_LEDGER":
+            if ledger_type == LEDGER_TYPE_ELECTRICITY:
                 rates = (
                     agreement.get("product", {})
                     .get("consumptionRates", {})
@@ -583,7 +605,7 @@ class OctopusFrenchApiClient:
                             tarifs["electricity"]["hp"] = price_ttc
 
             # Parse gas tarifs (on prend le niveau 1 par défaut)
-            elif ledger_type == "FRA_GAS_LEDGER":
+            elif ledger_type == LEDGER_TYPE_GAS:
                 rates = (
                     agreement.get("product", {})
                     .get("consumptionRates", {})
@@ -597,3 +619,19 @@ class OctopusFrenchApiClient:
                         break
 
         return tarifs
+
+    async def get_payment_requests(self, ledger_number: str) -> dict | None:
+        """Get the latest payment request for a ledger."""
+
+        variables = {"ledgerNumber": ledger_number}
+        result = await self._execute_with_auth(QUERY_GET_BILLS, variables)
+
+        if result and "data" in result and "paymentRequests" in result["data"]:
+            payment_requests = result["data"]["paymentRequests"].get(
+                "paymentRequest", {}
+            )
+            edges = payment_requests.get("edges", [])
+            if edges:
+                return edges[0].get("node")
+
+        return None

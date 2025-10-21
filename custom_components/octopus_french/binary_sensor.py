@@ -11,6 +11,7 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -39,18 +40,21 @@ async def async_setup_entry(
     if not isinstance(data, dict):
         return
 
-    account_number = data.get("account_number")
-    if not account_number:
-        return
-
     sensors = []
 
-    # Find electricity meter with off-peak hours
+    # Find electricity meters with off-peak hours
     supply_points = data.get("supply_points", {})
     electricity_points = supply_points.get("electricity", [])
 
-    if electricity_points:
-        meter = electricity_points[0]
+    for meter in electricity_points:
+        prm_id = meter.get("id")
+        status = meter.get("distributorStatus")
+        powered = meter.get("poweredStatus")
+
+        # Ignorer les compteurs résiliés
+        if status == "RESIL" and powered == "LIMI":
+            continue
+
         off_peak_label = meter.get("offPeakLabel")
 
         if off_peak_label:
@@ -76,13 +80,14 @@ async def async_setup_entry(
                         "duration_hours"
                     ]
 
-                # Create HC binary sensor
+                # Create HC binary sensor for this meter
                 hc_sensor = OctopusFrenchHcBinarySensor(
                     coordinator=coordinator,
-                    account_number=account_number,
+                    prm_id=prm_id,  # ✅ Passer le PRM ID au lieu de account_number
                     electricity_sensor_attributes=electricity_attributes,
                 )
                 sensors.append(hc_sensor)
+
     if sensors:
         async_add_entities(sensors)
 
@@ -97,14 +102,18 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
     def __init__(
         self,
         coordinator,
-        account_number: str,
+        prm_id: str,
         electricity_sensor_attributes: dict[str, Any],
     ) -> None:
         """Initialize the HC binary sensor."""
         super().__init__(coordinator)
-        self._account_number = account_number
+        self._prm_id = prm_id
         self._attributes = electricity_sensor_attributes
-        self._attr_unique_id = f"{account_number}_hc_active"
+        self._attr_unique_id = f"{DOMAIN}_{prm_id}_hc_active"
+        self._attr_translation_key = "hc_active"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, prm_id)},
+        )
 
     async def async_added_to_hass(self) -> None:
         """When entity is added to hass."""
@@ -121,16 +130,7 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
     @property
     def name(self) -> str:
         """Return the name of the sensor."""
-        return "Heures Creuses Actives"
-
-    @property
-    def device_info(self) -> dict[str, Any]:
-        """Return device information to link with other sensors."""
-        return {
-            "identifiers": {("octopus_french", self._account_number)},
-            "manufacturer": "Octopus Energy France",
-            "model": "Energy Account",
-        }
+        return "Heures creuses actives"
 
     @property
     def available(self) -> bool:
@@ -216,7 +216,7 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
                 for attr in [start_attr, end_attr, duration_attr]
             ):
                 attributes[f"hc_range_{i}"] = (
-                    f"{self._attributes[start_attr]} - {self._attributes[end_attr]} "
+                    f"{self._attributes[start_attr]} - {self._attributes[end_attr]}"
                 )
 
         return attributes

@@ -1,0 +1,6 @@
+# Services for Octopus Energy France integration
+
+force_update:
+  name: Force update
+  description: Force an immediate data update from Octopus Energy API
+  fields: {}

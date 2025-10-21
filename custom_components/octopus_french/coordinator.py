@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import SCAN_INTERVAL
+from .const import DEFAULT_SCAN_INTERVAL
 
 if TYPE_CHECKING:
     from .octopus_french import OctopusFrenchApiClient
@@ -26,13 +26,16 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
         hass: HomeAssistant,
         api_client: OctopusFrenchApiClient,
         account_number: str,
+        scan_interval: int = DEFAULT_SCAN_INTERVAL,  # ✅ Ajout du paramètre
     ) -> None:
         """Initialize coordinator."""
         super().__init__(
             hass,
             _LOGGER,
             name="Octopus French Energy",
-            update_interval=timedelta(hours=SCAN_INTERVAL),
+            update_interval=timedelta(
+                minutes=scan_interval
+            ),  # ✅ Utilisation du paramètre
         )
         self.api_client = api_client
         self.account_number = account_number
@@ -52,6 +55,8 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
 
             tarifs = await self.api_client.get_tarifs(self.account_number)
             account_data["tarifs"] = tarifs
+
+            await self._fetch_payment_requests(account_data)
 
             return account_data
 
@@ -101,3 +106,20 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
             )
             account_data["electricity_readings"] = electricity_readings
             account_data["prm_id"] = prm_id
+
+    async def _fetch_payment_requests(self, account_data: dict[str, Any]) -> None:
+        """Fetch payment requests for all ledgers."""
+        ledgers = account_data.get("ledgers", {})
+        payment_requests = {}
+
+        for ledger_type, ledger_info in ledgers.items():
+            ledger_number = ledger_info.get("number")
+            if ledger_number:
+                with suppress(Exception):
+                    payment_request = await self.api_client.get_payment_requests(
+                        ledger_number
+                    )
+                    if payment_request:
+                        payment_requests[ledger_type] = payment_request
+
+        account_data["payment_requests"] = payment_requests

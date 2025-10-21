@@ -1,38 +1,53 @@
-# Octopus Energy France Integration for Home Assistant
+# Octopus Energy France for Home Assistant
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
 [![GitHub Release](https://img.shields.io/github/release/domodom30/ha-octopus-french)](https://github.com/domodom30/ha-octopus-french/releases)
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 ![installation_badge](https://img.shields.io/badge/dynamic/json?color=41BDF5&logo=home-assistant&label=integration%20usage&suffix=%20installs&cacheSeconds=15600&url=https://analytics.home-assistant.io/custom_integrations.json&query=$.octopus_french.total)
 
-This custom integration allows you to monitor your Octopus Energy France account directly in Home Assistant. Track your electricity and gas consumption, meter readings, costs, and off-peak hours (Heures Creuses).
+A comprehensive Home Assistant integration for Octopus Energy France customers to monitor electricity and gas consumption, tariffs, bills, and account balance.
 
 ## Features
 
-- **Account Balance**: Monitor your "Cagnotte" (savings pot) balance
-- **Contract Information**: View your account and meter details
-- **Electricity Monitoring**:
-  - Separate sensors for HC (Heures Creuses/Off-Peak) and HP (Heures Pleines/Peak) periods
-  - Real-time meter index readings
-  - Consumption tracking
-  - Cost calculation based on current tariffs
-  - Binary sensor indicating active off-peak periods
-- **Gas Monitoring**:
-  - Meter index readings
-  - Consumption tracking in m³
-  - Cost calculation with automatic kWh conversion
-- **Automatic Updates**: Data refreshed every 30 minutes
-- **Off-Peak Schedule**: Detailed HC schedule with time ranges and durations
+### 📊 Monitoring
+- **Electricity consumption** (peak/off-peak hours)
+- **Gas consumption**
+- **Meter readings** with index tracking
+- **Current tariffs** (electricity & gas)
+- **Off-peak hours** detection with binary sensor
+
+### 💰 Financial Tracking
+- **Account balance** (electricity, gas, and pot ledgers)
+- **Latest bills** for electricity and gas
+- **Payment status** and expected payment dates
+- **Cost tracking** with detailed breakdowns
+
+### 🏠 Devices & Organization
+- Separate devices for:
+  - **Octopus Energy account** (balances and bills)
+  - **Linky meters** (electricity)
+  - **Gazpar meters** (gas)
+- All entities organized by device
+- Support for multiple meters
+
+### ⚙️ Advanced Features
+- **Configurable update interval** (5 to 1440 minutes)
+- **Force update service** for immediate data refresh
+- **Energy dashboard integration** compatible
+- **Diagnostic entities** for detailed meter information
+- **Contract information** with meter specifications
+
+---
 
 ## Installation
 
 ### HACS (Recommended)
 
 1. Open HACS in Home Assistant
-2. Go to "Integrations"
+2. Click on "Integrations"
 3. Click the three dots in the top right corner
 4. Select "Custom repositories"
-5. Add this repository URL: `https://github.com/domodom30/ha-octopus-french`
+5. Add the repository URL: `https://github.com/domodom30/ha-octopus-french`
 6. Select category: "Integration"
 7. Click "Add"
 8. Search for "Octopus Energy France"
@@ -41,221 +56,242 @@ This custom integration allows you to monitor your Octopus Energy France account
 
 ### Manual Installation
 
-1. Download the `custom_components/octopus_french` folder from this repository
-2. Copy it to your `custom_components` directory in your Home Assistant configuration folder
+1. Download the latest release from [GitHub](https://github.com/domodom30/ha-octopus-french/releases)
+2. Extract the `octopus_french` folder to your `custom_components` directory
 3. Restart Home Assistant
+
+---
 
 ## Configuration
 
-1. Go to Settings → Devices & Services
-2. Click "+ Add Integration"
-3. Search for "Octopus Energy France"
-4. Enter your Octopus Energy France credentials:
-   - Email
-   - Password
-5. If you have multiple accounts, select the account you want to monitor
-6. Click "Submit"
+### Initial Setup
 
-## Sensors
+1. Go to **Settings** → **Devices & Services**
+2. Click **"+ Add Integration"**
+3. Search for **"Octopus Energy France"**
+4. Enter your Octopus Energy credentials:
+   - **Email**
+   - **Password**
+5. Click **Submit**
 
-### Balance Sensor
-- **Name**: Cagnotte
-- **Unit**: EUR (€)
-- **Description**: Your account balance/savings pot
-- **Attributes**: Ledger type, name, and number
+### Options
 
-### Contract Sensor
-- **Name**: Contrat
-- **Description**: Contract and meter information
-- **Attributes**:
-  - Account number
-  - Electricity meter details (PRM ID, max power, off-peak label, teleoperation status)
-  - Gas meter details (PCE reference, annual consumption, smart meter status)
+After installation, you can configure:
 
-### Electricity Sensors
+- **Update interval**: Refresh frequency (default: 60 minutes, range: 5-1440)
 
-#### Index Sensors
-- **Index Électricité HC**: Off-peak electricity meter reading (kWh)
-- **Index Électricité HP**: Peak electricity meter reading (kWh)
+To access options:
+1. Go to **Settings** → **Devices & Services**
+2. Find **Octopus Energy France**
+3. Click **Configure**
 
-#### Consumption Sensors
-- **Électricité HC**: Off-peak electricity consumption (kWh)
-- **Électricité HP**: Peak electricity consumption (kWh)
+---
 
-#### Cost Sensors
-- **Coût Électricité HC**: Off-peak electricity cost (€)
-- **Coût Électricité HP**: Peak electricity cost (€)
+## Entities
 
-**Attributes**: PRM ID, period dates, consumption, price per kWh, status
+### Account Device (Compte Octopus Energy)
 
-### Gas Sensors
+| Entity | Type | Description |
+|--------|------|-------------|
+| Pot Balance | Sensor | Pot/savings balance |
+| Electricity Balance | Sensor | Current electricity account balance |
+| Gas Balance | Sensor | Current gas account balance |
+| Electricity Bill | Sensor | Latest electricity bill amount |
+| Gas Bill | Sensor | Latest gas bill amount |
 
-#### Index Sensor
-- **Index Gaz**: Gas meter reading (m³)
+### Electricity Meter Device (Linky)
 
-#### Consumption Sensor
-- **Gaz**: Gas consumption (m³)
+#### Main Sensors
+| Entity | Type | Class | Description |
+|--------|------|-------|-------------|
+| HP Consumption | Sensor | Energy | Peak hours consumption (kWh) |
+| Off-peak Consumption | Sensor | Energy | Off-peak hours consumption (kWh) |
+| Off-peak Hours Active | Binary Sensor | Running | Current period status |
 
-#### Cost Sensor
-- **Coût Gaz**: Gas cost (€)
+#### Diagnostic Sensors
+| Entity | Type | Description |
+|--------|------|-------------|
+| HP Index | Sensor | Peak hours meter reading |
+| Off-peak Index | Sensor | Off-peak hours meter reading |
+| HP Rate | Sensor | Current peak hours tariff (€/kWh) |
+| Off-peak Rate | Sensor | Current off-peak hours tariff (€/kWh) |
+| Contract | Sensor | Contract details and meter info |
 
-**Attributes**: PCE reference, period dates, consumption in m³ and kWh, price per kWh
+### Gas Meter Device (Gazpar)
 
-### Binary Sensor
+#### Main Sensors
+| Entity | Type | Class | Description |
+|--------|------|-------|-------------|
+| Consumption | Sensor | Energy | Current gas consumption (kWh) |
 
-#### Heures Creuses Active
-- **State**: ON when currently in off-peak period, OFF otherwise
-- **Icon**: Clock with checkmark when active, clock outline when inactive
-- **Attributes**:
-  - `hc_schedule_available`: Boolean indicating if HC schedule is configured
-  - `total_hc_hours`: Total hours of off-peak periods per day
-  - `hc_type`: Type of off-peak schedule
-  - `hc_range_X`: Individual time ranges (e.g., "22:00 - 06:00")
+#### Diagnostic Sensors
+| Entity | Type | Description |
+|--------|------|-------------|
+| Index | Sensor | Gas meter reading |
+| Rate | Sensor | Current gas tariff (€/kWh) |
+| Contract | Sensor | Contract details and meter info |
 
-## Automation Examples
+---
 
-### Turn on water heater during off-peak hours
+## Services
 
+### `octopus_french.force_update`
+
+Forces an immediate data refresh from Octopus Energy API.
+
+**Example:**
 ```yaml
-automation:
-  - alias: "Water Heater - Off-Peak Hours"
-    trigger:
-      - platform: state
-        entity_id: binary_sensor.heures_creuses_actives
-        to: "on"
-    action:
-      - service: switch.turn_on
-        target:
-          entity_id: switch.water_heater
+service: octopus_french.force_update
 ```
 
-### Turn off water heater when peak hours start
-
-```yaml
-automation:
-  - alias: "Water Heater - Peak Hours"
-    trigger:
-      - platform: state
-        entity_id: binary_sensor.heures_creuses_actives
-        to: "off"
-    action:
-      - service: switch.turn_off
-        target:
-          entity_id: switch.water_heater
-```
-
-### Notify when balance is low
-
-```yaml
-automation:
-  - alias: "Low Balance Alert"
-    trigger:
-      - platform: numeric_state
-        entity_id: sensor.cagnotte
-        below: 10
-    action:
-      - service: notify.mobile_app
-        data:
-          title: "Octopus Energy"
-          message: "Your balance is low: {{ states('sensor.cagnotte') }}€"
-```
-
-### Daily energy consumption report
-
-```yaml
-automation:
-  - alias: "Daily Energy Report"
-    trigger:
-      - platform: time
-        at: "23:00:00"
-    action:
-      - service: notify.mobile_app
-        data:
-          title: "Daily Energy Report"
-          message: >
-            HC: {{ states('sensor.electricite_hc') }} kWh ({{ states('sensor.cout_electricite_hc') }}€)
-            HP: {{ states('sensor.electricite_hp') }} kWh ({{ states('sensor.cout_electricite_hp') }}€)
-            Gas: {{ states('sensor.gaz') }} m³ ({{ states('sensor.cout_gaz') }}€)
-```
-
-## Lovelace Card Example
-
-```yaml
-type: entities
-title: Octopus Energy France
-entities:
-  - entity: sensor.cagnotte
-  - entity: binary_sensor.heures_creuses_actives
-  - entity: sensor.electricite_hc
-  - entity: sensor.electricite_hp
-  - entity: sensor.cout_electricite_hc
-  - entity: sensor.cout_electricite_hp
-  - entity: sensor.gaz
-  - entity: sensor.cout_gaz
-```
+---
 
 ## Energy Dashboard Integration
 
-This integration is compatible with Home Assistant's Energy Dashboard:
+This integration is fully compatible with Home Assistant's Energy Dashboard.
 
-1. Go to Settings → Dashboards → Energy
-2. Click "Add Consumption" under Electricity grid consumption
+### Setup Instructions
+
+1. Go to **Settings** → **Dashboards** → **Energy**
+2. Click **"Add Consumption"**
 3. Select:
-   - `sensor.electricite_hc` for off-peak consumption
-   - `sensor.electricite_hp` for peak consumption
-4. For Gas consumption, select `sensor.gaz`
+   - **Electricity - Peak hours**: `sensor.linky_XXXXXX_consumption_hp`
+   - **Electricity - Off-peak hours**: `sensor.linky_XXXXXX_consumption_hc`
+   - **Gas**: `sensor.gazpar_XXXXXX_consumption`
+
+### Individual Costs
+
+For each consumption sensor, you can configure the cost:
+1. Click on the sensor in Energy Dashboard
+2. Enable **"Use a static price"** or link to the tariff sensor
+3. For electricity:
+   - HP: Link to `sensor.linky_XXXXXX_tarif_hp`
+   - Off-peak: Link to `sensor.linky_XXXXXX_tarif_hc`
+4. For gas:
+   - Link to `sensor.gazpar_XXXXXX_tarif`
+
+---
+
+## Attributes Details
+
+### Contract Sensor Attributes
+
+#### Electricity Contract
+- `prm_id`: Point Reference Meter identifier
+- `ledger_id`: Associated ledger number
+- `distributor_status`: SERVC (In service) / RESIL (Terminated)
+- `meter_kind`: Meter type (Linky)
+- `subscribed_max_power`: Subscribed power (kVA)
+- `is_teleoperable`: Remote control capability
+- `off_peak_label`: Off-peak hours schedule
+- `powered_status`: Power status (ALIM/LIMI)
+
+#### Gas Contract
+- `pce_ref`: PCE reference number
+- `ledger_id`: Associated ledger number
+- `gas_nature`: Natural/Propane
+- `annual_consumption`: Estimated annual consumption
+- `is_smart_meter`: Communicating meter (Gazpar)
+- `powered_status`: Connection status
+- `price_level`: Pricing tier
+- `tariff_option`: Tariff option
+
+### Bill Sensor Attributes
+- `payment_status`: Payment status
+- `total_amount`: Total bill amount
+- `customer_amount`: Customer portion
+- `expected_payment_date`: Expected payment date
+
+### Consumption/Index Attributes
+- `period_start`: Reading period start
+- `period_end`: Reading period end
+- `reliability`: Data reliability (REAL)
+- `status`: Processing status (OK)
+
+### Off-peak Hours Binary Sensor
+- `hc_schedule_available`: Schedule availability
+- `total_hc_hours`: Total off-peak hours per day
+- `hc_type`: Schedule type
+- `hc_range_1`, `hc_range_2`, etc.: Individual time ranges
+
+---
+
+## Automation Examples
+
+### Notification when entering off-peak hours
+```yaml
+automation:
+  - alias: "Off-peak Hours Started"
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.linky_XXXXXX_heures_creuses_actives
+        to: "on"
+    action:
+      - service: notify.notify
+        data:
+          title: "⚡ Off-peak Hours"
+          message: "Off-peak hours have started. Good time to run energy-intensive appliances!"
+```
+
+### High bill alert
+```yaml
+automation:
+  - alias: "High Bill Alert"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.compte_octopus_energy_facture_electricite
+        above: 100
+    action:
+      - service: notify.notify
+        data:
+          title: "💰 High Bill Alert"
+          message: "Your electricity bill is {{ states('sensor.compte_octopus_energy_facture_electricite') }}€"
+```
+
+### Daily consumption report
+```yaml
+automation:
+  - alias: "Daily Consumption Report"
+    trigger:
+      - platform: time
+        at: "20:00:00"
+    action:
+      - service: notify.notify
+        data:
+          title: "📊 Daily Consumption"
+          message: >
+            HP: {{ states('sensor.linky_XXXXXX_consumption_hp') }} kWh
+            Off-peak: {{ states('sensor.linky_XXXXXX_consumption_hc') }} kWh
+            Gas: {{ states('sensor.gazpar_XXXXXX_consumption') }} kWh
+```
+
+---
 
 ## Troubleshooting
 
-### Sensors not appearing
-- Check that your account has active electricity and/or gas contracts
+### Entities not appearing
 - Verify your credentials are correct
-- Check the Home Assistant logs for errors: Settings → System → Logs
+- Check that your account has active meters
+- Restart Home Assistant after installation
 
 ### Data not updating
-- The integration updates every 30 minutes by default
-- You can manually refresh by clicking "Reload" in the integration settings
-- Check your internet connection
+- Check the update interval in configuration options
+- Use the `force_update` service to trigger immediate refresh
+- Verify API connectivity in Home Assistant logs
 
-### Authentication errors
-- Verify your email and password are correct
-- Try logging into the Octopus Energy France website with the same credentials
-- If you recently changed your password, reconfigure the integration
+### Terminated meters
+- Terminated meters (RESIL status) are automatically excluded
+- Only active meters appear in the integration
 
-### Binary sensor not working
-- Ensure your electricity contract has an off-peak schedule configured
-- Check the `hc_schedule_available` attribute
-- Verify the off-peak hours in the sensor attributes match your contract
+### Missing consumption data
+- Some data may take 24-48h to appear after meter installation
+- Check Octopus Energy website to verify data availability
 
-## Debug Logging
-
-To enable debug logging for troubleshooting:
-
-```yaml
-logger:
-  default: info
-  logs:
-    custom_components.octopus_french: debug
-```
-
-## API Rate Limiting
-
-The integration respects Octopus Energy's API limits:
-- Automatic token refresh before expiration
-- Retry logic with exponential backoff
-- Update interval of 30 minutes
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+---
 
 ## Support
 
-If you encounter any issues or have questions:
-- Check the [Issues](https://github.com/domodom30/ha-octopus-french/issues) page
-- Create a new issue with detailed information and logs
+- **Issues**: [GitHub Issues](https://github.com/domodom30/ha-octopus-french/issues)
+- **Feature Requests**: [GitHub Discussions](https://github.com/domodom30/ha-octopus-french/discussions)
 
-
-## Disclaimer
-
-This integration is not officially affiliated with or endorsed by Octopus Energy France. Use at your own risk.
+---

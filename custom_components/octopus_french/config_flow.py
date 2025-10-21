@@ -8,9 +8,16 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
+from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 
-from .const import CONF_ACCOUNT_NUMBER, DOMAIN
+from .const import (
+    CONF_ACCOUNT_NUMBER,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+    MAX_SCAN_INTERVAL,
+    MIN_SCAN_INTERVAL,
+)
 from .octopus_french import OctopusFrenchApiClient
 
 
@@ -110,4 +117,44 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             ),
             errors=errors,
+        )
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> OctopusFrenchOptionsFlow:
+        """Get the options flow for this handler."""
+        return OctopusFrenchOptionsFlow(config_entry)
+
+
+class OctopusFrenchOptionsFlow(config_entries.OptionsFlow):
+    """Handle options flow for Octopus Energy France."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Manage the options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        "scan_interval",
+                        default=self.config_entry.options.get(
+                            "scan_interval", DEFAULT_SCAN_INTERVAL
+                        ),
+                    ): vol.All(
+                        vol.Coerce(int),
+                        vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL),
+                    ),
+                }
+            ),
         )
