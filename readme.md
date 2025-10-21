@@ -1,125 +1,126 @@
-# Octopus Energy France for Home Assistant
+# Octopus Energy France pour Home Assistant
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
-[![GitHub Release](https://img.shields.io/github/release/domodom30/ha-octopus-french)](https://github.com/domodom30/ha-octopus-french/releases/latest)
+[![GitHub Release](https://img.shields.io/github/release/domodom30/ha-octopus-french)](https://github.com/domodom30/ha-octopus-french/releases)
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 ![installation_badge](https://img.shields.io/badge/dynamic/json?color=41BDF5&logo=home-assistant&label=integration%20usage&suffix=%20installs&cacheSeconds=15600&url=https://analytics.home-assistant.io/custom_integrations.json&query=$.octopus_french.total)
 
-A comprehensive Home Assistant integration for Octopus Energy France customers to monitor electricity and gas consumption, tariffs, bills, and account balance.
+Une intégration complète Home Assistant pour les clients Octopus Energy France permettant de surveiller la consommation d'électricité et de gaz, les tarifs, les factures et le solde du compte.
 
-## Features
+## Fonctionnalités
 
-### 📊 Monitoring
-- **Electricity consumption** (peak/off-peak hours)
-- **Gas consumption**
-- **Meter readings** with index tracking
-- **Current tariffs** (electricity & gas)
-- **Off-peak hours** detection with binary sensor
+### 📊 Suivi
+- **Consommation électrique** (heures pleines/creuses)
+- **Consommation de gaz**
+- **Relevés de compteur** avec suivi des index
+- **Tarifs actuels** (électricité & gaz)
+- **Détection des heures creuses** avec capteur binaire
 
-### 💰 Financial Tracking
-- **Account balance** (electricity, gas, and pot ledgers)
-- **Latest bills** for electricity and gas
-- **Payment status** and expected payment dates
-- **Cost tracking** with detailed breakdowns
+### 💰 Suivi financier
+- **Solde du compte** (électricité, gaz et cagnotte)
+- **Dernières factures** pour l'électricité et le gaz
+- **Statut des paiements** et dates prévues
+- **Suivi des coûts** avec détails complets
 
-### 🏠 Devices & Organization
-- Separate devices for:
-  - **Octopus Energy account** (balances and bills)
-  - **Linky meters** (electricity)
-  - **Gazpar meters** (gas)
-- All entities organized by device
-- Support for multiple meters
+### 🏠 Appareils & Organisation
+- Appareils séparés pour :
+  - **Compte Octopus Energy** (soldes et factures)
+  - **Compteurs Linky** (électricité)
+  - **Compteurs Gazpar** (gaz)
+- Toutes les entités organisées par appareil
+- Support de plusieurs compteurs
 
-### ⚙️ Advanced Features
-- **Configurable update interval** (5 to 1440 minutes)
-- **Force update service** for immediate data refresh
-- **Energy dashboard integration** compatible
-- **Diagnostic entities** for detailed meter information
-- **Contract information** with meter specifications
+### ⚙️ Fonctionnalités avancées
+- **Intervalle de mise à jour configurable** (5 à 1440 minutes)
+- **Service de mise à jour forcée** pour rafraîchir immédiatement
+- **Compatible avec le tableau de bord Énergie**
+- **Entités de diagnostic** pour informations détaillées
+- **Informations contractuelles** avec spécifications du compteur
 
 ---
 
 ## Installation
 
-### HACS (Recommended)
+### HACS (Recommandé)
+
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=domodom30&repository=ha-octopus-french&category=integration)
 
-### Manual Installation
+### Installation manuelle
 
-1. Download the latest release from [GitHub](https://github.com/domodom30/ha-octopus-french/releases)
-2. Extract the `octopus_french` folder to your `custom_components` directory
-3. Restart Home Assistant
+1. Téléchargez la dernière version depuis [GitHub](https://github.com/domodom30/ha-octopus-french/releases)
+2. Extrayez le dossier `octopus_french` dans votre répertoire `custom_components`
+3. Redémarrez Home Assistant
 
 ---
 
 ## Configuration
 
-### Initial Setup
+### Configuration initiale
 
-1. Go to **Settings** → **Devices & Services**
-2. Click **"+ Add Integration"**
-3. Search for **"Octopus Energy France"**
-4. Enter your Octopus Energy credentials:
-   - **Email**
-   - **Password**
-5. Click **Submit**
+1. Allez dans **Paramètres** → **Appareils et services**
+2. Cliquez sur **"+ Ajouter une intégration"**
+3. Recherchez **"Octopus Energy France"**
+4. Entrez vos identifiants Octopus Energy :
+   - **E-mail**
+   - **Mot de passe**
+5. Cliquez sur **Soumettre**
 
 ### Options
 
-After installation, you can configure:
+Après l'installation, vous pouvez configurer :
 
-- **Update interval**: Refresh frequency (default: 60 minutes, range: 5-1440)
+- **Intervalle de mise à jour** : Fréquence de rafraîchissement (par défaut : 60 minutes, plage : 5-1440)
 
-To access options:
-1. Go to **Settings** → **Devices & Services**
-2. Find **Octopus Energy France**
-3. Click **Configure**
+Pour accéder aux options :
+1. Allez dans **Paramètres** → **Appareils et services**
+2. Trouvez **Octopus Energy France**
+3. Cliquez sur **Configurer**
 
 ---
 
-## Entities
+## Entités
 
-### Account Device (Compte Octopus Energy)
+### Appareil Compte (Compte Octopus Energy)
 
-| Entity | Type | Description |
+| Entité | Type | Description |
 |--------|------|-------------|
-| Pot Balance | Sensor | Pot/savings balance |
-| Electricity Balance | Sensor | Current electricity account balance |
-| Gas Balance | Sensor | Current gas account balance |
-| Electricity Bill | Sensor | Latest electricity bill amount |
-| Gas Bill | Sensor | Latest gas bill amount |
+| Cagnotte | Capteur | Solde de la cagnotte |
+| Solde électricité | Capteur | Solde actuel du compte électricité |
+| Solde gaz | Capteur | Solde actuel du compte gaz |
+| Facture électricité | Capteur | Montant de la dernière facture électricité |
+| Facture gaz | Capteur | Montant de la dernière facture gaz |
 
-### Electricity Meter Device (Linky)
+### Appareil Compteur Électrique (Linky)
 
-#### Main Sensors
-| Entity | Type | Class | Description |
-|--------|------|-------|-------------|
-| HP Consumption | Sensor | Energy | Peak hours consumption (kWh) |
-| Off-peak Consumption | Sensor | Energy | Off-peak hours consumption (kWh) |
-| Off-peak Hours Active | Binary Sensor | Running | Current period status |
+#### Capteurs principaux
+| Entité | Type | Classe | Description |
+|--------|------|--------|-------------|
+| Consommation HP | Capteur | Énergie | Consommation heures pleines (kWh) |
+| Consommation HC | Capteur | Énergie | Consommation heures creuses (kWh) |
+| Heures creuses actives | Capteur binaire | Running | État de la période actuelle |
 
-#### Diagnostic Sensors
-| Entity | Type | Description |
+#### Capteurs de diagnostic
+| Entité | Type | Description |
 |--------|------|-------------|
-| HP Index | Sensor | Peak hours meter reading |
-| Off-peak Index | Sensor | Off-peak hours meter reading |
-| HP Rate | Sensor | Current peak hours tariff (€/kWh) |
-| Off-peak Rate | Sensor | Current off-peak hours tariff (€/kWh) |
-| Contract | Sensor | Contract details and meter info |
+| Index HP | Capteur | Relevé compteur heures pleines |
+| Index HC | Capteur | Relevé compteur heures creuses |
+| Tarif HP | Capteur | Tarif actuel heures pleines (€/kWh) |
+| Tarif HC | Capteur | Tarif actuel heures creuses (€/kWh) |
+| Contrat | Capteur | Détails du contrat et infos compteur |
 
-### Gas Meter Device (Gazpar)
+### Appareil Compteur Gaz (Gazpar)
 
-#### Main Sensors
-| Entity | Type | Class | Description |
-|--------|------|-------|-------------|
-| Consumption | Sensor | Energy | Current gas consumption (kWh) |
+#### Capteurs principaux
+| Entité | Type | Classe | Description |
+|--------|------|--------|-------------|
+| Consommation | Capteur | Énergie | Consommation actuelle de gaz (kWh) |
 
-#### Diagnostic Sensors
-| Entity | Type | Description |
+#### Capteurs de diagnostic
+| Entité | Type | Description |
 |--------|------|-------------|
-| Index | Sensor | Gas meter reading |
-| Rate | Sensor | Current gas tariff (€/kWh) |
-| Contract | Sensor | Contract details and meter info |
+| Index | Capteur | Relevé compteur gaz |
+| Tarif | Capteur | Tarif actuel du gaz (€/kWh) |
+| Contrat | Capteur | Détails du contrat et infos compteur |
 
 ---
 
@@ -127,91 +128,91 @@ To access options:
 
 ### `octopus_french.force_update`
 
-Forces an immediate data refresh from Octopus Energy API.
+Force un rafraîchissement immédiat des données depuis l'API Octopus Energy.
 
-**Example:**
+**Exemple :**
 ```yaml
 service: octopus_french.force_update
 ```
 
 ---
 
-## Energy Dashboard Integration
+## Intégration Tableau de bord Énergie
 
-This integration is fully compatible with Home Assistant's Energy Dashboard.
+Cette intégration est entièrement compatible avec le tableau de bord Énergie de Home Assistant.
 
-### Setup Instructions
+### Instructions de configuration
 
-1. Go to **Settings** → **Dashboards** → **Energy**
-2. Click **"Add Consumption"**
-3. Select:
-   - **Electricity - Peak hours**: `sensor.linky_XXXXXX_consumption_hp`
-   - **Electricity - Off-peak hours**: `sensor.linky_XXXXXX_consumption_hc`
-   - **Gas**: `sensor.gazpar_XXXXXX_consumption`
+1. Allez dans **Paramètres** → **Tableaux de bord** → **Énergie**
+2. Cliquez sur **"Ajouter une consommation"**
+3. Sélectionnez :
+   - **Électricité - Heures pleines** : `sensor.linky_XXXXXX_consumption_hp`
+   - **Électricité - Heures creuses** : `sensor.linky_XXXXXX_consumption_hc`
+   - **Gaz** : `sensor.gazpar_XXXXXX_consumption`
 
-### Individual Costs
+### Coûts individuels
 
-For each consumption sensor, you can configure the cost:
-1. Click on the sensor in Energy Dashboard
-2. Enable **"Use a static price"** or link to the tariff sensor
-3. For electricity:
-   - HP: Link to `sensor.linky_XXXXXX_tarif_hp`
-   - Off-peak: Link to `sensor.linky_XXXXXX_tarif_hc`
-4. For gas:
-   - Link to `sensor.gazpar_XXXXXX_tarif`
-
----
-
-## Attributes Details
-
-### Contract Sensor Attributes
-
-#### Electricity Contract
-- `prm_id`: Point Reference Meter identifier
-- `ledger_id`: Associated ledger number
-- `distributor_status`: SERVC (In service) / RESIL (Terminated)
-- `meter_kind`: Meter type (Linky)
-- `subscribed_max_power`: Subscribed power (kVA)
-- `is_teleoperable`: Remote control capability
-- `off_peak_label`: Off-peak hours schedule
-- `powered_status`: Power status (ALIM/LIMI)
-
-#### Gas Contract
-- `pce_ref`: PCE reference number
-- `ledger_id`: Associated ledger number
-- `gas_nature`: Natural/Propane
-- `annual_consumption`: Estimated annual consumption
-- `is_smart_meter`: Communicating meter (Gazpar)
-- `powered_status`: Connection status
-- `price_level`: Pricing tier
-- `tariff_option`: Tariff option
-
-### Bill Sensor Attributes
-- `payment_status`: Payment status
-- `total_amount`: Total bill amount
-- `customer_amount`: Customer portion
-- `expected_payment_date`: Expected payment date
-
-### Consumption/Index Attributes
-- `period_start`: Reading period start
-- `period_end`: Reading period end
-- `reliability`: Data reliability (REAL)
-- `status`: Processing status (OK)
-
-### Off-peak Hours Binary Sensor
-- `hc_schedule_available`: Schedule availability
-- `total_hc_hours`: Total off-peak hours per day
-- `hc_type`: Schedule type
-- `hc_range_1`, `hc_range_2`, etc.: Individual time ranges
+Pour chaque capteur de consommation, vous pouvez configurer le coût :
+1. Cliquez sur le capteur dans le tableau de bord Énergie
+2. Activez **"Utiliser un prix statique"** ou liez au capteur de tarif
+3. Pour l'électricité :
+   - HP : Lier à `sensor.linky_XXXXXX_tarif_hp`
+   - HC : Lier à `sensor.linky_XXXXXX_tarif_hc`
+4. Pour le gaz :
+   - Lier à `sensor.gazpar_XXXXXX_tarif`
 
 ---
 
-## Automation Examples
+## Détails des attributs
 
-### Notification when entering off-peak hours
+### Attributs du capteur Contrat
+
+#### Contrat Électricité
+- `prm_id` : Identifiant Point Référence Mesure
+- `ledger_id` : Numéro de registre associé
+- `distributor_status` : SERVC (En service) / RESIL (Résilié)
+- `meter_kind` : Type de compteur (Linky)
+- `subscribed_max_power` : Puissance souscrite (kVA)
+- `is_teleoperable` : Capacité de téléopération
+- `off_peak_label` : Plages horaires heures creuses
+- `powered_status` : État alimentation (ALIM/LIMI)
+
+#### Contrat Gaz
+- `pce_ref` : Référence PCE
+- `ledger_id` : Numéro de registre associé
+- `gas_nature` : Naturel/Propane
+- `annual_consumption` : Consommation annuelle estimée
+- `is_smart_meter` : Compteur communicant (Gazpar)
+- `powered_status` : État de la connexion
+- `price_level` : Niveau de prix
+- `tariff_option` : Option tarifaire
+
+### Attributs des capteurs de facture
+- `payment_status` : Statut du paiement
+- `total_amount` : Montant total de la facture
+- `customer_amount` : Part client
+- `expected_payment_date` : Date de paiement prévue
+
+### Attributs Consommation/Index
+- `period_start` : Début période de relevé
+- `period_end` : Fin période de relevé
+- `reliability` : Fiabilité des données (REAL)
+- `status` : Statut de traitement (OK)
+
+### Capteur binaire Heures creuses
+- `hc_schedule_available` : Disponibilité de l'horaire
+- `total_hc_hours` : Total heures creuses par jour
+- `hc_type` : Type d'horaire
+- `hc_range_1`, `hc_range_2`, etc. : Plages horaires individuelles
+
+---
+
+## Exemples d'automatisations
+
+### Notification au début des heures creuses
 ```yaml
 automation:
-  - alias: "Off-peak Hours Started"
+  - alias: "Début heures creuses"
     trigger:
       - platform: state
         entity_id: binary_sensor.linky_XXXXXX_heures_creuses_actives
@@ -219,14 +220,14 @@ automation:
     action:
       - service: notify.notify
         data:
-          title: "⚡ Off-peak Hours"
-          message: "Off-peak hours have started. Good time to run energy-intensive appliances!"
+          title: "⚡ Heures creuses"
+          message: "Les heures creuses ont commencé. Bon moment pour lancer les appareils énergivores !"
 ```
 
-### High bill alert
+### Alerte facture élevée
 ```yaml
 automation:
-  - alias: "High Bill Alert"
+  - alias: "Alerte facture élevée"
     trigger:
       - platform: numeric_state
         entity_id: sensor.compte_octopus_energy_facture_electricite
@@ -234,54 +235,54 @@ automation:
     action:
       - service: notify.notify
         data:
-          title: "💰 High Bill Alert"
-          message: "Your electricity bill is {{ states('sensor.compte_octopus_energy_facture_electricite') }}€"
+          title: "💰 Alerte facture élevée"
+          message: "Votre facture d'électricité est de {{ states('sensor.compte_octopus_energy_facture_electricite') }}€"
 ```
 
-### Daily consumption report
+### Rapport de consommation quotidien
 ```yaml
 automation:
-  - alias: "Daily Consumption Report"
+  - alias: "Rapport consommation journalière"
     trigger:
       - platform: time
         at: "20:00:00"
     action:
       - service: notify.notify
         data:
-          title: "📊 Daily Consumption"
+          title: "📊 Consommation du jour"
           message: >
-            HP: {{ states('sensor.linky_XXXXXX_consumption_hp') }} kWh
-            Off-peak: {{ states('sensor.linky_XXXXXX_consumption_hc') }} kWh
-            Gas: {{ states('sensor.gazpar_XXXXXX_consumption') }} kWh
+            HP : {{ states('sensor.linky_XXXXXX_consumption_hp') }} kWh
+            HC : {{ states('sensor.linky_XXXXXX_consumption_hc') }} kWh
+            Gaz : {{ states('sensor.gazpar_XXXXXX_consumption') }} kWh
 ```
 
 ---
 
-## Troubleshooting
+## Dépannage
 
-### Entities not appearing
-- Verify your credentials are correct
-- Check that your account has active meters
-- Restart Home Assistant after installation
+### Les entités n'apparaissent pas
+- Vérifiez que vos identifiants sont corrects
+- Assurez-vous que votre compte a des compteurs actifs
+- Redémarrez Home Assistant après l'installation
 
-### Data not updating
-- Check the update interval in configuration options
-- Use the `force_update` service to trigger immediate refresh
-- Verify API connectivity in Home Assistant logs
+### Les données ne se mettent pas à jour
+- Vérifiez l'intervalle de mise à jour dans les options
+- Utilisez le service `force_update` pour forcer le rafraîchissement
+- Vérifiez la connectivité API dans les logs Home Assistant
 
-### Terminated meters
-- Terminated meters (RESIL status) are automatically excluded
-- Only active meters appear in the integration
+### Compteurs résiliés
+- Les compteurs résiliés (statut RESIL) sont automatiquement exclus
+- Seuls les compteurs actifs apparaissent dans l'intégration
 
-### Missing consumption data
-- Some data may take 24-48h to appear after meter installation
-- Check Octopus Energy website to verify data availability
+### Données de consommation manquantes
+- Certaines données peuvent prendre 24-48h après l'installation du compteur
+- Vérifiez la disponibilité des données sur le site Octopus Energy
 
 ---
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/domodom30/ha-octopus-french/issues)
-- **Feature Requests**: [GitHub Discussions](https://github.com/domodom30/ha-octopus-french/discussions)
+- **Problèmes** : [GitHub Issues](https://github.com/domodom30/ha-octopus-french/issues)
+- **Demandes de fonctionnalités** : [GitHub Discussions](https://github.com/domodom30/ha-octopus-french/discussions)
 
 ---
