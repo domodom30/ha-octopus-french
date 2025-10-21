@@ -42,17 +42,7 @@ A comprehensive Home Assistant integration for Octopus Energy France customers t
 ## Installation
 
 ### HACS (Recommended)
-
-1. Open HACS in Home Assistant
-2. Click on "Integrations"
-3. Click the three dots in the top right corner
-4. Select "Custom repositories"
-5. Add the repository URL: `https://github.com/domodom30/ha-octopus-french`
-6. Select category: "Integration"
-7. Click "Add"
-8. Search for "Octopus Energy France"
-9. Click "Download"
-10. Restart Home Assistant
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=domodom30&repository=ha-octopus-french&category=integration)
 
 ### Manual Installation
 
