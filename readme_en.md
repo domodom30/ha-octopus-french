@@ -92,8 +92,8 @@ To access the options:
 #### Main Sensors
 | Entity | Type | Class | Description |
 |--------|------|--------|-------------|
-| HP Consumption | Sensor | Energy | Peak Consumption (kWh) |
-| HC Consumption | Sensor | Energy | Off-peak Consumption (kWh) |
+| HP Consumption | Sensor | Energy | Peak Consumption (kWh) / month |
+| HC Consumption | Sensor | Energy | Off-peak Consumption (kWh) / month |
 | Active Off-peak Hours | Binary Sensor | Running | Current Period Status |
 
 ### Diagnostic Sensors

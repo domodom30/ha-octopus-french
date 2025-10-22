@@ -91,8 +91,8 @@ Pour accéder aux options :
 #### Capteurs principaux
 | Entité | Type | Classe | Description |
 |--------|------|--------|-------------|
-| Consommation HP | Capteur | Énergie | Consommation heures pleines (kWh) |
-| Consommation HC | Capteur | Énergie | Consommation heures creuses (kWh) |
+| Consommation HP | Capteur | Énergie | Consommation HP (kWh) / mois |
+| Consommation HC | Capteur | Énergie | Consommation HC (kWh) / mois |
 | Heures creuses actives | Capteur binaire | Running | État de la période actuelle |
 
 #### Capteurs de diagnostic
