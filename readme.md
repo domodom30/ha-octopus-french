@@ -20,23 +20,19 @@ Une intégration complète Home Assistant pour les clients Octopus Energy France
 - **Solde du compte** (électricité, gaz et cagnotte)
 - **Dernières factures** pour l'électricité et le gaz
 - **Statut des paiements** et dates prévues
-- **Suivi des coûts** avec détails complets
 
 ### 🏠 Appareils & Organisation
 - Appareils séparés pour :
   - **Compte Octopus Energy** (soldes et factures)
-  - **Compteurs Linky** (électricité)
-  - **Compteurs Gazpar** (gaz)
+  - **Compteurs Linky ou autre** (électricité)
+  - **Compteurs Gazpar ou autre** (gaz)
 - Toutes les entités organisées par appareil
-- Support de plusieurs compteurs
 
 ### ⚙️ Fonctionnalités avancées
 - **Intervalle de mise à jour configurable** (5 à 1440 minutes)
 - **Service de mise à jour forcée** pour rafraîchir immédiatement
 - **Compatible avec le tableau de bord Énergie**
 - **Entités de diagnostic** pour informations détaillées
-- **Informations contractuelles** avec spécifications du compteur
-
 ---
 
 ## Installation
@@ -233,30 +229,11 @@ automation:
         entity_id: sensor.compte_octopus_energy_facture_electricite
         above: 100
     action:
-      - service: notify.notify
+      - service: notify.notify_appareil
         data:
           title: "💰 Alerte facture élevée"
           message: "Votre facture d'électricité est de {{ states('sensor.compte_octopus_energy_facture_electricite') }}€"
 ```
-
-### Rapport de consommation quotidien
-```yaml
-automation:
-  - alias: "Rapport consommation journalière"
-    trigger:
-      - platform: time
-        at: "20:00:00"
-    action:
-      - service: notify.notify
-        data:
-          title: "📊 Consommation du jour"
-          message: >
-            HP : {{ states('sensor.linky_XXXXXX_consumption_hp') }} kWh
-            HC : {{ states('sensor.linky_XXXXXX_consumption_hc') }} kWh
-            Gaz : {{ states('sensor.gazpar_XXXXXX_consumption') }} kWh
-```
-
----
 
 ## Dépannage
 
