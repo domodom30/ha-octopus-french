@@ -9,10 +9,10 @@ Intégration Octopus Energy France (non officiel) pour Home Assistant.
 ## Fonctionnalités
 
 ### 📊 Suivi
-- **Consommation électrique** (BASE - HPHC)
-- **Consommation de gaz**
+- **Consommation électrique** (BASE - HPHC) / cumulative par mois
+- **Consommation de gaz** / cumulative par an
 - **Coût** (électricité)
-- **Détection des heures creuses** avec capteur binaire
+- **Heures creuses** avec capteur binaire
 
 ### 💰 Suivi financier
 - **Solde du compte** (électricité - gaz - cagnotte)
@@ -29,6 +29,10 @@ Intégration Octopus Energy France (non officiel) pour Home Assistant.
 - **Intervalle de mise à jour configurable** (5 à 1440 minutes)
 - **Service de mise à jour forcée** pour rafraîchir immédiatement
 - **Compatible avec le tableau de bord Énergie**
+
+### 📊 Index
+- **Index des compteurs** (BASE - HPHC)
+
 ---
 
 ## Installation
