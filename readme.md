@@ -4,34 +4,31 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 ![installation_badge](https://img.shields.io/badge/dynamic/json?color=41BDF5&logo=home-assistant&label=integration%20usage&suffix=%20installs&cacheSeconds=15600&url=https://analytics.home-assistant.io/custom_integrations.json&query=$.octopus_french.total)
 
-Une intégration complète Home Assistant pour les clients Octopus Energy France permettant de surveiller la consommation d'électricité et de gaz, les tarifs, les factures et le solde du compte.
+Intégration Octopus Energy France (non officiel) pour Home Assistant.
 
 ## Fonctionnalités
 
 ### 📊 Suivi
-- **Consommation électrique** (heures pleines/creuses)
+- **Consommation électrique** (BASE - HPHC)
 - **Consommation de gaz**
-- **Relevés de compteur** avec suivi des index
-- **Tarifs actuels** (électricité & gaz)
+- **Coût** (électricité)
 - **Détection des heures creuses** avec capteur binaire
 
 ### 💰 Suivi financier
-- **Solde du compte** (électricité, gaz et cagnotte)
-- **Dernières factures** pour l'électricité et le gaz
+- **Solde du compte** (électricité - gaz - cagnotte)
+- **Dernières factures** (électricité - gaz)
 - **Statut des paiements** et dates prévues
 
 ### 🏠 Appareils & Organisation
 - Appareils séparés pour :
-  - **Compte Octopus Energy** (soldes et factures)
+  - **Compte Octopus Energy** (solde Cagnote - factures {éléctricité - gaz})
   - **Compteurs Linky ou autre** (électricité)
   - **Compteurs Gazpar ou autre** (gaz)
-- Toutes les entités organisées par appareil
 
 ### ⚙️ Fonctionnalités avancées
 - **Intervalle de mise à jour configurable** (5 à 1440 minutes)
 - **Service de mise à jour forcée** pour rafraîchir immédiatement
 - **Compatible avec le tableau de bord Énergie**
-- **Entités de diagnostic** pour informations détaillées
 ---
 
 ## Installation
@@ -80,8 +77,6 @@ Pour accéder aux options :
 | Entité | Type | Description |
 |--------|------|-------------|
 | Cagnotte | Capteur | Solde de la cagnotte |
-| Solde électricité | Capteur | Solde actuel du compte électricité |
-| Solde gaz | Capteur | Solde actuel du compte gaz |
 | Facture électricité | Capteur | Montant de la dernière facture électricité |
 | Facture gaz | Capteur | Montant de la dernière facture gaz |
 
@@ -90,32 +85,19 @@ Pour accéder aux options :
 #### Capteurs principaux
 | Entité | Type | Classe | Description |
 |--------|------|--------|-------------|
+| Consommation BASE | Capteur | Énergie | Consommation BASE (kWh) / mois |
+ou
 | Consommation HP | Capteur | Énergie | Consommation HP (kWh) / mois |
 | Consommation HC | Capteur | Énergie | Consommation HC (kWh) / mois |
+et
 | Heures creuses actives | Capteur binaire | Running | État de la période actuelle |
-
-#### Capteurs de diagnostic
-| Entité | Type | Description |
-|--------|------|-------------|
-| Index HP | Capteur | Relevé compteur heures pleines |
-| Index HC | Capteur | Relevé compteur heures creuses |
-| Tarif HP | Capteur | Tarif actuel heures pleines (€/kWh) |
-| Tarif HC | Capteur | Tarif actuel heures creuses (€/kWh) |
-| Contrat | Capteur | Détails du contrat et infos compteur |
 
 ### Appareil Compteur Gaz (Gazpar)
 
 #### Capteurs principaux
 | Entité | Type | Classe | Description |
 |--------|------|--------|-------------|
-| Consommation | Capteur | Énergie | Consommation actuelle de gaz (kWh) |
-
-#### Capteurs de diagnostic
-| Entité | Type | Description |
-|--------|------|-------------|
-| Index | Capteur | Relevé compteur gaz |
-| Tarif | Capteur | Tarif actuel du gaz (€/kWh) |
-| Contrat | Capteur | Détails du contrat et infos compteur |
+| Consommation | Capteur | Énergie | Consommation actuelle de gaz (kWh) /an |
 
 ---
 
@@ -141,20 +123,12 @@ Cette intégration est entièrement compatible avec le tableau de bord Énergie 
 1. Allez dans **Paramètres** → **Tableaux de bord** → **Énergie**
 2. Cliquez sur **"Ajouter une consommation"**
 3. Sélectionnez :
+   - **Électricité - Base** : `sensor.linky_XXXXXX_consumption_base`
+   ou
    - **Électricité - Heures pleines** : `sensor.linky_XXXXXX_consumption_hp`
    - **Électricité - Heures creuses** : `sensor.linky_XXXXXX_consumption_hc`
+   et
    - **Gaz** : `sensor.gazpar_XXXXXX_consumption`
-
-### Coûts individuels
-
-Pour chaque capteur de consommation, vous pouvez configurer le coût :
-1. Cliquez sur le capteur dans le tableau de bord Énergie
-2. Activez **"Utiliser un prix statique"** ou liez au capteur de tarif
-3. Pour l'électricité :
-   - HP : Lier à `sensor.linky_XXXXXX_tarif_hp`
-   - HC : Lier à `sensor.linky_XXXXXX_tarif_hc`
-4. Pour le gaz :
-   - Lier à `sensor.gazpar_XXXXXX_tarif`
 
 ---
 
@@ -165,6 +139,7 @@ Pour chaque capteur de consommation, vous pouvez configurer le coût :
 #### Contrat Électricité
 - `prm_id` : Identifiant Point Référence Mesure
 - `ledger_id` : Numéro de registre associé
+- `Contrat` : Type de contract (BASE ou HPHC)
 - `distributor_status` : SERVC (En service) / RESIL (Résilié)
 - `meter_kind` : Type de compteur (Linky)
 - `subscribed_max_power` : Puissance souscrite (kVA)
@@ -188,7 +163,7 @@ Pour chaque capteur de consommation, vous pouvez configurer le coût :
 - `customer_amount` : Part client
 - `expected_payment_date` : Date de paiement prévue
 
-### Attributs Consommation/Index
+### Attributs Consommation
 - `period_start` : Début période de relevé
 - `period_end` : Fin période de relevé
 - `reliability` : Fiabilité des données (REAL)
