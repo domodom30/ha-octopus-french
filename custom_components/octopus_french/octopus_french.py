@@ -128,6 +128,31 @@ QUERY_GET_BILLS = """
     }
 """
 
+QUERY_GET_INDEX_ELECTRICITY = """
+query getElectricityIndex($accountNumber: String!, $prmId: String!) {
+  electricityReading(
+    accountNumber: $accountNumber
+    prmId: $prmId
+    first: 2
+    calendarType: PROVIDER
+  ) {
+    edges {
+      node {
+        consumption
+        periodStartAt
+        periodEndAt
+        indexStartValue
+        indexEndValue
+        statusProcessed
+        calendarType
+        calendarTempClass
+        consumptionReliability
+        indexReliability
+      }
+    }
+  }
+}
+"""
 
 QUERY_GET_METER_ELECTRICITY = """
 query GetPropertyMeasurements($propertyId: ID!, $startAt: DateTime!, $endAt: DateTime!, $utilityFilters: [UtilityFiltersInput]!, $first: Int) {
@@ -207,18 +232,13 @@ class TokenManager:
             decoded = jwt.decode(token, options={"verify_signature": False})
             if exp := decoded.get("exp"):
                 self._expiry = float(exp)
-                expires_in = int(self.expires_in)
-                _LOGGER.info("Token set, valid for %d seconds", expires_in)
                 return
-
         self._expiry = datetime.now(UTC).timestamp() + 3600
-        _LOGGER.warning("Could not decode token expiry, assuming 1 hour validity")
 
     def clear(self) -> None:
         """Clear token and expiry."""
         self._token = None
         self._expiry = None
-        _LOGGER.debug("Token cleared")
 
 
 class OctopusFrenchApiClient:
@@ -265,27 +285,13 @@ class OctopusFrenchApiClient:
                     if response.status == 200:
                         return await response.json()
 
-                    _LOGGER.warning(
-                        "API returned status %d (attempt %d/%d)",
-                        response.status,
-                        attempt + 1,
-                        MAX_RETRY_ATTEMPTS,
-                    )
-
                     if attempt < MAX_RETRY_ATTEMPTS - 1:
                         await asyncio.sleep(RETRY_DELAY * (attempt + 1))
 
-            except (aiohttp.ClientError, TimeoutError) as err:
-                _LOGGER.warning(
-                    "Network error: %s (attempt %d/%d)",
-                    err,
-                    attempt + 1,
-                    MAX_RETRY_ATTEMPTS,
-                )
+            except (aiohttp.ClientError, TimeoutError):
                 if attempt < MAX_RETRY_ATTEMPTS - 1:
                     await asyncio.sleep(RETRY_DELAY * (attempt + 1))
                     continue
-        _LOGGER.error("All retry attempts failed")
         return None
 
     async def authenticate(self) -> bool:
@@ -293,7 +299,7 @@ class OctopusFrenchApiClient:
         async with self._auth_lock:
             if self.token_manager.is_valid:
                 return True
-            _LOGGER.info("Authenticating with Octopus Energy API...")
+
             variables = {
                 "input": {
                     "email": self.email,
@@ -312,18 +318,15 @@ class OctopusFrenchApiClient:
             token = result.get("data", {}).get("obtainKrakenToken", {}).get("token")
 
             if not token:
-                if "errors" in result:
-                    errors = [e.get("message", "Unknown") for e in result["errors"]]
-                    _LOGGER.error(
-                        "Authentication failed: %s",
-                        ", ".join(errors),
-                    )
-                else:
-                    _LOGGER.error("Authentication failed: Invalid credentials")
+                error_messages = (
+                    [e.get("message", "Unknown") for e in result["errors"]]
+                    if "errors" in result
+                    else ["Invalid credentials"]
+                )
+                _LOGGER.error("Authentication failed: %s", ", ".join(error_messages))
                 return False
 
             self.token_manager.set_token(token)
-            _LOGGER.info("Authentication successful")
             return True
 
     async def _execute_with_auth(
@@ -393,10 +396,8 @@ class OctopusFrenchApiClient:
         if not account:
             return {}
 
-        ledgers = await self._parse_ledgers(account)
-        supply_points = self._parse_supply_points(account.get("properties"))
-
-        # FIX 1: Gestion sécurisée de l'account_id
+        ledgers = await self.get_ledgers(account)
+        supply_points = self.get_supply_points(account.get("properties"))
         properties = account.get("properties", [])
         account_id = properties[0].get("id") if properties else None
 
@@ -407,10 +408,8 @@ class OctopusFrenchApiClient:
             "supply_points": supply_points,
         }
 
-    async def _parse_ledgers(
-        self, account: dict[str, Any]
-    ) -> dict[str, dict[str, Any]]:
-        """Parse ledgers from account data."""
+    async def get_ledgers(self, account: dict[str, Any]) -> dict[str, dict[str, Any]]:
+        """Get ledgers from account data."""
         ledgers = {}
 
         ledger_data = account.get("creditStorage", {}).get("ledger", [])
@@ -442,8 +441,8 @@ class OctopusFrenchApiClient:
 
         return ledgers
 
-    def _parse_supply_points(self, properties: Any) -> dict[str, list[dict[str, Any]]]:
-        """Parse supply points from properties."""
+    def get_supply_points(self, properties: Any) -> dict[str, list[dict[str, Any]]]:
+        """Get supply points from properties."""
         supply_points = {"electricity": [], "gas": []}
 
         if not isinstance(properties, list):
@@ -527,3 +526,64 @@ class OctopusFrenchApiClient:
 
         edges = payment_requests.get("edges", [])
         return edges[0].get("node") if edges else None
+
+    async def get_electricity_index(
+        self, account_number: str, prm_id: str
+    ) -> dict[str, Any] | None:
+        """Get the electricity index with HP/HC breakdown or BASE rate."""
+        variables = {"accountNumber": account_number, "prmId": prm_id}
+        result = await self._execute_with_auth(QUERY_GET_INDEX_ELECTRICITY, variables)
+
+        if not result:
+            _LOGGER.warning("No electricity index data for PRM %s", prm_id)
+            return None
+
+        # Extraire les edges de la réponse GraphQL
+        edges = result.get("data", {}).get("electricityReading", {}).get("edges", [])
+
+        if not edges:
+            _LOGGER.warning("No electricity readings in response for PRM %s", prm_id)
+            return None
+
+        # Organiser les données par type (HP/HC/BASE)
+        index_data = {}
+        period_start = None
+        period_end = None
+        tariff_type = None
+
+        for edge in edges:
+            node = edge.get("node", {})
+            temp_class = node.get("calendarTempClass")
+
+            if temp_class in ["HP", "HC", "BASE"]:
+                key = temp_class.lower()
+                index_data[key] = {
+                    "consumption": node.get("consumption"),
+                    "index_start": node.get("indexStartValue"),
+                    "index_end": node.get("indexEndValue"),
+                    "status": node.get("statusProcessed"),
+                    "consumption_reliability": node.get("consumptionReliability"),
+                    "index_reliability": node.get("indexReliability"),
+                }
+
+                # Déterminer le type de tarif
+                if temp_class == "BASE":
+                    tariff_type = "BASE"
+                elif temp_class in ["HP", "HC"] and tariff_type != "BASE":
+                    tariff_type = "HPHC"
+
+                # Récupérer les dates de période
+                if not period_start:
+                    period_start = node.get("periodStartAt")
+                    period_end = node.get("periodEndAt")
+
+        if not index_data:
+            _LOGGER.warning("No index data found for PRM %s", prm_id)
+            return None
+
+        return {
+            "tariff_type": tariff_type,
+            **index_data,
+            "period_start": period_start,
+            "period_end": period_end,
+        }

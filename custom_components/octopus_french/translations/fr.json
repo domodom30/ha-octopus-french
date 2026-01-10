@@ -2,8 +2,8 @@
   "config": {
     "step": {
       "user": {
-        "title": "Configuration Octopus Energy France",
-        "description": "Saisissez vos identifiants de compte Octopus Energy",
+        "title": "Configurer Octopus Energy France",
+        "description": "Entrez vos identifiants de compte Octopus Energy",
         "data": {
           "email": "Email",
           "password": "Mot de passe"
@@ -11,8 +11,9 @@
       }
     },
     "error": {
-      "cannot_connect": "Échec de connexion à Octopus Energy",
-      "invalid_auth": "Identifiants d'authentification invalides",
+      "cannot_connect": "Impossible de se connecter à Octopus Energy",
+      "invalid_auth": "Identifiants invalides",
+      "no_accounts": "Aucun compte trouvé",
       "unknown": "Erreur inattendue"
     },
     "abort": {
@@ -23,7 +24,7 @@
     "step": {
       "init": {
         "title": "Options pour Octopus Energy France",
-        "description": "Configuration de l'intervalle de mise à jour et de la collecte des données",
+        "description": "Configurer l'intervalle de mise à jour et la collecte de données",
         "data": {
           "scan_interval": "Intervalle de mise à jour (minutes)",
           "fetch_history": "Récupérer l'historique de consommation"
@@ -34,31 +35,196 @@
   "entity": {
     "sensor": {
       "conso_base": {
-        "name": "Consommation"
+        "name": "HP / mois en cours",
+        "state_attributes": {
+          "current_month": {
+            "name": "Mois en cours"
+          },
+          "readings_count": {
+            "name": "Nombre de relevés"
+          },
+          "calculation_method": {
+            "name": "Méthode de calcul"
+          }
+        }
       },
       "conso_hp": {
-        "name": "Consommation HP"
+        "name": "HP / mois en cours",
+        "state_attributes": {
+          "current_month": {
+            "name": "Mois en cours"
+          },
+          "readings_count": {
+            "name": "Nombre de relevés"
+          },
+          "calculation_method": {
+            "name": "Méthode de calcul"
+          }
+        }
       },
       "conso_hc": {
-        "name": "Consommation HC"
+        "name": "HC / mois en cours",
+        "state_attributes": {
+          "current_month": {
+            "name": "Mois en cours"
+          },
+          "readings_count": {
+            "name": "Nombre de relevés"
+          },
+          "calculation_method": {
+            "name": "Méthode de calcul"
+          }
+        }
       },
       "cout_base": {
-        "name": "Coût"
+        "name": "Coût / mois en cours",
+        "state_attributes": {
+          "current_month": {
+            "name": "Mois en cours"
+          },
+          "readings_count": {
+            "name": "Nombre de relevés"
+          },
+          "calculation_method": {
+            "name": "Méthode de calcul"
+          }
+        }
       },
       "cout_hp": {
-        "name": "Coût HP"
+        "name": "HP / mois en cours",
+        "state_attributes": {
+          "current_month": {
+            "name": "Mois en cours"
+          },
+          "readings_count": {
+            "name": "Nombre de relevés"
+          },
+          "calculation_method": {
+            "name": "Méthode de calcul"
+          }
+        }
       },
       "cout_hc": {
-        "name": "Coût HC"
+        "name": "HC / mois en cours",
+        "state_attributes": {
+          "current_month": {
+            "name": "Mois en cours"
+          },
+          "readings_count": {
+            "name": "Nombre de relevés"
+          },
+          "calculation_method": {
+            "name": "Méthode de calcul"
+          }
+        }
+      },
+      "index_base": {
+        "name": "Index",
+        "state_attributes": {
+          "index_start": {
+            "name": "Index de départ"
+          },
+          "consumption": {
+            "name": "Consommation"
+          },
+          "period_start": {
+            "name": "Début de période"
+          },
+          "period_end": {
+            "name": "Fin de période"
+          },
+          "status": {
+            "name": "Statut"
+          },
+          "consumption_reliability": {
+            "name": "Fiabilité consommation"
+          },
+          "index_reliability": {
+            "name": "Fiabilité index"
+          },
+          "tariff_type": {
+            "name": "Type de tarif"
+          },
+          "prm_id": {
+            "name": "Référence PRM"
+          }
+        }
+      },
+      "index_hp": {
+        "name": "Index HP",
+        "state_attributes": {
+          "index_start": {
+            "name": "Index de départ"
+          },
+          "consumption": {
+            "name": "Consommation"
+          },
+          "period_start": {
+            "name": "Début de période"
+          },
+          "period_end": {
+            "name": "Fin de période"
+          },
+          "status": {
+            "name": "Statut"
+          },
+          "consumption_reliability": {
+            "name": "Fiabilité consommation"
+          },
+          "index_reliability": {
+            "name": "Fiabilité index"
+          },
+          "tariff_type": {
+            "name": "Type de tarif"
+          },
+          "prm_id": {
+            "name": "Référence PRM"
+          }
+        }
+      },
+      "index_hc": {
+        "name": "Index HC",
+        "state_attributes": {
+          "index_start": {
+            "name": "Index de départ"
+          },
+          "consumption": {
+            "name": "Consommation"
+          },
+          "period_start": {
+            "name": "Début de période"
+          },
+          "period_end": {
+            "name": "Fin de période"
+          },
+          "status": {
+            "name": "Statut"
+          },
+          "consumption_reliability": {
+            "name": "Fiabilité consommation"
+          },
+          "index_reliability": {
+            "name": "Fiabilité index"
+          },
+          "tariff_type": {
+            "name": "Type de tarif"
+          },
+          "prm_id": {
+            "name": "Référence PRM"
+          }
+        }
       },
       "contrat": {
         "name": "Contrat",
         "state_attributes": {
+          "ledger_id": {
+            "name": "ID registre"
+          },
           "prm_id": {
-            "name": "Identifiant PRM"
+            "name": "Référence PRM"
           },
           "agreement": {
-            "name": "Accord tarifaire"
+            "name": "Type de contrat"
           },
           "distributor_status": {
             "name": "Statut distributeur"
@@ -70,10 +236,10 @@
             "name": "Puissance souscrite"
           },
           "is_teleoperable": {
-            "name": "Téléopérable"
+            "name": "Télé-opérable"
           },
           "off_peak_label": {
-            "name": "Plage heures creuses"
+            "name": "Horaires heures creuses"
           },
           "powered_status": {
             "name": "État alimentation"
@@ -89,9 +255,20 @@
           },
           "is_smart_meter": {
             "name": "Compteur communicant"
+          }
+        }
+      },
+      "consumption": {
+        "name": "Consommation",
+        "state_attributes": {
+          "current_month": {
+            "name": "Mois en cours"
           },
-          "ledger_id": {
-            "name": "Identifiant ledger"
+          "readings_count": {
+            "name": "Nombre de relevés"
+          },
+          "calculation_method": {
+            "name": "Méthode de calcul"
           }
         }
       },
@@ -99,7 +276,17 @@
         "name": "Facture électricité",
         "state_attributes": {
           "payment_status": {
-            "name": "Statut paiement"
+            "name": "Statut paiement",
+            "state": {
+              "scheduled": "Programmé",
+              "pending": "En attente",
+              "cleared": "Réglé",
+              "failed": "Échoué",
+              "promised": "Promis",
+              "fulfilled": "Honoré",
+              "requested": "Demandé",
+              "deleted": "Supprimé"
+            }
           },
           "total_amount": {
             "name": "Montant total"
@@ -116,7 +303,17 @@
         "name": "Facture gaz",
         "state_attributes": {
           "payment_status": {
-            "name": "Statut paiement"
+            "name": "Statut paiement",
+            "state": {
+              "scheduled": "Programmé",
+              "pending": "En attente",
+              "cleared": "Réglé",
+              "failed": "Échoué",
+              "promised": "Promis",
+              "fulfilled": "Honoré",
+              "requested": "Demandé",
+              "deleted": "Supprimé"
+            }
           },
           "total_amount": {
             "name": "Montant total"
@@ -129,20 +326,42 @@
           }
         }
       },
-      "consumption": {
-        "name": "Consommation"
-      },
       "pot_ledger": {
         "name": "Solde cagnotte",
         "state_attributes": {
           "ledger_number": {
-            "name": "Numéro de compte"
+            "name": "Numéro de registre"
           },
           "ledger_name": {
-            "name": "Nom du compte"
+            "name": "Nom du registre"
           },
           "balance_cents": {
             "name": "Solde (centimes)"
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "hc_active": {
+        "name": "Heures creuses actives",
+        "state_attributes": {
+          "hc_schedule_available": {
+            "name": "Horaire disponible"
+          },
+          "total_hc_hours": {
+            "name": "Total heures creuses"
+          },
+          "hc_type": {
+            "name": "Type heures creuses"
+          },
+          "hc_range_1": {
+            "name": "Plage horaire 1"
+          },
+          "hc_range_2": {
+            "name": "Plage horaire 2"
+          },
+          "hc_range_3": {
+            "name": "Plage horaire 3"
           }
         }
       }
@@ -151,7 +370,7 @@
   "services": {
     "force_update": {
       "name": "Forcer la mise à jour",
-      "description": "Force une mise à jour immédiate des données depuis l'API Octopus Energy"
+      "description": "Forcer une mise à jour immédiate des données depuis l'API Octopus Energy"
     }
   }
 }

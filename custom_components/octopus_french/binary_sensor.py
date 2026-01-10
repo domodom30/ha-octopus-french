@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, time
-from typing import Any, Final
+from typing import Any
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -18,11 +18,6 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .utils import parse_off_peak_hours
-
-# Constants
-ATTR_HC_SCHEDULE_AVAILABLE: Final = "hc_schedule_available"
-ATTR_TOTAL_HC_HOURS: Final = "total_hc_hours"
-ATTR_HC_TYPE: Final = "hc_type"
 
 
 async def async_setup_entry(
@@ -48,13 +43,6 @@ async def async_setup_entry(
 
     for meter in electricity_points:
         prm_id = meter.get("id")
-        status = meter.get("distributorStatus")
-        powered = meter.get("poweredStatus")
-
-        # Ignorer les compteurs résiliés
-        if status == "RESIL" and powered == "LIMI":
-            continue
-
         off_peak_label = meter.get("offPeakLabel")
 
         if off_peak_label:
@@ -83,7 +71,7 @@ async def async_setup_entry(
                 # Create HC binary sensor for this meter
                 hc_sensor = OctopusFrenchHcBinarySensor(
                     coordinator=coordinator,
-                    prm_id=prm_id,  # ✅ Passer le PRM ID au lieu de account_number
+                    prm_id=prm_id,
                     electricity_sensor_attributes=electricity_attributes,
                 )
                 sensors.append(hc_sensor)
@@ -95,7 +83,7 @@ async def async_setup_entry(
 class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
     """Binary sensor indicating if current time is in HC (Heures Creuses) period."""
 
-    _attr_has_entity_name = False
+    _attr_has_entity_name = True  # ← Changé à True pour utiliser translation_key
     _attr_should_poll = False
     _attr_device_class = BinarySensorDeviceClass.RUNNING
 
@@ -110,7 +98,7 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
         self._prm_id = prm_id
         self._attributes = electricity_sensor_attributes
         self._attr_unique_id = f"{DOMAIN}_{prm_id}_hc_active"
-        self._attr_translation_key = "hc_active"
+        self._attr_translation_key = "hc_active"  # ← Utilise strings.json
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, prm_id)},
         )
@@ -126,11 +114,6 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
     async def _async_update_state(self, now=None) -> None:
         """Update state based on current time."""
         self.async_write_ha_state()
-
-    @property
-    def name(self) -> str:
-        """Return the name of the sensor."""
-        return "Heures creuses actives"
 
     @property
     def available(self) -> bool:
@@ -200,9 +183,9 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
         range_count = self._attributes.get("off_peak_range_count", 0)
 
         attributes = {
-            ATTR_HC_SCHEDULE_AVAILABLE: range_count > 0,
-            ATTR_TOTAL_HC_HOURS: self._attributes.get("off_peak_total_hours", 0),
-            ATTR_HC_TYPE: self._attributes.get("off_peak_type", "Unknown"),
+            "hc_schedule_available": range_count > 0,
+            "total_hc_hours": self._attributes.get("off_peak_total_hours", 0),
+            "hc_type": self._attributes.get("off_peak_type", "Unknown"),
         }
 
         # Add individual HC ranges in a readable format

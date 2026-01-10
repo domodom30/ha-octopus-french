@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import voluptuous as vol
@@ -19,6 +20,8 @@ from .const import (
     MIN_SCAN_INTERVAL,
 )
 from .octopus_french import OctopusFrenchApiClient
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -67,8 +70,18 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                     CONF_ACCOUNT_NUMBER: self.accounts[0]["number"],
                                 },
                             )
-            except Exception:
+                        # Si plusieurs comptes, passer à l'étape de sélection
+                        return await self.async_step_account()
+
+            except (ConnectionError, TimeoutError) as err:
+                _LOGGER.error("Connection error during authentication: %s", err)
                 errors["base"] = "cannot_connect"
+            except ValueError as err:
+                _LOGGER.error("Invalid data received: %s", err)
+                errors["base"] = "invalid_auth"
+            except (KeyError, IndexError, TypeError) as err:
+                _LOGGER.error("Error parsing account data: %s", err)
+                errors["base"] = "unknown"
             finally:
                 if self.api_client:
                     await self.api_client.close()
@@ -125,15 +138,11 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         config_entry: config_entries.ConfigEntry,
     ) -> OctopusFrenchOptionsFlow:
         """Get the options flow for this handler."""
-        return OctopusFrenchOptionsFlow(config_entry)
+        return OctopusFrenchOptionsFlow()
 
 
 class OctopusFrenchOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow for Octopus Energy France."""
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Initialize options flow."""
-        self.config_entry = config_entry
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None

@@ -9,7 +9,7 @@ import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform, UnitOfApparentPower
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 
@@ -75,15 +75,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def _async_setup_services(hass: HomeAssistant) -> None:
     """Set up services for Octopus Energy France."""
 
-    async def handle_force_update(call: ServiceCall) -> None:
+    async def handle_force_update() -> None:
         """Handle the force_update service call."""
 
         # Refresh all coordinators
-        for entry_id, data in hass.data[DOMAIN].items():
+        for data in hass.data[DOMAIN].items():
             if isinstance(data, dict) and "coordinator" in data:
                 coordinator = data["coordinator"]
                 await coordinator.async_request_refresh()
-                _LOGGER.info("Forced update for entry %s", entry_id)
 
     # Register services
     hass.services.async_register(
@@ -93,7 +92,7 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
         schema=vol.Schema({}),
     )
 
-    _LOGGER.info("Services registered successfully")
+    _LOGGER.debug("Services registered successfully")
 
 
 async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -102,14 +101,8 @@ async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 
 async def _async_authenticate(api_client: OctopusFrenchApiClient) -> None:
-    """Authenticate with the API."""
-    try:
-        if not await api_client.authenticate():
-            raise ConfigEntryAuthFailed("Authentication failed - invalid credentials")
-    except ConfigEntryAuthFailed:
-        raise
-    except Exception as err:
-        raise ConfigEntryNotReady(f"Authentication error: {err}") from err
+    if not await api_client.authenticate():
+        raise ConfigEntryAuthFailed("Authentication failed - invalid credentials")
 
 
 async def _async_fetch_initial_data(
@@ -135,7 +128,6 @@ async def _async_get_account_number(
 
         account_numbers = [account["number"] for account in accounts]
 
-        # Use configured account if valid, otherwise use first available
         if configured_account and configured_account in account_numbers:
             return configured_account
 
@@ -167,12 +159,6 @@ async def _async_create_devices(
         prm_id = elec_meter.get("id")
         meter_kind = elec_meter.get("meterKind", "N/A")
         suscribed_max_power = elec_meter.get("subscribedMaxPower", "N/A")
-        status = elec_meter.get("distributorStatus")
-        powered = elec_meter.get("poweredStatus")
-
-        # Ne pas créer de device pour les compteurs résiliés
-        if status == "RESIL" and powered == "LIMI":
-            continue
 
         device_registry.async_get_or_create(
             config_entry_id=entry.entry_id,
@@ -181,6 +167,7 @@ async def _async_create_devices(
             model=f"{elec_meter.get('meterKind', 'N/A')} - {suscribed_max_power} {UnitOfApparentPower.KILO_VOLT_AMPERE}",
         )
 
+    # Créer un device pour chaque compteur de gaz
     for gas_meter in supply_points.get("gas", []):
         pce_ref = gas_meter.get("id")
         is_smart = gas_meter.get("isSmartMeter", False)
@@ -206,5 +193,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 await api_client.close()
     if not hass.data[DOMAIN]:
         hass.services.async_remove(DOMAIN, SERVICE_FORCE_UPDATE)
-        _LOGGER.info("Services unregistered")
+        _LOGGER.debug("Services unregistered")
     return unload_ok
