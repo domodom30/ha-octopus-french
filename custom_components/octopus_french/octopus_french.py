@@ -11,8 +11,6 @@ from typing import Any
 import aiohttp
 import jwt
 
-from .const import LEDGER_TYPE_ELECTRICITY, LEDGER_TYPE_GAS
-
 _LOGGER = logging.getLogger(__name__)
 
 GRAPHQL_ENDPOINT = "https://api.oefr-kraken.energy/v1/graphql/"
@@ -27,6 +25,24 @@ mutation obtainKrakenToken($input: ObtainJSONWebTokenInput!) {
     obtainKrakenToken(input: $input) {
         token
     }
+}
+"""
+
+FRAGMENT_INTERVAL_MEASUREMENT = """
+fragment IntervalMeasurement on IntervalMeasurementType {
+  __typename
+  value
+  startAt
+  metaData {
+    statistics {
+      costInclTax {
+        estimatedAmount
+        costCurrency
+      }
+      label
+      value
+    }
+  }
 }
 """
 
@@ -52,8 +68,9 @@ query getAccountData($accountNumber: String!) {
   account(accountNumber: $accountNumber) {
     number
     properties {
+      id
       address
-      supplyPoints(first: 10) {
+      supplyPoints(first: 5) {
         edges {
           node {
             meterPoint {
@@ -65,10 +82,9 @@ query getAccountData($accountNumber: String!) {
                 isTeleoperable
                 offPeakLabel
                 poweredStatus
-                providerCalendarId
-                providerCalendarName
-                address {
-                  fullAddress
+                providerCalendar {
+                  id
+                  name
                 }
               }
               ... on GasMeterPoint {
@@ -77,11 +93,6 @@ query getAccountData($accountNumber: String!) {
                 annualConsumption
                 isSmartMeter
                 poweredStatus
-                priceLevel
-                tariffOption
-                address {
-                  fullAddress
-                }
               }
             }
           }
@@ -117,73 +128,20 @@ QUERY_GET_BILLS = """
     }
 """
 
-QUERY_GET_TARIFS = """
-query GetTarifs($accountNumber: String!) {
-  agreements(accountNumber: $accountNumber, first: 10) {
-    edges {
-      node {
-        id
-        isActive
-        chargingLedger {
-          ledgerType
-        }
-        ... on ElectricitySpecificAgreementType {
-          product {
-            consumptionRates(first: 3) {
-              edges {
-                node {
-                  ... on ElectricityConsumptionRateType {
-                    pricePerUnit
-                    pricePerUnitWithTaxes
-                    providerCalendar
-                    currency
-                  }
-                }
-              }
-            }
-          }
-        }
-        ... on GasSpecificAgreementType {
-          product {
-            consumptionRates(first: 1) {
-              edges {
-                node {
-                  ... on GasConsumptionRateType {
-                    priceLevel
-                    pricePerUnit
-                    currency
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}
-"""
 
 QUERY_GET_METER_ELECTRICITY = """
-query ElectricityMeterReadings($accountNumber: String!, $prmId: String!) {
-  electricityReading(
-    accountNumber: $accountNumber
-    prmId: $prmId
-    first: 10
-    calendarType: PROVIDER
-    statusProcessed: OK
-  ) {
-    edges {
-      node {
-        indexStartValue
-        indexEndValue
-        calendarType
-        calendarTempClass
-        consumption
-        consumptionReliability
-        statusProcessed
-        periodEndAt
-        periodStartAt
+query GetPropertyMeasurements($propertyId: ID!, $startAt: DateTime!, $endAt: DateTime!, $utilityFilters: [UtilityFiltersInput]!, $first: Int) {
+  property(id: $propertyId) {
+    measurements(
+      startAt: $startAt
+      endAt: $endAt
+      first: $first
+      utilityFilters: $utilityFilters
+    ) {
+      edges {
+        node {
+          ...IntervalMeasurement
+        }
       }
     }
   }
@@ -191,18 +149,18 @@ query ElectricityMeterReadings($accountNumber: String!, $prmId: String!) {
 """
 
 QUERY_GET_METER_GAS = """
-query GasMeterReadings($accountNumber: String!, $pceRef: String!) {
-  gasReading(accountNumber: $accountNumber, first: 10, pceRef: $pceRef) {
-    edges {
-      node {
-        consumption
-        indexEndValue
-        indexStartValue
-        periodEndAt
-        periodStartAt
-        readingDate
-        readingType
-        statusProcessed
+query GetPropertyMeasurements($propertyId: ID!, $startAt: DateTime!, $endAt: DateTime!, $utilityFilters: [UtilityFiltersInput]!, $first: Int) {
+  property(id: $propertyId) {
+    measurements(
+      startAt: $startAt
+      endAt: $endAt
+      first: $first
+      utilityFilters: $utilityFilters
+    ) {
+      edges {
+        node {
+          ...IntervalMeasurement
+        }
       }
     }
   }
@@ -231,7 +189,7 @@ class TokenManager:
             return False
 
         now = datetime.now(UTC).timestamp()
-        # Token is valid if it has at least TOKEN_EXPIRY_BUFFER seconds left
+
         return now < (self._expiry - TOKEN_EXPIRY_BUFFER)
 
     @property
@@ -245,7 +203,6 @@ class TokenManager:
         """Set a new token and decode its expiry."""
         self._token = token
 
-        # Try to decode expiry from JWT
         with suppress(Exception):
             decoded = jwt.decode(token, options={"verify_signature": False})
             if exp := decoded.get("exp"):
@@ -254,7 +211,6 @@ class TokenManager:
                 _LOGGER.info("Token set, valid for %d seconds", expires_in)
                 return
 
-        # Fallback: assume 1 hour validity
         self._expiry = datetime.now(UTC).timestamp() + 3600
         _LOGGER.warning("Could not decode token expiry, assuming 1 hour validity")
 
@@ -316,7 +272,6 @@ class OctopusFrenchApiClient:
                         MAX_RETRY_ATTEMPTS,
                     )
 
-                    # On non-200, retry after delay
                     if attempt < MAX_RETRY_ATTEMPTS - 1:
                         await asyncio.sleep(RETRY_DELAY * (attempt + 1))
 
@@ -336,7 +291,6 @@ class OctopusFrenchApiClient:
     async def authenticate(self) -> bool:
         """Authenticate with the API (thread-safe)."""
         async with self._auth_lock:
-            # Check if another task already refreshed the token
             if self.token_manager.is_valid:
                 return True
             _LOGGER.info("Authenticating with Octopus Energy API...")
@@ -379,12 +333,11 @@ class OctopusFrenchApiClient:
         retry_count: int = 0,
     ) -> dict[str, Any]:
         """Execute GraphQL query with automatic authentication."""
-        # Ensure we have a valid token
+
         if not self.token_manager.is_valid:
             if not await self.authenticate():
                 raise RuntimeError("Authentication failed")
 
-        # Execute with current token
         headers = {"Authorization": f"JWT {self.token_manager.token}"}
         result = await self._async_execute(
             query=query,
@@ -395,13 +348,11 @@ class OctopusFrenchApiClient:
         if not result:
             raise RuntimeError("API returned empty response")
 
-        # Check for auth errors in response
         if "errors" in result and retry_count < 1:
             error_messages = [
                 error.get("message", "").lower() for error in result["errors"]
             ]
 
-            # Check if it's an auth error
             auth_keywords = {"authentication", "unauthorized", "token", "expired"}
             is_auth_error = any(
                 keyword in msg for msg in error_messages for keyword in auth_keywords
@@ -409,7 +360,7 @@ class OctopusFrenchApiClient:
 
             if is_auth_error:
                 _LOGGER.warning("Token expired during request, re-authenticating...")
-                # Token expired mid-request, clear and retry once
+
                 self.token_manager.clear()
                 return await self._execute_with_auth(
                     query=query,
@@ -442,30 +393,26 @@ class OctopusFrenchApiClient:
         if not account:
             return {}
 
-        # Parse ledgers
-        ledgers = await self._parse_ledgers(account, account_number)
-
-        # Parse address
-        address = self._parse_address(account.get("properties"))
-
-        # Parse supply points
+        ledgers = await self._parse_ledgers(account)
         supply_points = self._parse_supply_points(account.get("properties"))
 
+        # FIX 1: Gestion sécurisée de l'account_id
+        properties = account.get("properties", [])
+        account_id = properties[0].get("id") if properties else None
+
         return {
-            "account_id": account.get("id", ""),
+            "account_id": account_id,
             "account_number": account.get("number", ""),
-            "address": address,
             "ledgers": ledgers,
             "supply_points": supply_points,
         }
 
     async def _parse_ledgers(
-        self, account: dict[str, Any], account_number: str
+        self, account: dict[str, Any]
     ) -> dict[str, dict[str, Any]]:
         """Parse ledgers from account data."""
         ledgers = {}
 
-        # Parse credit storage ledgers
         ledger_data = account.get("creditStorage", {}).get("ledger", [])
         if not isinstance(ledger_data, list):
             ledger_data = [ledger_data]
@@ -478,8 +425,8 @@ class OctopusFrenchApiClient:
                     "number": ledger.get("number", ""),
                 }
 
-        # Get additional ledgers from accounts query
         with suppress(Exception):
+            account_number = account.get("number", "")
             all_accounts = await self.get_accounts()
             for acc in all_accounts:
                 if acc["number"] == account_number:
@@ -494,24 +441,6 @@ class OctopusFrenchApiClient:
                             }
 
         return ledgers
-
-    def _parse_address(self, properties: Any) -> str:
-        """Parse address from properties."""
-        if not properties:
-            return ""
-
-        if isinstance(properties, str):
-            return properties
-
-        if isinstance(properties, dict):
-            return properties.get("address", "")
-
-        if isinstance(properties, list) and properties:
-            first_prop = properties[0]
-            if isinstance(first_prop, dict):
-                return first_prop.get("address", "")
-
-        return ""
 
     def _parse_supply_points(self, properties: Any) -> dict[str, list[dict[str, Any]]]:
         """Parse supply points from properties."""
@@ -537,101 +466,64 @@ class OctopusFrenchApiClient:
 
         return supply_points
 
-    async def get_gas_readings(
-        self, account_number: str, pce_ref: str
+    async def get_energy_readings(
+        self,
+        property_id: str,
+        start_at: str,
+        end_at: str,
+        market_supply_point_id: str,
+        utility_type: str = "electricity",
+        reading_frequency: str = "DAY_INTERVAL",
+        reading_quality: str | None = None,
+        first: int = 100,
     ) -> list[dict[str, Any]]:
-        """Get gas meter readings."""
-        variables = {"accountNumber": account_number, "pceRef": pce_ref}
-        result = await self._execute_with_auth(
-            query=QUERY_GET_METER_GAS, variables=variables
-        )
+        """Get meter readings for a property."""
 
-        edges = result.get("data", {}).get("gasReading", {}).get("edges", [])
+        filter_key = f"{utility_type}Filters"
+        filter_content = {
+            "readingFrequencyType": reading_frequency,
+            "marketSupplyPointId": market_supply_point_id,
+        }
+
+        if reading_quality and utility_type == "electricity":
+            filter_content["readingQuality"] = reading_quality
+
+        utility_filters = [{filter_key: filter_content}]
+
+        variables = {
+            "propertyId": property_id,
+            "startAt": start_at,
+            "endAt": end_at,
+            "utilityFilters": utility_filters,
+            "first": first,
+        }
+
+        if utility_type == "gas":
+            query = FRAGMENT_INTERVAL_MEASUREMENT + "\n" + QUERY_GET_METER_GAS
+        else:
+            query = FRAGMENT_INTERVAL_MEASUREMENT + "\n" + QUERY_GET_METER_ELECTRICITY
+
+        result = await self._execute_with_auth(query=query, variables=variables)
+
+        edges = (
+            result.get("data", {})
+            .get("property", {})
+            .get("measurements", {})
+            .get("edges", [])
+        )
         return [edge["node"] for edge in edges]
 
-    async def get_electricity_readings(
-        self, account_number: str, prm_id: str
-    ) -> list[dict[str, Any]]:
-        """Get electricity meter readings."""
-        variables = {"accountNumber": account_number, "prmId": prm_id}
-        result = await self._execute_with_auth(
-            query=QUERY_GET_METER_ELECTRICITY, variables=variables
-        )
-
-        edges = result.get("data", {}).get("electricityReading", {}).get("edges", [])
-        return [edge["node"] for edge in edges]
-
-    async def get_tarifs(self, account_number: str) -> dict[str, Any]:
-        """Get tarifs for account."""
-        variables = {"accountNumber": account_number}
-        result = await self._execute_with_auth(
-            query=QUERY_GET_TARIFS, variables=variables
-        )
-
-        agreements = result.get("data", {}).get("agreements", {}).get("edges", [])
-        tarifs = {"electricity": {}, "gas": {}}
-
-        for edge in agreements:
-            agreement = edge.get("node", {})
-
-            if not agreement.get("isActive"):
-                continue
-
-            ledger_type = agreement.get("chargingLedger", {}).get("ledgerType")
-
-            # Parse electricity tarifs
-            if ledger_type == LEDGER_TYPE_ELECTRICITY:
-                rates = (
-                    agreement.get("product", {})
-                    .get("consumptionRates", {})
-                    .get("edges", [])
-                )
-
-                for rate_edge in rates:
-                    rate = rate_edge.get("node", {})
-                    calendar = rate.get("providerCalendar")
-
-                    if calendar == "PEAK_OFF_PEAK":
-                        # HC = prix le plus bas, HP = prix le plus haut
-                        price_ttc = float(rate.get("pricePerUnitWithTaxes", 0))
-
-                        if not tarifs["electricity"].get("hc") or price_ttc < tarifs[
-                            "electricity"
-                        ].get("hc", 999):
-                            tarifs["electricity"]["hc"] = price_ttc
-                        if not tarifs["electricity"].get("hp") or price_ttc > tarifs[
-                            "electricity"
-                        ].get("hp", 0):
-                            tarifs["electricity"]["hp"] = price_ttc
-
-            # Parse gas tarifs (on prend le niveau 1 par défaut)
-            elif ledger_type == LEDGER_TYPE_GAS:
-                rates = (
-                    agreement.get("product", {})
-                    .get("consumptionRates", {})
-                    .get("edges", [])
-                )
-
-                for rate_edge in rates:
-                    rate = rate_edge.get("node", {})
-                    if rate.get("priceLevel") == 1:
-                        tarifs["gas"]["price"] = float(rate.get("pricePerUnit", 0))
-                        break
-
-        return tarifs
-
-    async def get_payment_requests(self, ledger_number: str) -> dict | None:
+    async def get_payment_requests(self, ledger_number: str) -> dict[str, Any] | None:
         """Get the latest payment request for a ledger."""
-
         variables = {"ledgerNumber": ledger_number}
         result = await self._execute_with_auth(QUERY_GET_BILLS, variables)
 
-        if result and "data" in result and "paymentRequests" in result["data"]:
-            payment_requests = result["data"]["paymentRequests"].get(
-                "paymentRequest", {}
-            )
-            edges = payment_requests.get("edges", [])
-            if edges:
-                return edges[0].get("node")
+        if not result:
+            return None
 
-        return None
+        payment_requests = (
+            result.get("data", {}).get("paymentRequests", {}).get("paymentRequest", {})
+        )
+
+        edges = payment_requests.get("edges", [])
+        return edges[0].get("node") if edges else None

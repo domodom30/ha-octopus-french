@@ -33,85 +33,32 @@
   },
   "entity": {
     "sensor": {
-      "consumption_hp": {
-        "name": "HP consumption",
-        "state_attributes": {
-          "period_start": {
-            "name": "Period start"
-          },
-          "period_end": {
-            "name": "Period end"
-          },
-          "reliability": {
-            "name": "Reliability"
-          },
-          "status": {
-            "name": "Status"
-          }
-        }
+      "conso_base": {
+        "name": "Consumption"
       },
-      "consumption_hc": {
-        "name": "Off-peak consumption",
-        "state_attributes": {
-          "period_start": {
-            "name": "Period start"
-          },
-          "period_end": {
-            "name": "Period end"
-          },
-          "reliability": {
-            "name": "Reliability"
-          },
-          "status": {
-            "name": "Status"
-          }
-        }
+      "conso_hp": {
+        "name": "Peak hours consumption"
       },
-      "index_hp": {
-        "name": "HP index",
-        "state_attributes": {
-          "period_start": {
-            "name": "Period start"
-          },
-          "period_end": {
-            "name": "Period end"
-          },
-          "reliability": {
-            "name": "Reliability"
-          },
-          "status": {
-            "name": "Status"
-          }
-        }
+      "conso_hc": {
+        "name": "Off-peak consumption"
       },
-      "index_hc": {
-        "name": "Off-peak index",
-        "state_attributes": {
-          "period_start": {
-            "name": "Period start"
-          },
-          "period_end": {
-            "name": "Period end"
-          },
-          "reliability": {
-            "name": "Reliability"
-          },
-          "status": {
-            "name": "Status"
-          }
-        }
+      "cout_base": {
+        "name": "Cost"
       },
-      "tarif_hp": {
-        "name": "HP rate"
+      "cout_hp": {
+        "name": "Peak hours cost"
       },
-      "tarif_hc": {
-        "name": "Off-peak rate"
+      "cout_hc": {
+        "name": "Off-peak cost"
       },
       "contrat": {
         "name": "Contract",
         "state_attributes": {
           "prm_id": {
             "name": "PRM ID"
+          },
+          "agreement": {
+            "name": "Tariff agreement"
           },
           "distributor_status": {
             "name": "Distributor status"
@@ -123,10 +70,10 @@
             "name": "Subscribed power"
           },
           "is_teleoperable": {
-            "name": "Remote control"
+            "name": "Remote controllable"
           },
           "off_peak_label": {
-            "name": "Off-peak schedule"
+            "name": "Off-peak hours schedule"
           },
           "powered_status": {
             "name": "Power status"
@@ -143,15 +90,11 @@
           "is_smart_meter": {
             "name": "Smart meter"
           },
-          "price_level": {
-            "name": "Price level"
-          },
-          "tariff_option": {
-            "name": "Tariff option"
+          "ledger_id": {
+            "name": "Ledger ID"
           }
         }
       },
-
       "electricity_bill": {
         "name": "Electricity bill",
         "state_attributes": {
@@ -187,30 +130,7 @@
         }
       },
       "consumption": {
-        "name": "Consumption",
-        "state_attributes": {
-          "period_start": {
-            "name": "Period start"
-          },
-          "period_end": {
-            "name": "Period end"
-          },
-          "reading_date": {
-            "name": "Reading date"
-          },
-          "reading_type": {
-            "name": "Reading type"
-          },
-          "status": {
-            "name": "Status"
-          }
-        }
-      },
-      "index": {
-        "name": "Index"
-      },
-      "tarif": {
-        "name": "Rate"
+        "name": "Consumption"
       },
       "pot_ledger": {
         "name": "Pot balance",
@@ -225,39 +145,6 @@
             "name": "Balance (cents)"
           }
         }
-      },
-      "electricity_ledger": {
-        "name": "Electricity balance",
-        "state_attributes": {
-          "ledger_number": {
-            "name": "Ledger number"
-          },
-          "ledger_name": {
-            "name": "Ledger name"
-          },
-          "balance_cents": {
-            "name": "Balance (cents)"
-          }
-        }
-      },
-      "gas_ledger": {
-        "name": "Gas balance",
-        "state_attributes": {
-          "ledger_number": {
-            "name": "Ledger number"
-          },
-          "ledger_name": {
-            "name": "Ledger name"
-          },
-          "balance_cents": {
-            "name": "Balance (cents)"
-          }
-        }
-      }
-    },
-    "binary_sensor": {
-      "hc_active": {
-        "name": "Off-peak hours active"
       }
     }
   },

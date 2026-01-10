@@ -181,7 +181,6 @@ async def _async_create_devices(
             model=f"{elec_meter.get('meterKind', 'N/A')} - {suscribed_max_power} {UnitOfApparentPower.KILO_VOLT_AMPERE}",
         )
 
-    # Créer un device pour chaque compteur gaz
     for gas_meter in supply_points.get("gas", []):
         pce_ref = gas_meter.get("id")
         is_smart = gas_meter.get("isSmartMeter", False)
@@ -196,14 +195,12 @@ async def _async_create_devices(
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    # Unload platforms
+
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     if unload_ok:
-        # Clean up data
         data = hass.data[DOMAIN].pop(entry.entry_id)
 
-        # Close API client
         if api_client := data.get("api"):
             with suppress(Exception):
                 await api_client.close()
