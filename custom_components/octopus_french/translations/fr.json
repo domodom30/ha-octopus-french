@@ -2,17 +2,17 @@
   "config": {
     "step": {
       "user": {
-        "title": "Configurer Octopus Energy France",
-        "description": "Entrez vos identifiants de compte Octopus Energy",
+        "title": "Configuration Octopus Energy France",
+        "description": "Saisissez vos identifiants de compte Octopus Energy",
         "data": {
-          "email": "E-mail",
+          "email": "Email",
           "password": "Mot de passe"
         }
       }
     },
     "error": {
       "cannot_connect": "Échec de connexion à Octopus Energy",
-      "invalid_auth": "Identifiants invalides",
+      "invalid_auth": "Identifiants d'authentification invalides",
       "unknown": "Erreur inattendue"
     },
     "abort": {
@@ -23,7 +23,7 @@
     "step": {
       "init": {
         "title": "Options pour Octopus Energy France",
-        "description": "Configurez l'intervalle de mise à jour et la collecte de données",
+        "description": "Configuration de l'intervalle de mise à jour et de la collecte des données",
         "data": {
           "scan_interval": "Intervalle de mise à jour (minutes)",
           "fetch_history": "Récupérer l'historique de consommation"
@@ -33,85 +33,32 @@
   },
   "entity": {
     "sensor": {
-      "consumption_hp": {
-        "name": "Consommation HP",
-        "state_attributes": {
-          "period_start": {
-            "name": "Début de période"
-          },
-          "period_end": {
-            "name": "Fin de période"
-          },
-          "reliability": {
-            "name": "Fiabilité"
-          },
-          "status": {
-            "name": "Statut"
-          }
-        }
+      "conso_base": {
+        "name": "Consommation"
       },
-      "consumption_hc": {
-        "name": "Consommation HC",
-        "state_attributes": {
-          "period_start": {
-            "name": "Début de période"
-          },
-          "period_end": {
-            "name": "Fin de période"
-          },
-          "reliability": {
-            "name": "Fiabilité"
-          },
-          "status": {
-            "name": "Statut"
-          }
-        }
+      "conso_hp": {
+        "name": "Consommation HP"
       },
-      "index_hp": {
-        "name": "Index HP",
-        "state_attributes": {
-          "period_start": {
-            "name": "Début de période"
-          },
-          "period_end": {
-            "name": "Fin de période"
-          },
-          "reliability": {
-            "name": "Fiabilité"
-          },
-          "status": {
-            "name": "Statut"
-          }
-        }
+      "conso_hc": {
+        "name": "Consommation HC"
       },
-      "index_hc": {
-        "name": "Index HC",
-        "state_attributes": {
-          "period_start": {
-            "name": "Début de période"
-          },
-          "period_end": {
-            "name": "Fin de période"
-          },
-          "reliability": {
-            "name": "Fiabilité"
-          },
-          "status": {
-            "name": "Statut"
-          }
-        }
+      "cout_base": {
+        "name": "Coût"
       },
-      "tarif_hp": {
-        "name": "Tarif HP"
+      "cout_hp": {
+        "name": "Coût HP"
       },
-      "tarif_hc": {
-        "name": "Tarif HC"
+      "cout_hc": {
+        "name": "Coût HC"
       },
       "contrat": {
         "name": "Contrat",
         "state_attributes": {
           "prm_id": {
             "name": "Identifiant PRM"
+          },
+          "agreement": {
+            "name": "Accord tarifaire"
           },
           "distributor_status": {
             "name": "Statut distributeur"
@@ -123,10 +70,10 @@
             "name": "Puissance souscrite"
           },
           "is_teleoperable": {
-            "name": "Télé-opérable"
+            "name": "Téléopérable"
           },
           "off_peak_label": {
-            "name": "Plages heures creuses"
+            "name": "Plage heures creuses"
           },
           "powered_status": {
             "name": "État alimentation"
@@ -135,7 +82,7 @@
             "name": "Référence PCE"
           },
           "gas_nature": {
-            "name": "Nature du gaz"
+            "name": "Type de gaz"
           },
           "annual_consumption": {
             "name": "Consommation annuelle"
@@ -143,11 +90,8 @@
           "is_smart_meter": {
             "name": "Compteur communicant"
           },
-          "price_level": {
-            "name": "Niveau de prix"
-          },
-          "tariff_option": {
-            "name": "Option tarifaire"
+          "ledger_id": {
+            "name": "Identifiant ledger"
           }
         }
       },
@@ -155,7 +99,7 @@
         "name": "Facture électricité",
         "state_attributes": {
           "payment_status": {
-            "name": "Statut du paiement"
+            "name": "Statut paiement"
           },
           "total_amount": {
             "name": "Montant total"
@@ -172,7 +116,7 @@
         "name": "Facture gaz",
         "state_attributes": {
           "payment_status": {
-            "name": "Statut du paiement"
+            "name": "Statut paiement"
           },
           "total_amount": {
             "name": "Montant total"
@@ -186,77 +130,21 @@
         }
       },
       "consumption": {
-        "name": "Consommation",
-        "state_attributes": {
-          "period_start": {
-            "name": "Début de période"
-          },
-          "period_end": {
-            "name": "Fin de période"
-          },
-          "reading_date": {
-            "name": "Date de relevé"
-          },
-          "reading_type": {
-            "name": "Type de relevé"
-          },
-          "status": {
-            "name": "Statut"
-          }
-        }
-      },
-      "index": {
-        "name": "Index"
-      },
-      "tarif": {
-        "name": "Tarif"
+        "name": "Consommation"
       },
       "pot_ledger": {
-        "name": "Cagnotte",
+        "name": "Solde cagnotte",
         "state_attributes": {
           "ledger_number": {
-            "name": "Numéro de registre"
+            "name": "Numéro de compte"
           },
           "ledger_name": {
-            "name": "Nom du registre"
+            "name": "Nom du compte"
           },
           "balance_cents": {
             "name": "Solde (centimes)"
           }
         }
-      },
-      "electricity_ledger": {
-        "name": "Solde électricité",
-        "state_attributes": {
-          "ledger_number": {
-            "name": "Numéro de registre"
-          },
-          "ledger_name": {
-            "name": "Nom du registre"
-          },
-          "balance_cents": {
-            "name": "Solde (centimes)"
-          }
-        }
-      },
-      "gas_ledger": {
-        "name": "Solde gaz",
-        "state_attributes": {
-          "ledger_number": {
-            "name": "Numéro de registre"
-          },
-          "ledger_name": {
-            "name": "Nom du registre"
-          },
-          "balance_cents": {
-            "name": "Solde (centimes)"
-          }
-        }
-      }
-    },
-    "binary_sensor": {
-      "hc_active": {
-        "name": "Heures creuses actives"
       }
     }
   },
