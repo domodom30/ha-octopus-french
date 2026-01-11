@@ -1,0 +1,376 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configure Octopus Energy France",
+        "description": "Enter your Octopus Energy account credentials",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to Octopus Energy",
+      "invalid_auth": "Invalid authentication credentials",
+      "no_accounts": "No accounts found",
+      "unknown": "Unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "Account is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options for Octopus Energy France",
+        "description": "Configure update interval and data collection",
+        "data": {
+          "scan_interval": "Update interval (minutes)",
+          "fetch_history": "Fetch consumption history"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "conso_base": {
+        "name": "Consumption",
+        "state_attributes": {
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Readings count"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          }
+        }
+      },
+      "conso_hp": {
+        "name": "Peak hours consumption",
+        "state_attributes": {
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Readings count"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          }
+        }
+      },
+      "conso_hc": {
+        "name": "Off-peak consumption",
+        "state_attributes": {
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Readings count"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          }
+        }
+      },
+      "cout_base": {
+        "name": "Cost",
+        "state_attributes": {
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Readings count"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          }
+        }
+      },
+      "cout_hp": {
+        "name": "Peak hours cost",
+        "state_attributes": {
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Readings count"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          }
+        }
+      },
+      "cout_hc": {
+        "name": "Off-peak cost",
+        "state_attributes": {
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Readings count"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          }
+        }
+      },
+      "index_base": {
+        "name": "Index",
+        "state_attributes": {
+          "index_start": {
+            "name": "Starting index"
+          },
+          "consumption": {
+            "name": "Consumption"
+          },
+          "period_start": {
+            "name": "Period start"
+          },
+          "period_end": {
+            "name": "Period end"
+          },
+          "status": {
+            "name": "Status"
+          },
+          "consumption_reliability": {
+            "name": "Consumption reliability"
+          },
+          "index_reliability": {
+            "name": "Index reliability"
+          },
+          "tariff_type": {
+            "name": "Tariff type"
+          },
+          "prm_id": {
+            "name": "PRM reference"
+          }
+        }
+      },
+      "index_hp": {
+        "name": "Peak hours index",
+        "state_attributes": {
+          "index_start": {
+            "name": "Starting index"
+          },
+          "consumption": {
+            "name": "Consumption"
+          },
+          "period_start": {
+            "name": "Period start"
+          },
+          "period_end": {
+            "name": "Period end"
+          },
+          "status": {
+            "name": "Status"
+          },
+          "consumption_reliability": {
+            "name": "Consumption reliability"
+          },
+          "index_reliability": {
+            "name": "Index reliability"
+          },
+          "tariff_type": {
+            "name": "Tariff type"
+          },
+          "prm_id": {
+            "name": "PRM reference"
+          }
+        }
+      },
+      "index_hc": {
+        "name": "Off-peak index",
+        "state_attributes": {
+          "index_start": {
+            "name": "Starting index"
+          },
+          "consumption": {
+            "name": "Consumption"
+          },
+          "period_start": {
+            "name": "Period start"
+          },
+          "period_end": {
+            "name": "Period end"
+          },
+          "status": {
+            "name": "Status"
+          },
+          "consumption_reliability": {
+            "name": "Consumption reliability"
+          },
+          "index_reliability": {
+            "name": "Index reliability"
+          },
+          "tariff_type": {
+            "name": "Tariff type"
+          },
+          "prm_id": {
+            "name": "PRM reference"
+          }
+        }
+      },
+      "contrat": {
+        "name": "Contract",
+        "state_attributes": {
+          "ledger_id": {
+            "name": "Ledger ID"
+          },
+          "prm_id": {
+            "name": "PRM reference"
+          },
+          "agreement": {
+            "name": "Tariff agreement"
+          },
+          "distributor_status": {
+            "name": "Distributor status"
+          },
+          "meter_kind": {
+            "name": "Meter type"
+          },
+          "subscribed_max_power": {
+            "name": "Subscribed power"
+          },
+          "is_teleoperable": {
+            "name": "Remote controllable"
+          },
+          "off_peak_label": {
+            "name": "Off-peak hours schedule"
+          },
+          "powered_status": {
+            "name": "Power status"
+          },
+          "pce_ref": {
+            "name": "PCE reference"
+          },
+          "gas_nature": {
+            "name": "Gas type"
+          },
+          "annual_consumption": {
+            "name": "Annual consumption"
+          },
+          "is_smart_meter": {
+            "name": "Smart meter"
+          }
+        }
+      },
+      "consumption": {
+        "name": "Consumption",
+        "state_attributes": {
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Readings count"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          }
+        }
+      },
+      "electricity_bill": {
+        "name": "Electricity bill",
+        "state_attributes": {
+          "payment_status": {
+            "name": "Payment status",
+            "state": {
+              "scheduled": "Scheduled",
+              "pending": "Pending",
+              "cleared": "Cleared",
+              "failed": "Failed",
+              "promised": "Promised",
+              "fulfilled": "Fulfilled",
+              "requested": "Requested",
+              "deleted": "Deleted"
+            }
+          },
+          "total_amount": {
+            "name": "Total amount"
+          },
+          "customer_amount": {
+            "name": "Customer amount"
+          },
+          "expected_payment_date": {
+            "name": "Expected payment date"
+          }
+        }
+      },
+      "gas_bill": {
+        "name": "Gas bill",
+        "state_attributes": {
+          "payment_status": {
+            "name": "Payment status",
+            "state": {
+              "scheduled": "Scheduled",
+              "pending": "Pending",
+              "cleared": "Cleared",
+              "failed": "Failed",
+              "promised": "Promised",
+              "fulfilled": "Fulfilled",
+              "requested": "Requested",
+              "deleted": "Deleted"
+            }
+          },
+          "total_amount": {
+            "name": "Total amount"
+          },
+          "customer_amount": {
+            "name": "Customer amount"
+          },
+          "expected_payment_date": {
+            "name": "Expected payment date"
+          }
+        }
+      },
+      "pot_ledger": {
+        "name": "Pot balance",
+        "state_attributes": {
+          "ledger_number": {
+            "name": "Ledger number"
+          },
+          "ledger_name": {
+            "name": "Ledger name"
+          },
+          "balance_cents": {
+            "name": "Balance (cents)"
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "hc_active": {
+        "name": "Off-peak hours active",
+        "state_attributes": {
+          "hc_schedule_available": {
+            "name": "Schedule available"
+          },
+          "total_hc_hours": {
+            "name": "Total off-peak hours"
+          },
+          "hc_type": {
+            "name": "Off-peak type"
+          },
+          "hc_range_1": {
+            "name": "Off-peak range 1"
+          },
+          "hc_range_2": {
+            "name": "Off-peak range 2"
+          },
+          "hc_range_3": {
+            "name": "Off-peak range 3"
+          }
+        }
+      }
+    }
+  },
+  "services": {
+    "force_update": {
+      "name": "Force update",
+      "description": "Force an immediate data update from Octopus Energy API"
+    }
+  }
+}
