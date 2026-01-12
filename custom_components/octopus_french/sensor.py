@@ -75,7 +75,7 @@ ELECTRICITY_SENSORS = [
         "precision": 2,
     },
     {
-        "key": "contrat",
+        "key": "contract",
         "icon": "mdi:file-document-outline",
         "device_class": None,
         "state_class": None,
@@ -128,7 +128,7 @@ GAS_SENSORS = [
         "precision": 2,
     },
     {
-        "key": "contrat",
+        "key": "contract",
         "icon": "mdi:file-document-outline",
         "device_class": None,
         "state_class": None,
@@ -209,7 +209,7 @@ async def async_setup_entry(
             sensor_key = sensor_config["key"]
 
             if (
-                sensor_key == "contrat"
+                sensor_key == "contract"
                 or (tariff_type == "BASE" and sensor_key in ["conso_base", "cout_base"])
                 or (
                     tariff_type == "HPHC"
@@ -386,7 +386,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
         """Return the state of the sensor."""
         key = self._sensor_config["key"]
 
-        if key == "contrat":
+        if key == "contract":
             return self._get_contract_type()
 
         if key.startswith(("conso_", "cout_")):
@@ -405,7 +405,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
         """Return extra attributes."""
         key = self._sensor_config["key"]
 
-        if key == "contrat":
+        if key == "contract":
             meter = self._get_meter_data()
 
             if not meter:
@@ -600,7 +600,7 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
         """Return the state of the sensor."""
         key = self._sensor_config["key"]
 
-        if key == "contrat":
+        if key == "contract":
             return self._get_contract_status()
 
         if key == "consumption":
@@ -618,7 +618,7 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
         """Return extra attributes."""
         key = self._sensor_config["key"]
 
-        if key == "contrat":
+        if key == "contract":
             supply_points = self.coordinator.data.get("supply_points", {})
             gas_points = supply_points.get("gas", [])
             meter = next((m for m in gas_points if m.get("id") == self._pce_ref), None)
@@ -659,7 +659,7 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
 
         powered = meter.get("poweredStatus", "")
         powered_map = {"non_coupe": "En service", "coupe": "Coupé"}
-        return powered_map.get(powered, powered)
+        return powered_map.get(powered, "unknown")
 
 
 class OctopusLedgerSensor(CoordinatorEntity, SensorEntity):

@@ -266,6 +266,10 @@ class OctopusFrenchApiClient:
         """Execute GraphQL query with retry logic."""
         await self._ensure_session()
 
+        if not self._session:
+            _LOGGER.error("Session not initialized")
+            return None
+
         payload = {"query": query, "variables": variables or {}}
         request_headers = {
             "Content-Type": "application/json",
@@ -284,10 +288,8 @@ class OctopusFrenchApiClient:
                 ) as response:
                     if response.status == 200:
                         return await response.json()
-
                     if attempt < MAX_RETRY_ATTEMPTS - 1:
                         await asyncio.sleep(RETRY_DELAY * (attempt + 1))
-
             except (aiohttp.ClientError, TimeoutError):
                 if attempt < MAX_RETRY_ATTEMPTS - 1:
                     await asyncio.sleep(RETRY_DELAY * (attempt + 1))

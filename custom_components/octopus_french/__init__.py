@@ -9,7 +9,7 @@ import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform, UnitOfApparentPower
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 
@@ -75,13 +75,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def _async_setup_services(hass: HomeAssistant) -> None:
     """Set up services for Octopus Energy France."""
 
-    async def handle_force_update() -> None:
-        """Handle the force_update service call."""
-
-        # Refresh all coordinators
-        for data in hass.data[DOMAIN].items():
-            if isinstance(data, dict) and "coordinator" in data:
-                coordinator = data["coordinator"]
+    async def handle_force_update(call: ServiceCall):
+        for data in hass.data.get(DOMAIN, {}).values():
+            coordinator = data.get("coordinator")
+            if coordinator:
                 await coordinator.async_request_refresh()
 
     # Register services
@@ -147,22 +144,26 @@ async def _async_create_devices(
     account_number = entry.data.get("account_number")
     supply_points = coordinator.data.get("supply_points", {})
 
-    device_registry.async_get_or_create(
-        config_entry_id=entry.entry_id,
-        identifiers={(DOMAIN, account_number)},
-        name="Compte Octopus Energy",
-        model="Compte client",
-    )
+    # Vérifier que account_number existe avant de créer le device
+    if account_number:
+        device_registry.async_get_or_create(
+            config_entry_id=entry.entry_id,
+            identifiers={(DOMAIN, str(account_number))},
+            name="Compte Octopus Energy",
+            model="Compte client",
+        )
 
     # Créer un device pour chaque compteur électrique
     for elec_meter in supply_points.get("electricity", []):
         prm_id = elec_meter.get("id")
+        if not prm_id:
+            continue
+
         meter_kind = elec_meter.get("meterKind", "N/A")
         suscribed_max_power = elec_meter.get("subscribedMaxPower", "N/A")
-
         device_registry.async_get_or_create(
             config_entry_id=entry.entry_id,
-            identifiers={(DOMAIN, prm_id)},
+            identifiers={(DOMAIN, str(prm_id))},
             name=f"{meter_kind} {prm_id}",
             model=f"{elec_meter.get('meterKind', 'N/A')} - {suscribed_max_power} {UnitOfApparentPower.KILO_VOLT_AMPERE}",
         )
@@ -170,11 +171,13 @@ async def _async_create_devices(
     # Créer un device pour chaque compteur de gaz
     for gas_meter in supply_points.get("gas", []):
         pce_ref = gas_meter.get("id")
-        is_smart = gas_meter.get("isSmartMeter", False)
+        if not pce_ref:
+            continue
 
+        is_smart = gas_meter.get("isSmartMeter", False)
         device_registry.async_get_or_create(
             config_entry_id=entry.entry_id,
-            identifiers={(DOMAIN, pce_ref)},
+            identifiers={(DOMAIN, str(pce_ref))},
             name=f"Gazpar {pce_ref}",
             model="Gazpar" if is_smart else "Compteur gaz traditionnel",
         )

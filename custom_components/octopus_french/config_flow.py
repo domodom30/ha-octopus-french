@@ -8,17 +8,12 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 
-from .const import (
-    CONF_ACCOUNT_NUMBER,
-    DEFAULT_SCAN_INTERVAL,
-    DOMAIN,
-    MAX_SCAN_INTERVAL,
-    MIN_SCAN_INTERVAL,
-)
+from .const import CONF_ACCOUNT_NUMBER, DEFAULT_SCAN_INTERVAL, DOMAIN
 from .octopus_french import OctopusFrenchApiClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -31,14 +26,14 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         """Initialize the config flow."""
-        self.email: str | None = None
-        self.password: str | None = None
+        self.email: str = ""
+        self.password: str = ""
         self.accounts: list = []
         self.api_client: OctopusFrenchApiClient | None = None
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
 
@@ -99,7 +94,7 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_account(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle account selection step."""
         errors: dict[str, str] = {}
 
@@ -149,9 +144,9 @@ class OctopusFrenchOptionsFlow(config_entries.OptionsFlow):
     ) -> FlowResult:
         """Manage the options."""
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            return self.async_create_entry(title="", data=user_input)  # type: ignore[return-value]
 
-        return self.async_show_form(
+        return self.async_show_form(  # type: ignore[return-value]
             step_id="init",
             data_schema=vol.Schema(
                 {
@@ -160,10 +155,7 @@ class OctopusFrenchOptionsFlow(config_entries.OptionsFlow):
                         default=self.config_entry.options.get(
                             "scan_interval", DEFAULT_SCAN_INTERVAL
                         ),
-                    ): vol.All(
-                        vol.Coerce(int),
-                        vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL),
-                    ),
+                    )
                 }
             ),
         )

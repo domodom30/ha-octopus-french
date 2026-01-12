@@ -147,7 +147,7 @@
         }
       },
       "index_hp": {
-        "name": "Peak hours index",
+        "name": "Peak hours meter index",
         "state_attributes": {
           "index_start": {
             "name": "Starting index"
@@ -179,7 +179,7 @@
         }
       },
       "index_hc": {
-        "name": "Off-peak hours index",
+        "name": "Off-peak hours meter index",
         "state_attributes": {
           "index_start": {
             "name": "Starting index"
@@ -210,7 +210,7 @@
           }
         }
       },
-      "contrat": {
+      "contract": {
         "name": "Contract",
         "state_attributes": {
           "ledger_id": {
@@ -232,10 +232,10 @@
             "name": "Subscribed power"
           },
           "is_teleoperable": {
-            "name": "Remote operable"
+            "name": "Remote controllable"
           },
           "off_peak_label": {
-            "name": "Off-peak hours schedule"
+            "name": "Off-peak schedule"
           },
           "powered_status": {
             "name": "Supply status"
@@ -323,7 +323,7 @@
         }
       },
       "pot_ledger": {
-        "name": "Credit balance",
+        "name": "Pot balance",
         "state_attributes": {
           "ledger_number": {
             "name": "Ledger number"
