@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
-
 class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching data from the API."""
 
@@ -92,6 +91,7 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
         # Récupération des données électricité (journalières agrégées)
         electricity_readings = []
         elec_index = None
+        latest_electricity_reading = None
 
         if electricity_meter_id:
             electricity_readings = await self.api_client.get_energy_readings(
@@ -109,10 +109,18 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
                 account_number, electricity_meter_id
             )
 
+            latest_electricity_reading = await self.api_client.get_latest_energy_reading(
+                property_id=account_id,
+                market_supply_point_id=electricity_meter_id,
+                utility_type="electricity",
+                reading_frequency="DAY_INTERVAL",
+            )
+
         # Stocker les données électricité
         account_data["electricity"] = {
             "readings": electricity_readings,
             "index": elec_index,
+            "latest_reading": latest_electricity_reading,
         }
 
         # Récupération des données gaz (mensuelles)

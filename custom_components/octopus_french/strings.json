@@ -114,6 +114,17 @@
           }
         }
       },
+      "dernier_releve": {
+        "name": "Dernier releve",
+        "state_attributes": {
+          "start_at": {
+            "name": "Date du releve"
+          },
+          "meta": {
+            "name": "Metadonnees"
+          }
+        }
+      },
       "index_base": {
         "name": "Meter index",
         "state_attributes": {

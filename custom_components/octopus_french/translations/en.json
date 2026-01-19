@@ -114,6 +114,17 @@
           }
         }
       },
+      "dernier_releve": {
+        "name": "Latest reading",
+        "state_attributes": {
+          "start_at": {
+            "name": "Reading date"
+          },
+          "meta": {
+            "name": "Metadata"
+          }
+        }
+      },
       "index_base": {
         "name": "Meter index",
         "state_attributes": {

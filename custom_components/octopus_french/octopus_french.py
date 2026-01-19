@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import suppress
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 import logging
 from typing import Any
 
@@ -513,6 +513,40 @@ class OctopusFrenchApiClient:
             .get("edges", [])
         )
         return [edge["node"] for edge in edges]
+
+    async def get_latest_energy_reading(
+        self,
+        property_id: str,
+        market_supply_point_id: str,
+        utility_type: str = "electricity",
+        reading_frequency: str = "DAY_INTERVAL",
+        days: int = 30,
+    ) -> dict[str, Any] | None:
+        """Get the latest reading for a meter."""
+        end_at = datetime.now(UTC)
+        start_at = end_at - timedelta(days=days)
+
+        reading_quality = "ACTUAL" if utility_type == "electricity" else None
+
+        readings = await self.get_energy_readings(
+            property_id=property_id,
+            start_at=start_at.isoformat(),
+            end_at=end_at.isoformat(),
+            market_supply_point_id=market_supply_point_id,
+            utility_type=utility_type,
+            reading_frequency=reading_frequency,
+            reading_quality=reading_quality,
+            first=100,
+        )
+
+        if not readings:
+            return None
+
+        try:
+            readings_sorted = sorted(readings, key=lambda x: x.get("startAt", ""))
+            return readings_sorted[-1]
+        except (TypeError, KeyError, IndexError):
+            return readings[-1]
 
     async def get_payment_requests(self, ledger_number: str) -> dict[str, Any] | None:
         """Get the latest payment request for a ledger."""

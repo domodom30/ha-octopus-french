@@ -84,6 +84,15 @@ ELECTRICITY_SENSORS = [
     },
 ]
 
+LATEST_READING_SENSOR = {
+    "key": "dernier_releve",
+    "icon": "mdi:calendar-clock",
+    "device_class": SensorDeviceClass.ENERGY,
+    "state_class": SensorStateClass.MEASUREMENT,
+    "unit": UnitOfEnergy.KILO_WATT_HOUR,
+    "precision": 3,
+}
+
 # Configuration des sensors d'index
 ELECTRICITY_INDEX_SENSORS = [
     {
@@ -235,6 +244,8 @@ async def async_setup_entry(
                     entities.append(
                         OctopusElectricityIndexSensor(coordinator, prm_id, index_config)
                     )
+
+        entities.append(OctopusLatestReadingSensor(coordinator, prm_id))
 
     # Gas sensors
     entities.extend(
@@ -522,6 +533,53 @@ class OctopusElectricityIndexSensor(CoordinatorEntity, SensorEntity):
 
         # Le sensor est disponible si les données pour ce type existent
         return self._index_type in index_data
+
+
+class OctopusLatestReadingSensor(CoordinatorEntity, SensorEntity):
+    """Sensor for the latest daily electricity reading."""
+
+    def __init__(
+        self,
+        coordinator: OctopusFrenchDataUpdateCoordinator,
+        prm_id: str,
+    ) -> None:
+        """Initialize the latest reading sensor."""
+        super().__init__(coordinator)
+
+        self._prm_id = prm_id
+        self._attr_unique_id = f"{DOMAIN}_{prm_id}_{LATEST_READING_SENSOR['key']}"
+        self._attr_translation_key = LATEST_READING_SENSOR["key"]
+        self._attr_has_entity_name = True
+        self._attr_icon = LATEST_READING_SENSOR["icon"]
+        self._attr_device_class = LATEST_READING_SENSOR["device_class"]
+        self._attr_state_class = LATEST_READING_SENSOR["state_class"]
+        self._attr_native_unit_of_measurement = LATEST_READING_SENSOR["unit"]
+        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, prm_id)})
+
+        if LATEST_READING_SENSOR["precision"] is not None:
+            self._attr_suggested_display_precision = LATEST_READING_SENSOR["precision"]
+
+    @property
+    def native_value(self) -> float | None:
+        """Return the latest reading value."""
+        reading = self.coordinator.data.get("electricity", {}).get("latest_reading")
+        if not reading:
+            return None
+
+        value = reading.get("value")
+        return float(value) if value is not None else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return extra attributes for the latest reading."""
+        reading = self.coordinator.data.get("electricity", {}).get("latest_reading")
+        if not reading:
+            return {}
+
+        return {
+            "start_at": reading.get("startAt"),
+            "meta": reading.get("metaData"),
+        }
 
 
 class OctopusGasSensor(CoordinatorEntity, SensorEntity):
