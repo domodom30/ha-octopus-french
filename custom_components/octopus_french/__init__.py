@@ -13,7 +13,13 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 
-from .const import DEFAULT_SCAN_INTERVAL, DOMAIN, SERVICE_FORCE_UPDATE
+from .const import (
+    CONF_API_KEY,
+    CONF_AUTH_METHOD,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+    SERVICE_FORCE_UPDATE,
+)
 from .coordinator import OctopusFrenchDataUpdateCoordinator
 from .octopus_french import OctopusFrenchApiClient
 
@@ -26,11 +32,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Octopus French Energy from a config entry."""
     hass.data.setdefault(DOMAIN, {})
 
-    # Initialize API client
-    api_client = OctopusFrenchApiClient(
-        email=entry.data["email"],
-        password=entry.data["password"],
-    )
+    # Initialize API client based on authentication method
+    auth_method = entry.data.get(CONF_AUTH_METHOD, "email")
+    if auth_method == "api_key":
+        api_client = OctopusFrenchApiClient(
+            api_key=entry.data[CONF_API_KEY],
+        )
+    else:
+        api_client = OctopusFrenchApiClient(
+            email=entry.data["email"],
+            password=entry.data["password"],
+        )
 
     # Authenticate
     await _async_authenticate(api_client)

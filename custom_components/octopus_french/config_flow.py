@@ -13,7 +13,13 @@ from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 
-from .const import CONF_ACCOUNT_NUMBER, DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import (
+    CONF_ACCOUNT_NUMBER,
+    CONF_API_KEY,
+    CONF_AUTH_METHOD,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+)
 from .octopus_french import OctopusFrenchApiClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -28,21 +34,56 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Initialize the config flow."""
         self.email: str = ""
         self.password: str = ""
+        self.api_key: str = ""
+        self.auth_method: str = "email"
         self.accounts: list = []
         self.api_client: OctopusFrenchApiClient | None = None
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle the initial step."""
+        """Handle the initial step - choose authentication method."""
+        if user_input is not None:
+            self.auth_method = user_input[CONF_AUTH_METHOD]
+            if self.auth_method == "api_key":
+                return await self.async_step_api_key()
+            return await self.async_step_email_password()
+
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_AUTH_METHOD,
+                        default="email",
+                    ): vol.In({"email": "Email/Password", "api_key": "API Key"}),
+                }
+            ),
+        )
+
+    async def _async_handle_authentication_step(
+        self,
+        user_input: dict[str, Any] | None,
+        step_id: str,
+        schema: vol.Schema,
+    ) -> ConfigFlowResult:
+        """Handle authentication step for both email/password and API key."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            self.email = user_input[CONF_EMAIL]
-            self.password = user_input[CONF_PASSWORD]
-            self.api_client = OctopusFrenchApiClient(self.email, self.password)
-
             try:
+                # Create API client based on authentication method
+                if self.auth_method == "email":
+                    self.email = user_input[CONF_EMAIL]
+                    self.password = user_input[CONF_PASSWORD]
+                    self.api_client = OctopusFrenchApiClient(
+                        email=self.email, password=self.password
+                    )
+                else:
+                    self.api_key = user_input[CONF_API_KEY]
+                    self.api_client = OctopusFrenchApiClient(api_key=self.api_key)
+
+                # Authenticate and get accounts
                 auth_success = await self.api_client.authenticate()
 
                 if not auth_success:
@@ -59,11 +100,7 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         if len(self.accounts) == 1:
                             return self.async_create_entry(
                                 title=f"Octopus French Energy - {self.accounts[0]['number']}",
-                                data={
-                                    CONF_EMAIL: self.email,
-                                    CONF_PASSWORD: self.password,
-                                    CONF_ACCOUNT_NUMBER: self.accounts[0]["number"],
-                                },
+                                data=self._build_config_data(self.accounts[0]["number"]),
                             )
                         # Si plusieurs comptes, passer à l'étape de sélection
                         return await self.async_step_account()
@@ -81,15 +118,48 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if self.api_client:
                     await self.api_client.close()
 
-        return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema(
+        return self.async_show_form(step_id=step_id, data_schema=schema, errors=errors)
+
+    def _build_config_data(self, account_number: str) -> dict[str, Any]:
+        """Build config entry data based on authentication method."""
+        data = {
+            CONF_AUTH_METHOD: self.auth_method,
+            CONF_ACCOUNT_NUMBER: account_number,
+        }
+        if self.auth_method == "email":
+            data[CONF_EMAIL] = self.email
+            data[CONF_PASSWORD] = self.password
+        else:
+            data[CONF_API_KEY] = self.api_key
+        return data
+
+    async def async_step_email_password(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle email/password authentication step."""
+        return await self._async_handle_authentication_step(
+            user_input,
+            "email_password",
+            vol.Schema(
                 {
                     vol.Required(CONF_EMAIL): str,
                     vol.Required(CONF_PASSWORD): str,
                 }
             ),
-            errors=errors,
+        )
+
+    async def async_step_api_key(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle API key authentication step."""
+        return await self._async_handle_authentication_step(
+            user_input,
+            "api_key",
+            vol.Schema(
+                {
+                    vol.Required(CONF_API_KEY): str,
+                }
+            ),
         )
 
     async def async_step_account(
@@ -106,11 +176,7 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             return self.async_create_entry(
                 title=f"Octopus French Energy - {account_number}",
-                data={
-                    CONF_EMAIL: self.email,
-                    CONF_PASSWORD: self.password,
-                    CONF_ACCOUNT_NUMBER: account_number,
-                },
+                data=self._build_config_data(account_number),
             )
 
         account_list = {

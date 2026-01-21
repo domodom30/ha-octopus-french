@@ -244,10 +244,16 @@ class TokenManager:
 class OctopusFrenchApiClient:
     """OctopusFrench API Client with robust authentication."""
 
-    def __init__(self, email: str, password: str) -> None:
+    def __init__(
+        self,
+        email: str | None = None,
+        password: str | None = None,
+        api_key: str | None = None,
+    ) -> None:
         """Initialize the API client."""
         self.email = email
         self.password = password
+        self.api_key = api_key
         self.token_manager = TokenManager()
         self._auth_lock = asyncio.Lock()
         self._session: aiohttp.ClientSession | None = None
@@ -302,12 +308,21 @@ class OctopusFrenchApiClient:
             if self.token_manager.is_valid:
                 return True
 
-            variables = {
-                "input": {
+            # Determine input variables based on authentication method
+            if self.api_key:
+                input_data = {"APIKey": self.api_key}
+                error_msg = "Invalid API key"
+            elif self.email and self.password:
+                input_data = {
                     "email": self.email,
                     "password": self.password,
                 }
-            }
+                error_msg = "Invalid credentials"
+            else:
+                _LOGGER.error("No authentication credentials provided")
+                return False
+
+            variables = {"input": input_data}
 
             result = await self._async_execute(
                 query=MUTATION_LOGIN,
@@ -323,7 +338,7 @@ class OctopusFrenchApiClient:
                 error_messages = (
                     [e.get("message", "Unknown") for e in result["errors"]]
                     if "errors" in result
-                    else ["Invalid credentials"]
+                    else [error_msg]
                 )
                 _LOGGER.error("Authentication failed: %s", ", ".join(error_messages))
                 return False

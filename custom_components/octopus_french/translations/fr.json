@@ -3,10 +3,24 @@
     "step": {
       "user": {
         "title": "Configurer Octopus Energy France",
+        "description": "Choisissez votre méthode d'authentification",
+        "data": {
+          "auth_method": "Méthode d'authentification"
+        }
+      },
+      "email_password": {
+        "title": "Authentification Email/Mot de passe",
         "description": "Entrez vos identifiants de compte Octopus Energy France",
         "data": {
           "email": "Email",
           "password": "Mot de passe"
+        }
+      },
+      "api_key": {
+        "title": "Authentification par clé API",
+        "description": "Entrez votre clé API Octopus Energy France",
+        "data": {
+          "api_key": "Clé API"
         }
       }
     },

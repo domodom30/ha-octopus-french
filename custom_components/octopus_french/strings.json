@@ -3,10 +3,24 @@
     "step": {
       "user": {
         "title": "Set up Octopus Energy France",
+        "description": "Choose your authentication method",
+        "data": {
+          "auth_method": "Authentication method"
+        }
+      },
+      "email_password": {
+        "title": "Email/Password Authentication",
         "description": "Enter your Octopus Energy France account credentials",
         "data": {
           "email": "Email",
           "password": "Password"
+        }
+      },
+      "api_key": {
+        "title": "API Key Authentication",
+        "description": "Enter your Octopus Energy France API key",
+        "data": {
+          "api_key": "API Key"
         }
       }
     },

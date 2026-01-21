@@ -3,6 +3,8 @@
 DOMAIN = "octopus_french"
 
 CONF_ACCOUNT_NUMBER = "account_number"
+CONF_API_KEY = "api_key"
+CONF_AUTH_METHOD = "auth_method"
 
 # Ledger types
 LEDGER_TYPE_ELECTRICITY = "FRA_ELECTRICITY_LEDGER"
