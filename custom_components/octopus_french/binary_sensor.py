@@ -28,7 +28,6 @@ async def async_setup_entry(
     """Set up OctopusFrench binary sensors."""
     coordinator = hass.data[DOMAIN][config_entry.entry_id]["coordinator"]
 
-    # Validate coordinator data
     if not (data := coordinator.data):
         return
 
@@ -37,7 +36,6 @@ async def async_setup_entry(
 
     sensors = []
 
-    # Find electricity meters with off-peak hours
     supply_points = data.get("supply_points", {})
     electricity_points = supply_points.get("electricity", [])
 
@@ -49,14 +47,12 @@ async def async_setup_entry(
             off_peak_data = parse_off_peak_hours(off_peak_label)
 
             if off_peak_data["ranges"]:
-                # Create attributes from off-peak data
                 electricity_attributes = {
                     "off_peak_type": off_peak_data["type"],
                     "off_peak_total_hours": off_peak_data["total_hours"],
                     "off_peak_range_count": off_peak_data["range_count"],
                 }
 
-                # Add each range
                 for i, time_range in enumerate(off_peak_data["ranges"], 1):
                     electricity_attributes[f"off_peak_range_{i}_start"] = time_range[
                         "start"
@@ -68,7 +64,6 @@ async def async_setup_entry(
                         "duration_hours"
                     ]
 
-                # Create HC binary sensor for this meter
                 hc_sensor = OctopusFrenchHcBinarySensor(
                     coordinator=coordinator,
                     prm_id=prm_id,
@@ -83,7 +78,7 @@ async def async_setup_entry(
 class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
     """Binary sensor indicating if current time is in HC (Heures Creuses) period."""
 
-    _attr_has_entity_name = True  # ← Changé à True pour utiliser translation_key
+    _attr_has_entity_name = True
     _attr_should_poll = False
     _attr_device_class = BinarySensorDeviceClass.RUNNING
 
@@ -98,7 +93,7 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
         self._prm_id = prm_id
         self._attributes = electricity_sensor_attributes
         self._attr_unique_id = f"{DOMAIN}_{prm_id}_hc_active"
-        self._attr_translation_key = "hc_active"  # ← Utilise strings.json
+        self._attr_translation_key = "hc_active"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, prm_id)},
         )
@@ -188,7 +183,6 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
             "hc_type": self._attributes.get("off_peak_type", "Unknown"),
         }
 
-        # Add individual HC ranges in a readable format
         for i in range(1, range_count + 1):
             start_attr = f"off_peak_range_{i}_start"
             end_attr = f"off_peak_range_{i}_end"

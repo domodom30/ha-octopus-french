@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from contextlib import suppress
 from datetime import timedelta
 import logging
 from typing import TYPE_CHECKING, Any
@@ -51,8 +50,6 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
     async def _fetch_all_data(self) -> dict[str, Any]:
         """Fetch all data from API."""
         account_data = await self.api_client.get_account_data(self.account_number)
-
-        # Validation des données essentielles
         account_id = account_data.get("account_id")
         account_number = account_data.get("account_number")
 
@@ -61,7 +58,6 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
         if not account_number:
             raise UpdateFailed("Missing account_number in API response")
 
-        # Filtrer les compteurs résiliés
         account_data["supply_points"]["electricity"] = [
             sp
             for sp in account_data["supply_points"]["electricity"]
@@ -71,7 +67,6 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
             )
         ]
 
-        # Récupérer les IDs des compteurs
         electricity_supply_points = account_data.get("supply_points", {}).get(
             "electricity", []
         )
@@ -81,7 +76,6 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
         gas_supply_points = account_data.get("supply_points", {}).get("gas", [])
         gas_meter_id = gas_supply_points[0]["id"] if gas_supply_points else None
 
-        # Calculer les dates avec le timezone de Home Assistant
         now = dt_util.now()
         today_midnight = dt_util.start_of_local_day(now)
         first_of_month = today_midnight.replace(day=1)
@@ -89,7 +83,6 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
         date_end = (today_midnight + timedelta(days=1)).isoformat()
         gas_start = (today_midnight - timedelta(days=365)).isoformat()
 
-        # Récupération des données électricité (journalières agrégées)
         electricity_readings = []
         elec_index = None
 
@@ -109,13 +102,11 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
                 account_number, electricity_meter_id
             )
 
-        # Stocker les données électricité
         account_data["electricity"] = {
             "readings": electricity_readings,
             "index": elec_index,
         }
 
-        # Récupération des données gaz (mensuelles)
         gas = []
         if gas_meter_id:
             gas = await self.api_client.get_energy_readings(
@@ -130,25 +121,9 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
 
         account_data["gas"] = gas
 
-        # Récupérer les demandes de paiement
-        await self._fetch_payment_requests(account_data)
+        account_data[
+            "payment_requests"
+        ] = await self.api_client.get_all_payment_requests(account_number)
 
         _LOGGER.debug("Account data updated successfully: %s", account_data)
         return account_data
-
-    async def _fetch_payment_requests(self, account_data: dict[str, Any]) -> None:
-        """Fetch payment requests for all ledgers."""
-        ledgers = account_data.get("ledgers", {})
-        payment_requests = {}
-
-        for ledger_type, ledger_info in ledgers.items():
-            ledger_number = ledger_info.get("number")
-            if ledger_number:
-                with suppress(Exception):
-                    payment_request = await self.api_client.get_payment_requests(
-                        ledger_number
-                    )
-                    if payment_request:
-                        payment_requests[ledger_type] = payment_request
-
-        account_data["payment_requests"] = payment_requests

@@ -6,6 +6,7 @@ import asyncio
 from contextlib import suppress
 from datetime import UTC, datetime
 import logging
+import re
 from typing import Any
 
 import aiohttp
@@ -15,10 +16,9 @@ _LOGGER = logging.getLogger(__name__)
 
 GRAPHQL_ENDPOINT = "https://api.oefr-kraken.energy/v1/graphql/"
 
-# Token constants
-TOKEN_EXPIRY_BUFFER = 60  # Consider token expired 60s before actual expiry
+TOKEN_EXPIRY_BUFFER = 60
 MAX_RETRY_ATTEMPTS = 3
-RETRY_DELAY = 1  # seconds
+RETRY_DELAY = 1
 
 MUTATION_LOGIN = """
 mutation obtainKrakenToken($input: ObtainJSONWebTokenInput!) {
@@ -67,12 +67,22 @@ QUERY_GET_ACCOUNT_DATA = """
 query getAccountData($accountNumber: String!) {
   account(accountNumber: $accountNumber) {
     number
+    ledgers {
+      balance
+      ledgerType
+      name
+      number
+      id
+    }
     properties {
       id
       address
       supplyPoints(first: 5) {
         edges {
           node {
+            id
+            externalIdentifier
+            marketName
             meterPoint {
               ... on ElectricityMeterPoint {
                 id
@@ -105,6 +115,52 @@ query getAccountData($accountNumber: String!) {
         ledgerType
         name
         number
+      }
+    }
+    agreements(
+      activeAt: "2026-01-22T00:00:00Z"
+      first: 10
+    ) {
+      edges {
+        node {
+          id
+          validFrom
+          validTo
+          isActive
+          supplyContractNumber
+          supplyPoint {
+            id
+            externalIdentifier
+          }
+          product {
+            code
+            fullName
+            displayName
+          }
+          energySupplyRate {
+            standingRate {
+              currency
+              pricePerUnit
+              unitType
+              pricePerUnitWithTaxes
+            }
+            consumptionRates(first: 10) {
+              edges {
+                node {
+                  currency
+                  pricePerUnit
+                  unitType
+                  pricePerUnitWithTaxes
+                }
+              }
+            }
+          }
+          billingFrequency
+          nextPaymentForecast {
+            amount
+            date
+          }
+        }
       }
     }
   }
@@ -388,7 +444,7 @@ class OctopusFrenchApiClient:
         return result.get("data", {}).get("viewer", {}).get("accounts", [])
 
     async def get_account_data(self, account_number: str) -> dict[str, Any]:
-        """Get detailed account data including ledgers."""
+        """Get detailed account data including ledgers and tariffs in a single query."""
         variables = {"accountNumber": account_number}
         result = await self._execute_with_auth(
             query=QUERY_GET_ACCOUNT_DATA, variables=variables
@@ -398,21 +454,78 @@ class OctopusFrenchApiClient:
         if not account:
             return {}
 
-        ledgers = await self.get_ledgers(account)
-        supply_points = self.get_supply_points(account.get("properties"))
         properties = account.get("properties", [])
         account_id = properties[0].get("id") if properties else None
+
+        ledgers = self._extract_ledgers(account)
+
+        supply_points = self._extract_supply_points(properties)
+
+        agreements = self._extract_agreements(account)
 
         return {
             "account_id": account_id,
             "account_number": account.get("number", ""),
             "ledgers": ledgers,
             "supply_points": supply_points,
+            "agreements": agreements,
         }
 
-    async def get_ledgers(self, account: dict[str, Any]) -> dict[str, dict[str, Any]]:
-        """Get ledgers from account data."""
+    def _extract_ledgers(self, account: dict[str, Any]) -> dict[str, dict[str, Any]]:
+        """Extract ledgers from account data, filtering out terminated meters."""
         ledgers = {}
+        active_prms = set()
+        properties = account.get("properties", [])
+
+        for prop in properties:
+            if not isinstance(prop, dict):
+                continue
+
+            edges = prop.get("supplyPoints", {}).get("edges", [])
+            for edge in edges:
+                node = edge.get("node", {})
+                meter_point = node.get("meterPoint", {})
+
+                if (
+                    meter_point.get("distributorStatus") == "RESIL"
+                    and meter_point.get("poweredStatus") == "LIMI"
+                ):
+                    continue
+
+                prm = node.get("externalIdentifier")
+                if prm:
+                    active_prms.add(prm)
+
+        ledger_list = account.get("ledgers", [])
+        if ledger_list:
+            for ledger in ledger_list:
+                if not ledger:
+                    continue
+
+                ledger_type = ledger.get("ledgerType")
+                ledger_name = ledger.get("name", "")
+
+                if not ledger_type:
+                    continue
+
+                if ledger_type in ["FRA_ELECTRICITY_LEDGER", "FRA_GAS_LEDGER"]:
+                    match = re.search(r"\((\d+)\)", ledger_name)
+                    if match:
+                        ledger_prm = match.group(1)
+
+                        if ledger_prm not in active_prms:
+                            _LOGGER.debug(
+                                "Skipping ledger %s for terminated meter %s",
+                                ledger_type,
+                                ledger_prm,
+                            )
+                            continue
+
+                ledgers[ledger_type] = {
+                    "balance": ledger.get("balance", 0),
+                    "name": ledger.get("name", ""),
+                    "number": ledger.get("number", ""),
+                }
 
         ledger_data = account.get("creditStorage", {}).get("ledger", [])
         if not isinstance(ledger_data, list):
@@ -420,31 +533,19 @@ class OctopusFrenchApiClient:
 
         for ledger in ledger_data:
             if ledger and (ledger_type := ledger.get("ledgerType")):
-                ledgers[ledger_type] = {
-                    "balance": ledger.get("currentBalance", 0),
-                    "name": ledger.get("name", ""),
-                    "number": ledger.get("number", ""),
-                }
-
-        with suppress(Exception):
-            account_number = account.get("number", "")
-            all_accounts = await self.get_accounts()
-            for acc in all_accounts:
-                if acc["number"] == account_number:
-                    for ledger in acc.get("ledgers", []):
-                        if (
-                            ledger_type := ledger.get("ledgerType")
-                        ) and ledger_type not in ledgers:
-                            ledgers[ledger_type] = {
-                                "balance": ledger.get("balance", 0),
-                                "name": ledger_type.lower(),
-                                "number": ledger.get("number", ""),
-                            }
+                if ledger_type not in ledgers:
+                    ledgers[ledger_type] = {
+                        "balance": ledger.get("currentBalance", 0),
+                        "name": ledger.get("name", ""),
+                        "number": ledger.get("number", ""),
+                    }
 
         return ledgers
 
-    def get_supply_points(self, properties: Any) -> dict[str, list[dict[str, Any]]]:
-        """Get supply points from properties."""
+    def _extract_supply_points(
+        self, properties: Any
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Extract supply points from properties."""
         supply_points = {"electricity": [], "gas": []}
 
         if not isinstance(properties, list):
@@ -456,16 +557,110 @@ class OctopusFrenchApiClient:
 
             edges = prop.get("supplyPoints", {}).get("edges", [])
             for edge in edges:
-                meter_point = edge.get("node", {}).get("meterPoint", {})
+                node = edge.get("node", {})
+                meter_point = node.get("meterPoint", {})
 
-                # Check if electricity meter
+                meter_point["prm"] = node.get("externalIdentifier")
+                meter_point["supply_point_id"] = node.get("id")
+                meter_point["market_name"] = node.get("marketName")
+
                 if "meterKind" in meter_point or "distributorStatus" in meter_point:
                     supply_points["electricity"].append(meter_point)
-                # Check if gas meter
+
                 elif "gasNature" in meter_point or "annualConsumption" in meter_point:
                     supply_points["gas"].append(meter_point)
 
         return supply_points
+
+    def _extract_agreements(self, account: dict[str, Any]) -> list[dict[str, Any]]:
+        """Extract agreements with tariffs from account data."""
+        agreements = []
+
+        agreement_edges = account.get("agreements", {}).get("edges", [])
+
+        for edge in agreement_edges:
+            agreement = edge.get("node", {})
+
+            tariffs = None
+            if energy_rate := agreement.get("energySupplyRate"):
+                tariffs = self._extract_tariffs(energy_rate)
+
+            agreement_data = {
+                "id": agreement.get("id"),
+                "valid_from": agreement.get("validFrom"),
+                "valid_to": agreement.get("validTo"),
+                "is_active": agreement.get("isActive", False),
+                "contract_number": agreement.get("supplyContractNumber"),
+                "supply_point_id": agreement.get("supplyPoint", {}).get("id"),
+                "prm": agreement.get("supplyPoint", {}).get("externalIdentifier"),
+                "product": {
+                    "code": agreement.get("product", {}).get("code"),
+                    "name": agreement.get("product", {}).get("fullName"),
+                    "display_name": agreement.get("product", {}).get("displayName"),
+                },
+                "tariffs": tariffs,
+                "billing_frequency_months": agreement.get("billingFrequency"),
+                "next_payment": None,
+            }
+
+            if next_payment := agreement.get("nextPaymentForecast"):
+                agreement_data["next_payment"] = {
+                    "amount": next_payment.get("amount"),
+                    "date": next_payment.get("date"),
+                }
+
+            agreements.append(agreement_data)
+
+        return agreements
+
+    def _extract_tariffs(self, energy_rate: dict[str, Any]) -> dict[str, Any]:
+        """Extract tariff information from energySupplyRate."""
+        tariffs: dict[str, Any] = {
+            "subscription": None,
+            "consumption": {"heures_pleines": None, "heures_creuses": None},
+        }
+
+        if standing := energy_rate.get("standingRate"):
+            try:
+                price_ht = float(standing.get("pricePerUnit", 0)) / 100
+                price_ttc = float(standing.get("pricePerUnitWithTaxes", 0)) / 100
+
+                tariffs["subscription"] = {
+                    "annual_ht_eur": round(price_ht, 2),
+                    "annual_ttc_eur": round(price_ttc, 2),
+                    "monthly_ttc_eur": round(price_ttc / 12, 2),
+                    "currency": standing.get("currency"),
+                    "unit_type": standing.get("unitType"),
+                }
+            except (ValueError, TypeError) as e:
+                _LOGGER.warning("Error parsing standing rate: %s", e)
+
+        consumption_rates = []
+        for rate_edge in energy_rate.get("consumptionRates", {}).get("edges", []):
+            rate = rate_edge.get("node", {})
+            try:
+                consumption_rates.append(
+                    {
+                        "price_ht": round(float(rate.get("pricePerUnit", 0)) / 100, 4),
+                        "price_ttc": round(
+                            float(rate.get("pricePerUnitWithTaxes", 0)) / 100, 4
+                        ),
+                        "currency": rate.get("currency"),
+                        "unit_type": rate.get("unitType"),
+                    }
+                )
+            except (ValueError, TypeError) as e:
+                _LOGGER.warning("Error parsing consumption rate: %s", e)
+
+        consumption_rates.sort(key=lambda x: x["price_ttc"], reverse=True)
+
+        if len(consumption_rates) >= 2:
+            tariffs["consumption"]["heures_pleines"] = consumption_rates[0]
+            tariffs["consumption"]["heures_creuses"] = consumption_rates[1]
+        elif len(consumption_rates) == 1:
+            tariffs["consumption"]["base"] = consumption_rates[0]
+
+        return tariffs
 
     async def get_energy_readings(
         self,
@@ -512,6 +707,7 @@ class OctopusFrenchApiClient:
             .get("measurements", {})
             .get("edges", [])
         )
+
         return [edge["node"] for edge in edges]
 
     async def get_payment_requests(self, ledger_number: str) -> dict[str, Any] | None:
@@ -529,6 +725,37 @@ class OctopusFrenchApiClient:
         edges = payment_requests.get("edges", [])
         return edges[0].get("node") if edges else None
 
+    async def get_all_payment_requests(
+        self, account_number: str
+    ) -> dict[str, dict[str, Any]]:
+        """Get payment requests for all ledgers of an account."""
+
+        account_data = await self.get_account_data(account_number)
+        ledgers = account_data.get("ledgers", {})
+
+        payment_requests = {}
+
+        for ledger_type, ledger_info in ledgers.items():
+            ledger_number = ledger_info.get("number")
+
+            if not ledger_number:
+                continue
+
+            try:
+                payment_request = await self.get_payment_requests(ledger_number)
+                if payment_request:
+                    payment_requests[ledger_type] = payment_request
+            except (KeyError, ValueError) as err:
+                _LOGGER.warning(
+                    "Failed to fetch payment request for ledger %s (%s): %s",
+                    ledger_type,
+                    ledger_number,
+                    err,
+                )
+                continue
+
+        return payment_requests
+
     async def get_electricity_index(
         self, account_number: str, prm_id: str
     ) -> dict[str, Any] | None:
@@ -540,14 +767,11 @@ class OctopusFrenchApiClient:
             _LOGGER.warning("No electricity index data for PRM %s", prm_id)
             return None
 
-        # Extraire les edges de la réponse GraphQL
         edges = result.get("data", {}).get("electricityReading", {}).get("edges", [])
-
         if not edges:
             _LOGGER.warning("No electricity readings in response for PRM %s", prm_id)
             return None
 
-        # Organiser les données par type (HP/HC/BASE)
         index_data = {}
         period_start = None
         period_end = None
@@ -568,13 +792,11 @@ class OctopusFrenchApiClient:
                     "index_reliability": node.get("indexReliability"),
                 }
 
-                # Déterminer le type de tarif
                 if temp_class == "BASE":
                     tariff_type = "BASE"
                 elif temp_class in ["HP", "HC"] and tariff_type != "BASE":
                     tariff_type = "HPHC"
 
-                # Récupérer les dates de période
                 if not period_start:
                     period_start = node.get("periodStartAt")
                     period_end = node.get("periodEndAt")
@@ -583,9 +805,12 @@ class OctopusFrenchApiClient:
             _LOGGER.warning("No index data found for PRM %s", prm_id)
             return None
 
-        return {
+        result_data = {
             "tariff_type": tariff_type,
-            **index_data,
             "period_start": period_start,
             "period_end": period_end,
         }
+
+        result_data.update(index_data)
+
+        return result_data

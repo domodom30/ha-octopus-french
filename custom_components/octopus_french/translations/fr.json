@@ -41,6 +41,9 @@
           },
           "calculation_method": {
             "name": "Méthode de calcul"
+          },
+          "last_imported_date": {
+            "name": "Dernière date importée"
           }
         }
       },
@@ -55,6 +58,9 @@
           },
           "calculation_method": {
             "name": "Méthode de calcul"
+          },
+          "last_imported_date": {
+            "name": "Dernière date importée"
           }
         }
       },
@@ -69,6 +75,9 @@
           },
           "calculation_method": {
             "name": "Méthode de calcul"
+          },
+          "last_imported_date": {
+            "name": "Dernière date importée"
           }
         }
       },
@@ -83,6 +92,9 @@
           },
           "calculation_method": {
             "name": "Méthode de calcul"
+          },
+          "last_imported_date": {
+            "name": "Dernière date importée"
           }
         }
       },
@@ -97,6 +109,9 @@
           },
           "calculation_method": {
             "name": "Méthode de calcul"
+          },
+          "last_imported_date": {
+            "name": "Dernière date importée"
           }
         }
       },
@@ -111,6 +126,9 @@
           },
           "calculation_method": {
             "name": "Méthode de calcul"
+          },
+          "last_imported_date": {
+            "name": "Dernière date importée"
           }
         }
       },
@@ -254,6 +272,139 @@
           }
         }
       },
+      "subscription": {
+        "name": "Abonnement",
+        "state_attributes": {
+          "current_month": {
+            "name": "Mois en cours"
+          },
+          "contract_number": {
+            "name": "Numéro de contrat"
+          },
+          "product_name": {
+            "name": "Nom du produit"
+          },
+          "annual_ht_eur": {
+            "name": "Prix annuel (HT)"
+          },
+          "annual_ttc_eur": {
+            "name": "Prix annuel (TTC)"
+          },
+          "monthly_ttc_eur": {
+            "name": "Prix mensuel (TTC)"
+          },
+          "billing_frequency_months": {
+            "name": "Fréquence de facturation (mois)"
+          },
+          "valid_from": {
+            "name": "Valide depuis"
+          },
+          "calculation_method": {
+            "name": "Méthode de calcul"
+          },
+          "next_payment_amount": {
+            "name": "Montant du prochain prélèvement"
+          },
+          "next_payment_date": {
+            "name": "Date du prochain prélèvement"
+          },
+          "days_counted": {
+            "name": "Jours comptés"
+          },
+          "readings_count": {
+            "name": "Nombre de relevés"
+          }
+        }
+      },
+      "tarif_base": {
+        "name": "Tarif BASE",
+        "state_attributes": {
+          "contract_number": {
+            "name": "Numéro de contrat"
+          },
+          "product_name": {
+            "name": "Nom du produit"
+          },
+          "valid_from": {
+            "name": "Valide depuis"
+          },
+          "price_ht_eur_kwh": {
+            "name": "Prix (HT)"
+          },
+          "price_ttc_eur_kwh": {
+            "name": "Prix (TTC)"
+          }
+        }
+      },
+      "tarif_hp": {
+        "name": "Tarif HP",
+        "state_attributes": {
+          "contract_number": {
+            "name": "Numéro de contrat"
+          },
+          "product_name": {
+            "name": "Nom du produit"
+          },
+          "valid_from": {
+            "name": "Valide depuis"
+          },
+          "price_ht_eur_kwh": {
+            "name": "Prix (HT)"
+          },
+          "price_ttc_eur_kwh": {
+            "name": "Prix (TTC)"
+          }
+        }
+      },
+      "tarif_hc": {
+        "name": "Tarif HC",
+        "state_attributes": {
+          "contract_number": {
+            "name": "Numéro de contrat"
+          },
+          "product_name": {
+            "name": "Nom du produit"
+          },
+          "valid_from": {
+            "name": "Valide depuis"
+          },
+          "price_ht_eur_kwh": {
+            "name": "Prix (HT)"
+          },
+          "price_ttc_eur_kwh": {
+            "name": "Prix (TTC)"
+          }
+        }
+      },
+      "latest_reading": {
+        "name": "Dernier relevé",
+        "state_attributes": {
+          "date_releve": {
+            "name": "Date du relevé"
+          },
+          "heures_base": {
+            "name": "Heures base"
+          },
+          "heures_pleines_kwh": {
+            "name": "Heures pleines"
+          },
+          "heures_creuses_kwh": {
+            "name": "Heures creuses"
+          },
+          "cout_base_euro": {
+            "name": "Coût base"
+          },
+          "cout_heures_pleines_euro": {
+            "name": "Coût heures pleines"
+          },
+          "cout_heures_creuses_euro": {
+            "name": "Coût heures creuses"
+          },
+          "cout_abonnement_euro": {
+            "name": "Coût abonnement"
+          }
+        }
+      },
       "consumption": {
         "name": "Consommation",
         "state_attributes": {
@@ -265,6 +416,29 @@
           },
           "calculation_method": {
             "name": "Méthode de calcul"
+          },
+          "last_imported_date": {
+            "name": "Dernière date importée"
+          }
+        }
+      },
+      "cost": {
+        "name": "Coût / mois en cours",
+        "state_attributes": {
+          "current_month": {
+            "name": "Mois en cours"
+          },
+          "readings_count": {
+            "name": "Nombre de relevés"
+          },
+          "calculation_method": {
+            "name": "Méthode de calcul"
+          },
+          "last_imported_date": {
+            "name": "Dernière date importée"
+          },
+          "tariff_eur_kwh": {
+            "name": "Tarif (€/kWh)"
           }
         }
       },
@@ -292,6 +466,9 @@
           },
           "expected_payment_date": {
             "name": "Date de paiement prévue"
+          },
+          "ledger_type": {
+            "name": "Type de registre"
           }
         }
       },
@@ -319,6 +496,9 @@
           },
           "expected_payment_date": {
             "name": "Date de paiement prévue"
+          },
+          "ledger_type": {
+            "name": "Type de registre"
           }
         }
       },
@@ -333,6 +513,9 @@
           },
           "balance_cents": {
             "name": "Solde (centimes)"
+          },
+          "ledger_type": {
+            "name": "Type de registre"
           }
         }
       }

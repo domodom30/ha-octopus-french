@@ -41,6 +41,9 @@
           },
           "calculation_method": {
             "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
           }
         }
       },
@@ -55,6 +58,9 @@
           },
           "calculation_method": {
             "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
           }
         }
       },
@@ -69,6 +75,9 @@
           },
           "calculation_method": {
             "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
           }
         }
       },
@@ -83,6 +92,9 @@
           },
           "calculation_method": {
             "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
           }
         }
       },
@@ -97,6 +109,9 @@
           },
           "calculation_method": {
             "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
           }
         }
       },
@@ -111,6 +126,9 @@
           },
           "calculation_method": {
             "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
           }
         }
       },
@@ -254,6 +272,139 @@
           }
         }
       },
+      "subscription": {
+        "name": "Subscription",
+        "state_attributes": {
+          "current_month": {
+            "name": "Current month"
+          },
+          "contract_number": {
+            "name": "Contract number"
+          },
+          "product_name": {
+            "name": "Product name"
+          },
+          "annual_ht_eur": {
+            "name": "Annual price (excl. tax)"
+          },
+          "annual_ttc_eur": {
+            "name": "Annual price (incl. tax)"
+          },
+          "monthly_ttc_eur": {
+            "name": "Monthly price (incl. tax)"
+          },
+          "billing_frequency_months": {
+            "name": "Billing frequency (months)"
+          },
+          "valid_from": {
+            "name": "Valid from"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "next_payment_amount": {
+            "name": "Next payment amount"
+          },
+          "next_payment_date": {
+            "name": "Next payment date"
+          },
+          "days_counted": {
+            "name": "Days counted"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          }
+        }
+      },
+      "tarif_base": {
+        "name": "Base rate",
+        "state_attributes": {
+          "contract_number": {
+            "name": "Contract number"
+          },
+          "product_name": {
+            "name": "Product name"
+          },
+          "valid_from": {
+            "name": "Valid from"
+          },
+          "price_ht_eur_kwh": {
+            "name": "Price (excl. tax)"
+          },
+          "price_ttc_eur_kwh": {
+            "name": "Price (incl. tax)"
+          }
+        }
+      },
+      "tarif_hp": {
+        "name": "Peak hours rate",
+        "state_attributes": {
+          "contract_number": {
+            "name": "Contract number"
+          },
+          "product_name": {
+            "name": "Product name"
+          },
+          "valid_from": {
+            "name": "Valid from"
+          },
+          "price_ht_eur_kwh": {
+            "name": "Price (excl. tax)"
+          },
+          "price_ttc_eur_kwh": {
+            "name": "Price (incl. tax)"
+          }
+        }
+      },
+      "tarif_hc": {
+        "name": "Off-peak hours rate",
+        "state_attributes": {
+          "contract_number": {
+            "name": "Contract number"
+          },
+          "product_name": {
+            "name": "Product name"
+          },
+          "valid_from": {
+            "name": "Valid from"
+          },
+          "price_ht_eur_kwh": {
+            "name": "Price (excl. tax)"
+          },
+          "price_ttc_eur_kwh": {
+            "name": "Price (incl. tax)"
+          }
+        }
+      },
+      "latest_reading": {
+        "name": "Latest reading",
+        "state_attributes": {
+          "date_releve": {
+            "name": "Reading date"
+          },
+          "heures_base": {
+            "name": "Base hours"
+          },
+          "heures_pleines_kwh": {
+            "name": "Peak hours"
+          },
+          "heures_creuses_kwh": {
+            "name": "Off-peak hours"
+          },
+          "cout_base_euro": {
+            "name": "Base cost"
+          },
+          "cout_heures_pleines_euro": {
+            "name": "Peak hours cost"
+          },
+          "cout_heures_creuses_euro": {
+            "name": "Off-peak hours cost"
+          },
+          "cout_abonnement_euro": {
+            "name": "Subscription cost"
+          }
+        }
+      },
       "consumption": {
         "name": "Consumption",
         "state_attributes": {
@@ -265,6 +416,29 @@
           },
           "calculation_method": {
             "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          }
+        }
+      },
+      "cost": {
+        "name": "Cost / current month",
+        "state_attributes": {
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          },
+          "tariff_eur_kwh": {
+            "name": "Tariff (€/kWh)"
           }
         }
       },
@@ -292,6 +466,9 @@
           },
           "expected_payment_date": {
             "name": "Expected payment date"
+          },
+          "ledger_type": {
+            "name": "Ledger type"
           }
         }
       },
@@ -319,6 +496,9 @@
           },
           "expected_payment_date": {
             "name": "Expected payment date"
+          },
+          "ledger_type": {
+            "name": "Ledger type"
           }
         }
       },
@@ -333,6 +513,9 @@
           },
           "balance_cents": {
             "name": "Balance (cents)"
+          },
+          "ledger_type": {
+            "name": "Ledger type"
           }
         }
       }

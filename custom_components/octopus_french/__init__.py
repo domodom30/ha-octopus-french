@@ -26,23 +26,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Octopus French Energy from a config entry."""
     hass.data.setdefault(DOMAIN, {})
 
-    # Initialize API client
     api_client = OctopusFrenchApiClient(
         email=entry.data["email"],
         password=entry.data["password"],
     )
 
-    # Authenticate
     await _async_authenticate(api_client)
 
-    # Get account number
     account_number = await _async_get_account_number(
         api_client, entry.data.get("account_number", "")
     )
 
     scan_interval = entry.options.get("scan_interval", DEFAULT_SCAN_INTERVAL)
 
-    # Initialize coordinator
     coordinator = OctopusFrenchDataUpdateCoordinator(
         hass=hass,
         api_client=api_client,
@@ -50,20 +46,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         scan_interval=scan_interval,
     )
 
-    # Fetch initial data
     await _async_fetch_initial_data(coordinator, api_client)
 
-    # Store data (Méthode 2 - avec dictionnaire)
     hass.data[DOMAIN][entry.entry_id] = {
         "coordinator": coordinator,
         "api": api_client,
         "account_number": account_number,
     }
 
-    # Create devices for all meters
     await _async_create_devices(hass, entry, coordinator)
 
-    # Setup platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     await _async_setup_services(hass)
@@ -81,7 +73,6 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
             if coordinator:
                 await coordinator.async_request_refresh()
 
-    # Register services
     hass.services.async_register(
         DOMAIN,
         SERVICE_FORCE_UPDATE,
@@ -144,7 +135,6 @@ async def _async_create_devices(
     account_number = entry.data.get("account_number")
     supply_points = coordinator.data.get("supply_points", {})
 
-    # Vérifier que account_number existe avant de créer le device
     if account_number:
         device_registry.async_get_or_create(
             config_entry_id=entry.entry_id,
@@ -153,7 +143,6 @@ async def _async_create_devices(
             model="Compte client",
         )
 
-    # Créer un device pour chaque compteur électrique
     for elec_meter in supply_points.get("electricity", []):
         prm_id = elec_meter.get("id")
         if not prm_id:
@@ -168,7 +157,6 @@ async def _async_create_devices(
             model=f"{elec_meter.get('meterKind', 'N/A')} - {suscribed_max_power} {UnitOfApparentPower.KILO_VOLT_AMPERE}",
         )
 
-    # Créer un device pour chaque compteur de gaz
     for gas_meter in supply_points.get("gas", []):
         pce_ref = gas_meter.get("id")
         if not pce_ref:

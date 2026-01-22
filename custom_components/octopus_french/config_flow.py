@@ -11,9 +11,13 @@ from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import callback
-from homeassistant.data_entry_flow import FlowResult
 
-from .const import CONF_ACCOUNT_NUMBER, DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import (
+    CONF_ACCOUNT_NUMBER,
+    CONF_SCAN_INTERVAL,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+)
 from .octopus_french import OctopusFrenchApiClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -65,7 +69,6 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                     CONF_ACCOUNT_NUMBER: self.accounts[0]["number"],
                                 },
                             )
-                        # Si plusieurs comptes, passer à l'étape de sélection
                         return await self.async_step_account()
 
             except (ConnectionError, TimeoutError) as err:
@@ -131,7 +134,7 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,
-    ) -> OctopusFrenchOptionsFlow:
+    ) -> config_entries.OptionsFlow:
         """Get the options flow for this handler."""
         return OctopusFrenchOptionsFlow()
 
@@ -141,21 +144,21 @@ class OctopusFrenchOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Manage the options."""
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)  # type: ignore[return-value]
+            return self.async_create_entry(title="", data=user_input)
 
-        return self.async_show_form(  # type: ignore[return-value]
+        return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
                 {
                     vol.Optional(
-                        "scan_interval",
+                        CONF_SCAN_INTERVAL,
                         default=self.config_entry.options.get(
-                            "scan_interval", DEFAULT_SCAN_INTERVAL
+                            CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
                         ),
-                    )
+                    ): vol.All(vol.Coerce(int), vol.Range(min=5, max=1440)),
                 }
             ),
         )
