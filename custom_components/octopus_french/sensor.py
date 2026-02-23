@@ -833,8 +833,11 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                                     s.get("label") == "ABONNEMENT" for s in statistics
                                 ):
                                     days_with_subscription += 1
-                        except ValueError, TypeError, AttributeError:
-                            pass
+                        except (ValueError, TypeError, AttributeError) as e:
+                            _LOGGER.warning(
+                                "Error parsing date %s: %s", reading_date, e
+                            )
+                        continue
 
                 attributes.update(
                     {
