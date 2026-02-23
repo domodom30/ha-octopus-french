@@ -3,7 +3,7 @@ name: Tag and Release on manifest.json version change
 on:
   push:
     paths:
-      - 'custom_components/octopus_germany/manifest.json'
+      - "custom_components/octopus_french/manifest.json"
   workflow_dispatch:
 jobs:
   tag-and-release:
@@ -32,7 +32,14 @@ jobs:
             echo "Tag does not exist"
             echo "EXISTS=false" >> $GITHUB_ENV
           fi
-
+      - name: 📝 Extract changelog for version
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          awk "/^## \\[$VERSION\\]/,/^---$/" CHANGELOG.md | sed '$d' > release_notes.md
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          cat release_notes.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
       - name: Create tag and push
         if: env.EXISTS == 'false'
         run: |
