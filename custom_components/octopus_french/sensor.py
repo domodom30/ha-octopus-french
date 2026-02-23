@@ -35,7 +35,7 @@ ELECTRICITY_SENSORS = [
         "key": "conso_base",
         "icon": "mdi:lightning-bolt",
         "device_class": SensorDeviceClass.ENERGY,
-        "state_class": None,
+        "state_class": SensorStateClass.TOTAL_INCREASING,
         "unit": UnitOfEnergy.KILO_WATT_HOUR,
         "precision": 2,
     },
@@ -43,7 +43,7 @@ ELECTRICITY_SENSORS = [
         "key": "conso_hp",
         "icon": "mdi:lightning-bolt",
         "device_class": SensorDeviceClass.ENERGY,
-        "state_class": None,
+        "state_class": SensorStateClass.TOTAL_INCREASING,
         "unit": UnitOfEnergy.KILO_WATT_HOUR,
         "precision": 2,
     },
@@ -51,7 +51,7 @@ ELECTRICITY_SENSORS = [
         "key": "conso_hc",
         "icon": "mdi:lightning-bolt-outline",
         "device_class": SensorDeviceClass.ENERGY,
-        "state_class": None,
+        "state_class": SensorStateClass.TOTAL_INCREASING,
         "unit": UnitOfEnergy.KILO_WATT_HOUR,
         "precision": 2,
     },
@@ -59,7 +59,7 @@ ELECTRICITY_SENSORS = [
         "key": "cout_base",
         "icon": "mdi:currency-eur",
         "device_class": SensorDeviceClass.MONETARY,
-        "state_class": None,
+        "state_class": SensorStateClass.TOTAL_INCREASING,
         "unit": CURRENCY_EURO,
         "precision": 2,
     },
@@ -833,7 +833,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                                     s.get("label") == "ABONNEMENT" for s in statistics
                                 ):
                                     days_with_subscription += 1
-                        except (ValueError, TypeError, AttributeError):
+                        except ValueError, TypeError, AttributeError:
                             pass
 
                 attributes.update(
@@ -852,7 +852,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             return {
                 "current_month": self._current_month,
                 "readings_count": len(readings),
-                "calculation_method": "CumulÃ©e / mois",
+                "calculation_method": "Cumulée / mois",
                 "last_imported_date": self._last_imported_date,
             }
 
