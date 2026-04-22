@@ -360,6 +360,54 @@
             "name": "Time range 3"
           }
         }
+      },
+      "vehicle_status": {
+        "name": "Charging status",
+        "state_attributes": {
+          "device_id": { "name": "Device ID" },
+          "name": { "name": "Name" },
+          "current": { "name": "Current state" }
+        }
+      },
+      "weekday_target_soc": {
+        "name": "Weekday target charge"
+      },
+      "weekday_target_time": {
+        "name": "Weekday target time"
+      },
+      "weekend_target_soc": {
+        "name": "Weekend target charge"
+      },
+      "weekend_target_time": {
+        "name": "Weekend target time"
+      },
+      "planned_dispatches": {
+        "name": "Charging windows",
+        "state_attributes": {
+          "count": { "name": "Count" },
+          "dispatches": { "name": "Dispatches" },
+          "formatted": { "name": "Formatted" }
+        }
+      }
+    },
+    "switch": {
+      "bump_charge": {
+        "name": "Boost charge",
+        "state_attributes": {
+          "current": { "name": "Current state" },
+          "current_state": { "name": "Charging state" },
+          "refusal_reasons": { "name": "Refusal reasons" }
+        }
+      }
+    },
+    "number": {
+      "target_soc": {
+        "name": "Target charge"
+      }
+    },
+    "select": {
+      "target_time": {
+        "name": "Target time"
       }
     }
   },

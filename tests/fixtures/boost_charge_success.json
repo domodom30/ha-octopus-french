@@ -1,0 +1,9 @@
+{
+  "data": {
+    "triggerBoostCharge": {
+      "krakenflexDevice": {
+        "krakenflexDeviceId": "abc-123"
+      }
+    }
+  }
+}

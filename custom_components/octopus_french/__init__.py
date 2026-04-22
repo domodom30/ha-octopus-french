@@ -13,13 +13,15 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 
+from .api.intelligent import OctopusIntelligentApiClient
 from .const import DEFAULT_SCAN_INTERVAL, DOMAIN, SERVICE_FORCE_UPDATE
 from .coordinator import OctopusFrenchDataUpdateCoordinator
+from .coordinator_intelligent import OctopusIntelligentDataUpdateCoordinator
 from .octopus_french import OctopusFrenchApiClient
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.NUMBER, Platform.SELECT, Platform.SENSOR, Platform.SWITCH]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -48,13 +50,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await _async_fetch_initial_data(coordinator, api_client)
 
+    # Set up intelligent coordinator
+    intelligent_coordinator = OctopusIntelligentDataUpdateCoordinator(
+        hass=hass,
+        api_client=api_client,
+        account_number=account_number,
+    )
+    await intelligent_coordinator.async_config_entry_first_refresh()
+
     hass.data[DOMAIN][entry.entry_id] = {
         "coordinator": coordinator,
         "api": api_client,
         "account_number": account_number,
+        "intelligent_coordinator": intelligent_coordinator,
     }
 
     await _async_create_devices(hass, entry, coordinator)
+    await _async_create_intelligent_devices(hass, entry, intelligent_coordinator)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -168,6 +180,30 @@ async def _async_create_devices(
             identifiers={(DOMAIN, str(pce_ref))},
             name=f"Gazpar {pce_ref}",
             model="Gazpar" if is_smart else "Compteur gaz traditionnel",
+        )
+
+
+async def _async_create_intelligent_devices(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    coordinator: OctopusIntelligentDataUpdateCoordinator,
+) -> None:
+    """Create vehicle devices for Octopus Intelligent."""
+    device_registry = dr.async_get(hass)
+    account_number = entry.data.get("account_number")
+
+    for device in coordinator.data.get("devices", []):
+        device_id = device.get("id")
+        if not device_id:
+            continue
+
+        device_registry.async_get_or_create(
+            config_entry_id=entry.entry_id,
+            identifiers={(DOMAIN, str(device_id))},
+            name=device.get("name") or device_id,
+            manufacturer=device.get("chargePointMake"),
+            model=device.get("chargePointModel"),
+            via_device=(DOMAIN, str(account_number)) if account_number else None,
         )
 
 

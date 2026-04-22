@@ -543,6 +543,54 @@
             "name": "Plage horaire 3"
           }
         }
+      },
+      "vehicle_status": {
+        "name": "Statut de charge",
+        "state_attributes": {
+          "device_id": { "name": "ID du dispositif" },
+          "name": { "name": "Nom" },
+          "current": { "name": "État actuel" }
+        }
+      },
+      "weekday_target_soc": {
+        "name": "Charge cible semaine"
+      },
+      "weekday_target_time": {
+        "name": "Heure cible semaine"
+      },
+      "weekend_target_soc": {
+        "name": "Charge cible weekend"
+      },
+      "weekend_target_time": {
+        "name": "Heure cible weekend"
+      },
+      "planned_dispatches": {
+        "name": "Fenêtres de charge",
+        "state_attributes": {
+          "count": { "name": "Nombre" },
+          "dispatches": { "name": "Créneaux" },
+          "formatted": { "name": "Formaté" }
+        }
+      }
+    },
+    "switch": {
+      "bump_charge": {
+        "name": "Recharge rapide",
+        "state_attributes": {
+          "current": { "name": "État actuel" },
+          "current_state": { "name": "État de charge" },
+          "refusal_reasons": { "name": "Raisons de refus" }
+        }
+      }
+    },
+    "number": {
+      "target_soc": {
+        "name": "Charge cible"
+      }
+    },
+    "select": {
+      "target_time": {
+        "name": "Heure cible"
       }
     }
   },
