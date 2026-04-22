@@ -1,0 +1,12 @@
+{
+  "data": {
+    "registeredKrakenflexDevice": {
+      "krakenflexDeviceId": "abc-123",
+      "vehicleMake": "Tesla",
+      "vehicleModel": "Model 3",
+      "chargePointMake": "Tesla",
+      "chargePointModel": "V2C Trydan",
+      "status": "SMART_CONTROL_CAPABLE"
+    }
+  }
+}

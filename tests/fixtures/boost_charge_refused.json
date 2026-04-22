@@ -1,0 +1,10 @@
+{
+  "errors": [{
+    "message": "Unable to trigger boost charge.",
+    "extensions": {
+      "errorCode": "KT-CT-4357",
+      "boostChargeRefusalReasons": ["BC_DEVICE_DISCONNECTED"]
+    }
+  }],
+  "data": { "triggerBoostCharge": null }
+}

@@ -9,6 +9,7 @@ Intégration Octopus Energy France (non officiel) pour Home Assistant.
 ## 🌟 Fonctionnalités
 
 ### 📊 Suivi de la consommation
+
 - **Consommation électrique**
   - Mode BASE : consommation et coût mensuel
   - Mode HPHC : consommation et coût mensuel (heures pleines / heures creuses)
@@ -18,12 +19,14 @@ Intégration Octopus Energy France (non officiel) pour Home Assistant.
 - **Abonnement** : Coût mensuel de l'abonnement électricité
 
 ### 🔢 Index des compteurs Linky
+
 - **Index BASE** : Valeur actuelle du compteur
 - **Index HP/HC** : Valeurs actuelles des compteurs heures pleines/creuses
 - Suivi de la consommation entre deux relevés
 - Fiabilité des données (REAL/ESTIMATED)
 
 ### 💰 Suivi financier
+
 - **Solde de la cagnotte** (POT_LEDGER)
 - **Dernières factures** avec statut de paiement :
   - Facture électricité (FRA_ELECTRICITY_LEDGER)
@@ -32,12 +35,25 @@ Intégration Octopus Energy France (non officiel) pour Home Assistant.
 - **Dates de paiement prévues**
 
 ### 🏠 Appareils & Organisation
+
 Appareils séparés pour une organisation claire :
+
 - **Compte Octopus Energy** : solde cagnotte, factures (électricité & gaz)
 - **Compteur Linky** (électricité) : consommation, coûts, index, contrat
 - **Compteur Gazpar** (gaz) : consommation, contrat
 
+### ⚡ Recharge Intelligente (Octopus Intelligent)
+
+Octopus Energy propose un service « [Intelligent Recharge](https://octopusenergy.fr/intelligent-octopus) » permettant de planifier la recharge d'un véhicule électrique à tarif réduit (8 cts/kWh).
+
+Cette intégration ajoute le support complet de cette fonctionnalité dans Home Assistant :
+
+- **Interrupteur Recharge Rapide** : déclenche ou annule une recharge immédiate hors planning
+- **Capteur État du Dispositif VE** : affiche le statut courant du véhicule (SMART_CONTROL_CAPABLE, BOOSTING, SMART_CONTROL_IN_PROGRESS, etc.).
+- **Capteurs** : cible SOC semaine/weekend, heure cible, fenêtres de dispatch planifiées.
+
 ### ⚙️ Fonctionnalités avancées
+
 - **Intervalle de mise à jour configurable** (5 à 1440 minutes, défaut : 60 min)
 - **Service de mise à jour forcée** pour rafraîchir immédiatement
 - **Compatible avec le tableau de bord Énergie** de Home Assistant
@@ -88,6 +104,7 @@ Après l'installation, vous pouvez configurer :
 - **Intervalle de mise à jour** : Fréquence de rafraîchissement (par défaut : 60 minutes, plage : 5-1440)
 
 Pour accéder aux options :
+
 1. Allez dans **Paramètres** → **Appareils et services**
 2. Trouvez **Octopus Energy France**
 3. Cliquez sur **Configurer**
@@ -98,13 +115,14 @@ Pour accéder aux options :
 
 ### 🏢 Appareil Compte (Compte Octopus Energy)
 
-| Entité | Type | Classe | Description |
-|--------|------|--------|-------------|
-| Solde cagnotte | Capteur | Monetary | Solde de la cagnotte (POT_LEDGER) |
+| Entité              | Type    | Classe   | Description                                |
+| ------------------- | ------- | -------- | ------------------------------------------ |
+| Solde cagnotte      | Capteur | Monetary | Solde de la cagnotte (POT_LEDGER)          |
 | Facture électricité | Capteur | Monetary | Montant de la dernière facture électricité |
-| Facture gaz | Capteur | Monetary | Montant de la dernière facture gaz |
+| Facture gaz         | Capteur | Monetary | Montant de la dernière facture gaz         |
 
 **Attributs des factures :**
+
 - `payment_status` : Statut du paiement (scheduled, pending, cleared, failed, etc.)
 - `total_amount` : Montant total de la facture
 - `customer_amount` : Part client
@@ -118,40 +136,41 @@ Pour accéder aux options :
 
 **Pour les contrats BASE :**
 
-| Entité | Type | Classe | State Class | Description |
-|--------|------|--------|-------------|-------------|
-| Conso / mois en cours | Capteur | Energy | Total Increasing | Consommation BASE (kWh) du mois en cours |
-| Coût / mois en cours | Capteur | Monetary | Total | Coût BASE (€) du mois en cours |
-| Abonnement | Capteur | Monetary | Total | Coût mensuel de l'abonnement |
-| Contrat | Capteur | - | - | Type de contrat et informations |
+| Entité                | Type    | Classe   | State Class      | Description                              |
+| --------------------- | ------- | -------- | ---------------- | ---------------------------------------- |
+| Conso / mois en cours | Capteur | Energy   | Total Increasing | Consommation BASE (kWh) du mois en cours |
+| Coût / mois en cours  | Capteur | Monetary | Total            | Coût BASE (€) du mois en cours           |
+| Abonnement            | Capteur | Monetary | Total            | Coût mensuel de l'abonnement             |
+| Contrat               | Capteur | -        | -                | Type de contrat et informations          |
 
 **Pour les contrats HPHC (Heures Pleines / Heures Creuses) :**
 
-| Entité | Type | Classe | State Class | Description |
-|--------|------|--------|-------------|-------------|
-| HP / mois en cours | Capteur | Energy | Total Increasing | Consommation heures pleines (kWh) |
-| HC / mois en cours | Capteur | Energy | Total Increasing | Consommation heures creuses (kWh) |
-| HP / mois en cours | Capteur | Monetary | Total | Coût heures pleines (€) |
-| HC / mois en cours | Capteur | Monetary | Total | Coût heures creuses (€) |
-| Abonnement | Capteur | Monetary | Total | Coût mensuel de l'abonnement |
-| Contrat | Capteur | - | - | Type de contrat et informations |
+| Entité             | Type    | Classe   | State Class      | Description                       |
+| ------------------ | ------- | -------- | ---------------- | --------------------------------- |
+| HP / mois en cours | Capteur | Energy   | Total Increasing | Consommation heures pleines (kWh) |
+| HC / mois en cours | Capteur | Energy   | Total Increasing | Consommation heures creuses (kWh) |
+| HP / mois en cours | Capteur | Monetary | Total            | Coût heures pleines (€)           |
+| HC / mois en cours | Capteur | Monetary | Total            | Coût heures creuses (€)           |
+| Abonnement         | Capteur | Monetary | Total            | Coût mensuel de l'abonnement      |
+| Contrat            | Capteur | -        | -                | Type de contrat et informations   |
 
 #### Capteurs d'index (Diagnostic)
 
 **Pour les contrats BASE :**
 
-| Entité | Type | Classe | Description |
-|--------|------|--------|-------------|
-| Index | Capteur | Energy | Index actuel du compteur BASE |
+| Entité | Type    | Classe | Description                   |
+| ------ | ------- | ------ | ----------------------------- |
+| Index  | Capteur | Energy | Index actuel du compteur BASE |
 
 **Pour les contrats HPHC :**
 
-| Entité | Type | Classe | Description |
-|--------|------|--------|-------------|
+| Entité   | Type    | Classe | Description                 |
+| -------- | ------- | ------ | --------------------------- |
 | Index HP | Capteur | Energy | Index actuel heures pleines |
 | Index HC | Capteur | Energy | Index actuel heures creuses |
 
 **Attributs des index :**
+
 - `prm_id` : Identifiant PRM
 - `index_start` : Index de départ de la période
 - `consumption` : Consommation sur la période
@@ -161,11 +180,12 @@ Pour accéder aux options :
 
 #### Capteur dernier relevé (Diagnostic)
 
-| Entité | Type | Classe | Description |
-|--------|------|--------|-------------|
+| Entité         | Type    | Classe | Description                        |
+| -------------- | ------- | ------ | ---------------------------------- |
 | Dernier relevé | Capteur | Energy | Valeur du dernier relevé quotidien |
 
 **Attributs du dernier relevé :**
+
 - `date_releve` : Date du relevé
 - `heures_base` : Heures en base (si applicable)
 - `heures_pleines_kwh` : Consommation heures pleines (si applicable)
@@ -176,6 +196,7 @@ Pour accéder aux options :
 - `cout_abonnement_euro` : Coût abonnement journalier
 
 **Attributs du contrat :**
+
 - `prm_id` : Identifiant Point Référence Mesure
 - `ledger_id` : Numéro de registre associé
 - `agreement` : Type de contrat (BASE ou HPHC)
@@ -190,18 +211,52 @@ Pour accéder aux options :
 
 ### 🔥 Appareil Compteur Gaz (Gazpar)
 
-| Entité | Type | Classe | State Class | Description |
-|--------|------|--------|-------------|-------------|
+| Entité       | Type    | Classe | State Class      | Description                         |
+| ------------ | ------- | ------ | ---------------- | ----------------------------------- |
 | Consommation | Capteur | Energy | Total Increasing | Consommation mensuelle de gaz (kWh) |
-| Contrat | Capteur | - | - | Type de contrat et informations |
+| Contrat      | Capteur | -      | -                | Type de contrat et informations     |
 
 **Attributs du contrat gaz :**
+
 - `pce_ref` : Référence PCE
 - `ledger_id` : Numéro de registre associé
 - `gas_nature` : Type de gaz (Naturel/Propane)
 - `annual_consumption` : Consommation annuelle estimée (kWh)
 - `is_smart_meter` : Compteur communicant (Gazpar)
 - `powered_status` : État de la connexion (En service/Coupé)
+
+---
+
+### 🚗 Appareil Véhicule Électrique (Octopus Intelligent)
+
+#### Interrupteur
+
+| Entité          | Type         | Description                                              |
+| --------------- | ------------ | -------------------------------------------------------- |
+| Recharge rapide | Interrupteur | Active/désactive la recharge rapide immédiate (BOOSTING) |
+
+**Attributs de l'interrupteur :**
+
+- `current` : État du véhicule (LIVE/autre)
+- `current_state` : État de charge (BOOSTING, SMART_CONTROL_IN_PROGRESS, etc.)
+- `refusal_reasons` : Raisons de refus si action échouée (BC_DEVICE_DISCONNECTED, BC_DEVICE_FULLY_CHARGED, etc.)
+
+#### Capteurs
+
+| Entité                       | Type    | Description                                                     |
+| ---------------------------- | ------- | --------------------------------------------------------------- |
+| Statut de charge             | Capteur | État actuel du véhicule (BOOSTING, SMART_CONTROL_CAPABLE, etc.) |
+| Cible SOC semaine            | Capteur | État de charge cible pour les jours de semaine (%)              |
+| Heure cible semaine          | Capteur | Heure de recharge cible pour les jours de semaine               |
+| Cible SOC weekend            | Capteur | État de charge cible pour le weekend (%)                        |
+| Heure cible weekend          | Capteur | Heure de recharge cible pour le weekend                         |
+| Fenêtres dispatch planifiées | Capteur | Créneaux de recharge intelligente planifiés (JSON)              |
+
+**Attributs du capteur statut :**
+
+- `device_id` : ID unique du véhicule
+- `name` : Nom du véhicule
+- `current` : État de connexion
 
 ---
 
@@ -212,6 +267,7 @@ Cette intégration est **entièrement compatible** avec le tableau de bord Éner
 ### ✨ Nouveauté : Import automatique des statistiques
 
 L'intégration importe automatiquement l'historique de vos consommations et coûts dans Home Assistant :
+
 - **Import complet** lors de la première installation
 - **Mise à jour incrémentale** lors des rafraîchissements suivants
 - **Compatible** avec le tableau de bord Énergie
@@ -222,21 +278,25 @@ L'intégration importe automatiquement l'historique de vos consommations et coû
 2. Cliquez sur **"Ajouter une consommation"**
 
 #### Pour un contrat BASE :
+
 - **Consommation depuis le réseau** : `sensor.linky_XXXXXX_conso_base`
 - **Coût** (optionnel) : Utilisez les statistiques importées automatiquement
 
 #### Pour un contrat HPHC :
+
 - **Consommation depuis le réseau** :
   - Heures pleines : `sensor.linky_XXXXXX_conso_hp`
   - Heures creuses : `sensor.linky_XXXXXX_conso_hc`
 - **Coût** (optionnel) : Utilisez les statistiques importées automatiquement
 
 #### Pour le gaz :
+
 - **Consommation de gaz** : `sensor.gazpar_XXXXXX_consumption`
 
 ### Visualisation dans l'historique
 
 Grâce à l'import automatique des statistiques :
+
 - Vos **données historiques** apparaissent immédiatement dans les graphiques
 - L'historique complet est disponible depuis le **début du mois en cours**
 - Les **coûts** sont également importés et visibles dans le tableau de bord
@@ -250,11 +310,13 @@ Grâce à l'import automatique des statistiques :
 Force un rafraîchissement immédiat des données depuis l'API Octopus Energy.
 
 **Exemple :**
+
 ```yaml
 service: octopus_french.force_update
 ```
 
 **Utilisation recommandée :**
+
 - Après une modification de contrat
 - Pour obtenir les dernières données sans attendre l'intervalle automatique
 - En cas de problème de synchronisation
@@ -264,6 +326,7 @@ service: octopus_french.force_update
 ## 💡 Exemples d'automatisations
 
 ### Notification en cas de facture élevée
+
 ```yaml
 automation:
   - alias: "Alerte facture élevée"
@@ -281,6 +344,7 @@ automation:
 ```
 
 ### Suivi de consommation quotidienne
+
 ```yaml
 automation:
   - alias: "Rapport consommation quotidien"
@@ -302,6 +366,7 @@ automation:
 ```
 
 ### Alerte statut de paiement
+
 ```yaml
 automation:
   - alias: "Alerte paiement programmé"
@@ -320,6 +385,7 @@ automation:
 ```
 
 ### Surveillance de l'index du compteur
+
 ```yaml
 automation:
   - alias: "Mise à jour index mensuelle"
@@ -344,33 +410,39 @@ automation:
 ## 🔧 Dépannage
 
 ### Les entités n'apparaissent pas
+
 - ✅ Vérifiez que vos identifiants sont corrects
 - ✅ Assurez-vous que votre compte a des compteurs actifs
 - ✅ Redémarrez Home Assistant après l'installation
 - ✅ Vérifiez les logs : `Paramètres → Système → Logs`
 
 ### Les données ne se mettent pas à jour
+
 - ✅ Vérifiez l'intervalle de mise à jour dans les options de l'intégration
 - ✅ Utilisez le service `octopus_french.force_update` pour forcer le rafraîchissement
 - ✅ Vérifiez la connectivité API dans les logs Home Assistant
 - ✅ Consultez l'état de l'API Octopus Energy sur leur site
 
 ### Compteurs résiliés
+
 - ℹ️ Les compteurs résiliés (statut `RESIL` et `LIMI`) sont automatiquement exclus
 - ℹ️ Seuls les compteurs actifs apparaissent dans l'intégration
 
 ### Données de consommation manquantes
+
 - ⏱️ Certaines données peuvent prendre 24-48h après l'installation du compteur
 - ⏱️ Les relevés quotidiens sont mis à jour avec un délai de 24h
 - ✅ Vérifiez la disponibilité des données sur le site Octopus Energy
 
 ### Les statistiques n'apparaissent pas dans le tableau de bord Énergie
+
 - ✅ Patientez quelques minutes après l'installation (import en cours)
 - ✅ Vérifiez que les entités ont bien `state_class: total_increasing`
 - ✅ Consultez les logs pour d'éventuelles erreurs d'import
 - ✅ Forcez une mise à jour avec le service `force_update`
 
 ### Problèmes d'authentification
+
 - 🔐 L'intégration gère automatiquement le rafraîchissement des tokens
 - 🔐 En cas d'erreur répétée, supprimez et réinstallez l'intégration
 - 🔐 Vérifiez que vous pouvez vous connecter sur le site Octopus Energy
@@ -380,18 +452,21 @@ automation:
 ## 📝 Notes techniques
 
 ### Fréquence de mise à jour
+
 - **Données de consommation** : Selon l'intervalle configuré (défaut : 60 min)
 - **Relevés Linky** : Disponibles avec ~24h de décalage
 - **Index des compteurs** : Mis à jour quotidiennement
 - **Factures** : Mises à jour en temps réel
 
 ### Gestion de l'historique
+
 - L'intégration importe **tout l'historique du mois en cours** lors de la première installation
 - Les mises à jour suivantes ajoutent uniquement les **nouvelles données**
 - Les statistiques sont stockées avec des **IDs uniques** par capteur
 - Format des statistiques : **somme cumulative** (compatible Énergie)
 
 ### Structure des données
+
 - **Dates** : Format ISO 8601 avec timezone UTC
 - **Consommations** : En kWh avec 2 décimales
 - **Coûts** : En euros avec 2 décimales

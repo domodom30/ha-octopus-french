@@ -1,0 +1,7 @@
+{
+  "data": {
+    "obtainKrakenToken": {
+      "token": "fake_jwt_token"
+    }
+  }
+}
