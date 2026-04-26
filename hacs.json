@@ -1,6 +1,6 @@
 {
   "name": "Octopus Energy French",
   "country": ["FR"],
-  "homeassistant": "2025.0.0",
+  "homeassistant": "2026.4.4",
   "render_readme": true
 }
