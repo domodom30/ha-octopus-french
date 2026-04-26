@@ -16,3 +16,15 @@ TOKEN_REFRESH_MARGIN = 300
 TOKEN_AUTO_REFRESH_INTERVAL = 50 * 60
 
 SERVICE_FORCE_UPDATE = "force_update"
+
+from typing import TypedDict, Any
+
+class TariffData(TypedDict):
+    price_ht: float
+    price_ttc: float
+    unit: str
+
+class ElectricityData(TypedDict):
+    readings: list[dict[str, Any]]
+    index: dict[str, Any] | None
+    tariffs: dict[str, Any] | None
