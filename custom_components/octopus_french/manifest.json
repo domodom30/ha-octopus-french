@@ -10,5 +10,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/domodom30/ha-octopus-french/issues",
   "requirements": ["pyjwt>=2.10.1"],
-  "version": "3.0.1"
+  "version": "3.0.2"
 }
