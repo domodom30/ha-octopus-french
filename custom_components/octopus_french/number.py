@@ -1,11 +1,11 @@
-"""Number platform for Octopus Intelligent target SOC."""
+"""Number platform for Octopus Intelligent target state of charge."""
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from homeassistant.components.number import NumberEntity, NumberMode
+from homeassistant.components.number import NumberEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -14,36 +14,33 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 from .coordinator_intelligent import OctopusIntelligentDataUpdateCoordinator
 
-if TYPE_CHECKING:
-    from homeassistant.config_entries import ConfigEntry
-
 _LOGGER = logging.getLogger(__name__)
+
+PARALLEL_UPDATES = 0
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
+    config_entry: Any,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up number entities."""
-    coordinator: OctopusIntelligentDataUpdateCoordinator = hass.data[DOMAIN][
-        config_entry.entry_id
-    ]["intelligent_coordinator"]
+    coordinator: OctopusIntelligentDataUpdateCoordinator = (
+        config_entry.runtime_data.intelligent_coordinator
+    )
 
-    devices = coordinator.data.get("devices", [])
-    entities = []
+    if coordinator is None:
+        return
 
-    for device in devices:
-        device_id = device.get("id")
-        if not device_id:
-            continue
-        entities.append(
-            OctopusIntelligentTargetSocNumber(
-                coordinator,
-                device_id,
-                device.get("name", "Véhicule"),
-            )
+    entities = [
+        OctopusIntelligentTargetSocNumber(
+            coordinator,
+            device["id"],
+            device.get("name", "Véhicule"),
         )
+        for device in coordinator.data.get("devices", [])
+        if device.get("id")
+    ]
 
     if entities:
         async_add_entities(entities)
@@ -62,14 +59,12 @@ class OctopusIntelligentTargetSocNumber(CoordinatorEntity, NumberEntity):
         super().__init__(coordinator)
         self._device_id = device_id
         self._attr_unique_id = f"{device_id}_target_soc"
-        self._attr_name = "Charge cible"
         self._attr_has_entity_name = True
-        self._attr_icon = "mdi:battery-charging-high"
-        self._attr_native_min_value = 0
-        self._attr_native_max_value = 100
-        self._attr_native_step = 5
-        self._attr_native_unit_of_measurement = "%"
-        self._attr_mode = NumberMode.SLIDER
+        self._attr_translation_key = "target_soc"
+        self._attr_icon = "mdi:battery-charging"
+        self._attr_native_min_value = 0.0
+        self._attr_native_max_value = 100.0
+        self._attr_native_step = 5.0
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
             via_device=(DOMAIN, coordinator.account_number),
@@ -81,7 +76,8 @@ class OctopusIntelligentTargetSocNumber(CoordinatorEntity, NumberEntity):
     def native_value(self) -> float | None:
         """Return the current target SOC."""
         preferences = self.coordinator.data.get("preferences", {})
-        return preferences.get("weekdayTargetSoc")
+        value = preferences.get("weekdayTargetSoc")
+        return float(value) if value is not None else None
 
     async def async_set_native_value(self, value: float) -> None:
         """Set the target SOC."""
@@ -92,7 +88,6 @@ class OctopusIntelligentTargetSocNumber(CoordinatorEntity, NumberEntity):
             self._device_id, int(value), current_time
         )
         if success:
-            _LOGGER.info("Target SOC set to %d%% for device %s", int(value), self._device_id)
             await self.coordinator.async_request_refresh()
         else:
             _LOGGER.error("Failed to set target SOC for device %s", self._device_id)

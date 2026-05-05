@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, time
+from datetime import time
 from typing import Any
 
 from homeassistant.components.binary_sensor import (
@@ -15,9 +15,12 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .utils import parse_off_peak_hours
+
+PARALLEL_UPDATES = 0
 
 
 async def async_setup_entry(
@@ -26,7 +29,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up OctopusFrench binary sensors."""
-    coordinator = hass.data[DOMAIN][config_entry.entry_id]["coordinator"]
+    coordinator = config_entry.runtime_data.coordinator
 
     if not (data := coordinator.data):
         return
@@ -127,7 +130,7 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
     def _is_current_time_in_hc(self) -> bool:
         """Check if current time falls within any HC time range."""
         try:
-            now = datetime.now().time()
+            now = dt_util.now().time()
             range_count = self._attributes.get("off_peak_range_count", 0)
 
         except (AttributeError, KeyError, ValueError):

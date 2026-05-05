@@ -11,13 +11,9 @@ from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import callback
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import (
-    CONF_ACCOUNT_NUMBER,
-    CONF_SCAN_INTERVAL,
-    DEFAULT_SCAN_INTERVAL,
-    DOMAIN,
-)
+from .const import CONF_ACCOUNT_NUMBER, DOMAIN
 from .octopus_french import OctopusFrenchApiClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -27,6 +23,7 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for OEFR Energy."""
 
     VERSION = 1
+    MINOR_VERSION = 1
 
     def __init__(self) -> None:
         """Initialize the config flow."""
@@ -44,7 +41,9 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             self.email = user_input[CONF_EMAIL]
             self.password = user_input[CONF_PASSWORD]
-            self.api_client = OctopusFrenchApiClient(self.email, self.password)
+            self.api_client = OctopusFrenchApiClient(
+                self.email, self.password, async_get_clientsession(self.hass)
+            )
 
             try:
                 auth_success = await self.api_client.authenticate()
@@ -80,9 +79,6 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except (KeyError, IndexError, TypeError) as err:
                 _LOGGER.error("Error parsing account data: %s", err)
                 errors["base"] = "unknown"
-            finally:
-                if self.api_client:
-                    await self.api_client.close()
 
         return self.async_show_form(
             step_id="user",
@@ -103,9 +99,6 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             account_number = user_input[CONF_ACCOUNT_NUMBER]
-
-            if self.api_client:
-                await self.api_client.close()
 
             return self.async_create_entry(
                 title=f"Octopus French Energy - {account_number}",
@@ -130,35 +123,39 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    @staticmethod
-    @callback
-    def async_get_options_flow(
-        config_entry: config_entries.ConfigEntry,
-    ) -> config_entries.OptionsFlow:
-        """Get the options flow for this handler."""
-        return OctopusFrenchOptionsFlow()
+    async def async_step_reauth(
+        self, entry_data: dict[str, Any]
+    ) -> ConfigFlowResult:
+        """Handle re-authentication."""
+        return await self.async_step_reauth_confirm()
 
-
-class OctopusFrenchOptionsFlow(config_entries.OptionsFlow):
-    """Handle options flow for Octopus Energy France."""
-
-    async def async_step_init(
+    async def async_step_reauth_confirm(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Manage the options."""
+        """Handle re-authentication confirmation."""
+        errors: dict[str, str] = {}
+
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            reauth_entry = self._get_reauth_entry()
+            email = reauth_entry.data[CONF_EMAIL]
+            api_client = OctopusFrenchApiClient(
+                email, user_input[CONF_PASSWORD], async_get_clientsession(self.hass)
+            )
+
+            try:
+                auth_success = await api_client.authenticate()
+                if not auth_success:
+                    errors["base"] = "invalid_auth"
+                else:
+                    return self.async_update_reload_and_abort(
+                        reauth_entry,
+                        data_updates={CONF_PASSWORD: user_input[CONF_PASSWORD]},
+                    )
+            except (ConnectionError, TimeoutError):
+                errors["base"] = "cannot_connect"
 
         return self.async_show_form(
-            step_id="init",
-            data_schema=vol.Schema(
-                {
-                    vol.Optional(
-                        CONF_SCAN_INTERVAL,
-                        default=self.config_entry.options.get(
-                            CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
-                        ),
-                    ): vol.All(vol.Coerce(int), vol.Range(min=5, max=1440)),
-                }
-            ),
+            step_id="reauth_confirm",
+            data_schema=vol.Schema({vol.Required(CONF_PASSWORD): str}),
+            errors=errors,
         )

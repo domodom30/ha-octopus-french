@@ -77,7 +77,9 @@ class OctopusIntelligentApiClient:
         """Initialize the client."""
         self.api_client = api_client
 
-    async def _update_boost_charge(self, device_id: str, action: str) -> tuple[dict[str, Any] | None, list[str]]:
+    async def _update_boost_charge(
+        self, device_id: str, action: str
+    ) -> tuple[dict[str, Any] | None, list[str]]:
         """Update boost charge (trigger or cancel). Returns (data, refusal_reasons)."""
         query = MUTATION_UPDATE_BOOST_CHARGE % (device_id, action)
         response = await self.api_client._execute_with_auth(query)
@@ -91,11 +93,15 @@ class OctopusIntelligentApiClient:
         data = response.get("data", {}).get("updateBoostCharge") if response else None
         return data, refusal_reasons
 
-    async def trigger_boost_charge(self, device_id: str) -> tuple[dict[str, Any] | None, list[str]]:
+    async def trigger_boost_charge(
+        self, device_id: str
+    ) -> tuple[dict[str, Any] | None, list[str]]:
         """Trigger boost charge. Returns (data, refusal_reasons)."""
         return await self._update_boost_charge(device_id, "BOOST")
 
-    async def cancel_boost_charge(self, device_id: str) -> tuple[dict[str, Any] | None, list[str]]:
+    async def cancel_boost_charge(
+        self, device_id: str
+    ) -> tuple[dict[str, Any] | None, list[str]]:
         """Cancel boost charge. Returns (data, refusal_reasons)."""
         return await self._update_boost_charge(device_id, "CANCEL")
 
@@ -105,17 +111,27 @@ class OctopusIntelligentApiClient:
         response = await self.api_client._execute_with_auth(query)
         return response.get("data", {}).get("devices", []) if response else []
 
-    async def get_vehicle_charging_preferences(self, account_number: str) -> dict[str, Any]:
+    async def get_vehicle_charging_preferences(
+        self, account_number: str
+    ) -> dict[str, Any]:
         """Get vehicle charging preferences for an account."""
         query = QUERY_VEHICLE_CHARGING_PREFERENCES % account_number
         response = await self.api_client._execute_with_auth(query)
-        return response.get("data", {}).get("vehicleChargingPreferences", {}) if response else {}
+        return (
+            response.get("data", {}).get("vehicleChargingPreferences", {})
+            if response
+            else {}
+        )
 
-    async def get_flex_planned_dispatches(self, device_id: str) -> list[dict[str, Any]]:
+    async def get_flex_planned_dispatches(
+        self, device_id: str
+    ) -> list[dict[str, Any]]:
         """Get planned flex dispatch windows for a device."""
         query = QUERY_FLEX_PLANNED_DISPATCHES % device_id
         response = await self.api_client._execute_with_auth(query)
-        return response.get("data", {}).get("flexPlannedDispatches", []) if response else []
+        return (
+            response.get("data", {}).get("flexPlannedDispatches", []) if response else []
+        )
 
     async def _send_device_preferences(
         self, device_id: str, target_time: str, target_soc: int
@@ -142,5 +158,3 @@ class OctopusIntelligentApiClient:
     ) -> bool:
         """Set target charging time, keeping current target SOC."""
         return await self._send_device_preferences(device_id, target_time, current_soc)
-
-

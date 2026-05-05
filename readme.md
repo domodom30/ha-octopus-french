@@ -1,4 +1,11 @@
 # Octopus Energy France pour Home Assistant
+
+[![GitHub Release](https://img.shields.io/github/release/domodom30/ha-octopus-french)](https://github.com/domodom30/ha-octopus-french/releases)
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
+![installation_badge](https://img.shields.io/badge/dynamic/json?color=41BDF5&logo=home-assistant&label=integration%20usage&suffix=%20installs&cacheSeconds=15600&url=https://analytics.home-assistant.io/custom_integrations.json&query=$.octopus_french.total)
+
+### Intégration Octopus Energy France (non officiel) pour Home Assistant.
+
 ### ⚡ Recharge Intelligente (Octopus Intelligent)
 
 > **Contributeur** : [@jeremygovi](https://github.com/jeremygovi) via [PR #31](https://github.com/domodom30/ha-octopus-french/pull/31)
@@ -340,7 +347,7 @@ automation:
 ### 🚗 Appareil Véhicule Électrique (Octopus Intelligent)
 
 > **Note :** Ces entités ne sont créées que si vous êtes abonné au service Octopus Intelligent et qu'un véhicule électrique est enregistré sur votre compte.
-> 
+>
 > **Contributeur** : [@jeremygovi](https://github.com/jeremygovi) via [PR #31](https://github.com/domodom30/ha-octopus-french/pull/31)
 
 #### Interrupteur

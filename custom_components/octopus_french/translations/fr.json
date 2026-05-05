@@ -20,17 +20,24 @@
       "already_configured": "Ce compte est déjà configuré"
     }
   },
-  "options": {
+  "reauth": {
+    "title": "Ré-authentification Octopus Energy France",
+    "description": "Votre session a expiré. Veuillez entrer votre mot de passe pour vous ré-authentifier.",
     "step": {
-      "init": {
-        "title": "Options pour Octopus Energy France",
-        "description": "Configurer l'intervalle de mise à jour"
+      "reauth_confirm": {
+        "title": "Ré-authentification",
+        "data": {
+          "password": "Mot de passe"
+        }
       }
+    },
+    "abort": {
+      "reauth_successful": "La ré-authentification a réussi"
     }
   },
   "entity": {
     "sensor": {
-      "conso_base": {
+      "energy_base": {
         "name": "Conso / mois en cours",
         "state_attributes": {
           "current_month": {
@@ -47,7 +54,7 @@
           }
         }
       },
-      "conso_hp": {
+      "energy_peak_hours": {
         "name": "HP / mois en cours",
         "state_attributes": {
           "current_month": {
@@ -64,7 +71,7 @@
           }
         }
       },
-      "conso_hc": {
+      "energy_off_peak_hours": {
         "name": "HC / mois en cours",
         "state_attributes": {
           "current_month": {
@@ -81,7 +88,7 @@
           }
         }
       },
-      "cout_base": {
+      "cost_base": {
         "name": "Coût / mois en cours",
         "state_attributes": {
           "current_month": {
@@ -98,7 +105,7 @@
           }
         }
       },
-      "cout_hp": {
+      "cost_peak_hours": {
         "name": "HP / mois en cours",
         "state_attributes": {
           "current_month": {
@@ -115,7 +122,7 @@
           }
         }
       },
-      "cout_hc": {
+      "cost_off_peak_hours": {
         "name": "HC / mois en cours",
         "state_attributes": {
           "current_month": {
@@ -132,7 +139,7 @@
           }
         }
       },
-      "index_base": {
+      "meter_index_base": {
         "name": "Index",
         "state_attributes": {
           "index_start": {
@@ -164,7 +171,7 @@
           }
         }
       },
-      "index_hp": {
+      "meter_index_peak_hours": {
         "name": "Index HP",
         "state_attributes": {
           "index_start": {
@@ -196,7 +203,7 @@
           }
         }
       },
-      "index_hc": {
+      "meter_index_off_peak_hours": {
         "name": "Index HC",
         "state_attributes": {
           "index_start": {
@@ -316,8 +323,8 @@
           }
         }
       },
-      "tarif_base": {
-        "name": "Tarif BASE",
+      "rate_base": {
+        "name": "Tarif",
         "state_attributes": {
           "contract_number": {
             "name": "Numéro de contrat"
@@ -336,7 +343,7 @@
           }
         }
       },
-      "tarif_hp": {
+      "rate_peak_hours": {
         "name": "Tarif HP",
         "state_attributes": {
           "contract_number": {
@@ -356,7 +363,7 @@
           }
         }
       },
-      "tarif_hc": {
+      "rate_off_peak_hours": {
         "name": "Tarif HC",
         "state_attributes": {
           "contract_number": {
@@ -502,7 +509,28 @@
           }
         }
       },
-      "pot_ledger": {
+      "subscribed_power": {
+        "name": "Puissance souscrite"
+      },
+      "vehicle_status": {
+        "name": "Statut de charge"
+      },
+      "weekday_target_soc": {
+        "name": "Charge cible semaine"
+      },
+      "weekday_target_time": {
+        "name": "Heure cible semaine"
+      },
+      "weekend_target_soc": {
+        "name": "Charge cible weekend"
+      },
+      "weekend_target_time": {
+        "name": "Heure cible weekend"
+      },
+      "planned_dispatches": {
+        "name": "Fenêtres de charge"
+      },
+      "credit_balance": {
         "name": "Solde cagnotte",
         "state_attributes": {
           "ledger_number": {
@@ -543,43 +571,21 @@
             "name": "Plage horaire 3"
           }
         }
-      },
-      "vehicle_status": {
-        "name": "Statut de charge",
-        "state_attributes": {
-          "device_id": { "name": "ID du dispositif" },
-          "name": { "name": "Nom" },
-          "current": { "name": "État actuel" }
-        }
-      },
-      "weekday_target_soc": {
-        "name": "Charge cible semaine"
-      },
-      "weekday_target_time": {
-        "name": "Heure cible semaine"
-      },
-      "weekend_target_soc": {
-        "name": "Charge cible weekend"
-      },
-      "weekend_target_time": {
-        "name": "Heure cible weekend"
-      },
-      "planned_dispatches": {
-        "name": "Fenêtres de charge",
-        "state_attributes": {
-          "count": { "name": "Nombre" },
-          "dispatches": { "name": "Créneaux" },
-          "formatted": { "name": "Formaté" }
-        }
       }
     },
     "switch": {
       "bump_charge": {
         "name": "Recharge rapide",
         "state_attributes": {
-          "current": { "name": "État actuel" },
-          "current_state": { "name": "État de charge" },
-          "refusal_reasons": { "name": "Raisons de refus" }
+          "current": {
+            "name": "Statut actuel"
+          },
+          "current_state": {
+            "name": "État de charge"
+          },
+          "refusal_reasons": {
+            "name": "Raisons de refus"
+          }
         }
       }
     },

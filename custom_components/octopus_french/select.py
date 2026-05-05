@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import Any
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.core import HomeAssistant
@@ -14,38 +14,35 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 from .coordinator_intelligent import OctopusIntelligentDataUpdateCoordinator
 
-if TYPE_CHECKING:
-    from homeassistant.config_entries import ConfigEntry
-
 _LOGGER = logging.getLogger(__name__)
+
+PARALLEL_UPDATES = 0
 
 TIME_OPTIONS = [f"{h:02d}:{m:02d}" for h in range(24) for m in (0, 30)]
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
+    config_entry: Any,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up select entities."""
-    coordinator: OctopusIntelligentDataUpdateCoordinator = hass.data[DOMAIN][
-        config_entry.entry_id
-    ]["intelligent_coordinator"]
+    coordinator: OctopusIntelligentDataUpdateCoordinator = (
+        config_entry.runtime_data.intelligent_coordinator
+    )
 
-    devices = coordinator.data.get("devices", [])
-    entities = []
+    if coordinator is None:
+        return
 
-    for device in devices:
-        device_id = device.get("id")
-        if not device_id:
-            continue
-        entities.append(
-            OctopusIntelligentTargetTimeSelect(
-                coordinator,
-                device_id,
-                device.get("name", "Véhicule"),
-            )
+    entities = [
+        OctopusIntelligentTargetTimeSelect(
+            coordinator,
+            device["id"],
+            device.get("name", "Véhicule"),
         )
+        for device in coordinator.data.get("devices", [])
+        if device.get("id")
+    ]
 
     if entities:
         async_add_entities(entities)
@@ -64,8 +61,8 @@ class OctopusIntelligentTargetTimeSelect(CoordinatorEntity, SelectEntity):
         super().__init__(coordinator)
         self._device_id = device_id
         self._attr_unique_id = f"{device_id}_target_time"
-        self._attr_name = "Heure cible"
         self._attr_has_entity_name = True
+        self._attr_translation_key = "target_time"
         self._attr_icon = "mdi:clock-outline"
         self._attr_options = TIME_OPTIONS
         self._attr_device_info = DeviceInfo(
@@ -90,7 +87,6 @@ class OctopusIntelligentTargetTimeSelect(CoordinatorEntity, SelectEntity):
             self._device_id, option, current_soc
         )
         if success:
-            _LOGGER.info("Target time set to %s for device %s", option, self._device_id)
             await self.coordinator.async_request_refresh()
         else:
             _LOGGER.error("Failed to set target time for device %s", self._device_id)

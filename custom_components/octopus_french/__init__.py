@@ -3,34 +3,71 @@
 from __future__ import annotations
 
 from contextlib import suppress
+from dataclasses import dataclass, field
 import logging
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import Platform, UnitOfApparentPower
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.typing import ConfigType
 
-from .api.intelligent import OctopusIntelligentApiClient
-from .const import DEFAULT_SCAN_INTERVAL, DOMAIN, SERVICE_FORCE_UPDATE
+from .const import DOMAIN, SERVICE_FORCE_UPDATE
 from .coordinator import OctopusFrenchDataUpdateCoordinator
 from .coordinator_intelligent import OctopusIntelligentDataUpdateCoordinator
 from .octopus_french import OctopusFrenchApiClient
 
+
+@dataclass
+class OctopusFrenchRuntimeData:
+    """Runtime data stored in config entry."""
+
+    coordinator: OctopusFrenchDataUpdateCoordinator
+    account_number: str
+    intelligent_coordinator: OctopusIntelligentDataUpdateCoordinator | None = field(default=None)
+
+
+type OctopusFrenchConfigEntry = ConfigEntry[OctopusFrenchRuntimeData]
+
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.NUMBER, Platform.SELECT, Platform.SENSOR, Platform.SWITCH]
+PLATFORMS: list[Platform] = [
+    Platform.BINARY_SENSOR,
+    Platform.NUMBER,
+    Platform.SELECT,
+    Platform.SENSOR,
+    Platform.SWITCH,
+]
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Set up the Octopus French Energy integration."""
+
+    async def handle_force_update(call: ServiceCall) -> None:
+        for entry in hass.config_entries.async_entries(DOMAIN):
+            if entry.state is ConfigEntryState.LOADED:
+                await entry.runtime_data.coordinator.async_request_refresh()
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_FORCE_UPDATE,
+        handle_force_update,
+        schema=vol.Schema({}),
+    )
+    return True
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: OctopusFrenchConfigEntry) -> bool:
     """Set up Octopus French Energy from a config entry."""
-    hass.data.setdefault(DOMAIN, {})
-
+    session = async_get_clientsession(hass)
     api_client = OctopusFrenchApiClient(
         email=entry.data["email"],
         password=entry.data["password"],
+        session=session,
     )
 
     await _async_authenticate(api_client)
@@ -39,65 +76,33 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         api_client, entry.data.get("account_number", "")
     )
 
-    scan_interval = entry.options.get("scan_interval", DEFAULT_SCAN_INTERVAL)
-
     coordinator = OctopusFrenchDataUpdateCoordinator(
         hass=hass,
         api_client=api_client,
         account_number=account_number,
-        scan_interval=scan_interval,
+        config_entry=entry,
     )
 
-    await _async_fetch_initial_data(coordinator, api_client)
+    await _async_fetch_initial_data(coordinator)
 
-    # Set up intelligent coordinator
-    intelligent_coordinator = OctopusIntelligentDataUpdateCoordinator(
-        hass=hass,
-        api_client=api_client,
+    intelligent_coordinator = await _async_setup_intelligent_coordinator(
+        hass, api_client, account_number
+    )
+
+    entry.runtime_data = OctopusFrenchRuntimeData(
+        coordinator=coordinator,
         account_number=account_number,
+        intelligent_coordinator=intelligent_coordinator,
     )
-    await intelligent_coordinator.async_config_entry_first_refresh()
-
-    hass.data[DOMAIN][entry.entry_id] = {
-        "coordinator": coordinator,
-        "api": api_client,
-        "account_number": account_number,
-        "intelligent_coordinator": intelligent_coordinator,
-    }
 
     await _async_create_devices(hass, entry, coordinator)
-    await _async_create_intelligent_devices(hass, entry, intelligent_coordinator)
+
+    if intelligent_coordinator is not None:
+        await _async_create_intelligent_devices(hass, entry, intelligent_coordinator)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    await _async_setup_services(hass)
-
-    entry.async_on_unload(entry.add_update_listener(update_listener))
     return True
-
-
-async def _async_setup_services(hass: HomeAssistant) -> None:
-    """Set up services for Octopus Energy France."""
-
-    async def handle_force_update(call: ServiceCall):
-        for data in hass.data.get(DOMAIN, {}).values():
-            coordinator = data.get("coordinator")
-            if coordinator:
-                await coordinator.async_request_refresh()
-
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_FORCE_UPDATE,
-        handle_force_update,
-        schema=vol.Schema({}),
-    )
-
-    _LOGGER.debug("Services registered successfully")
-
-
-async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Handle options update."""
-    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def _async_authenticate(api_client: OctopusFrenchApiClient) -> None:
@@ -105,15 +110,35 @@ async def _async_authenticate(api_client: OctopusFrenchApiClient) -> None:
         raise ConfigEntryAuthFailed("Authentication failed - invalid credentials")
 
 
+async def _async_setup_intelligent_coordinator(
+    hass: HomeAssistant,
+    api_client: OctopusFrenchApiClient,
+    account_number: str,
+) -> OctopusIntelligentDataUpdateCoordinator | None:
+    """Set up the Intelligent coordinator, returns None if not available."""
+    try:
+        coordinator = OctopusIntelligentDataUpdateCoordinator(
+            hass=hass,
+            api_client=api_client,
+            account_number=account_number,
+        )
+        await coordinator.async_config_entry_first_refresh()
+        if not coordinator.data.get("devices"):
+            _LOGGER.debug("No Intelligent devices found for account %s", account_number)
+            return None
+        return coordinator
+    except Exception as err:
+        _LOGGER.debug("Octopus Intelligent not available for this account: %s", err)
+        return None
+
+
 async def _async_fetch_initial_data(
     coordinator: OctopusFrenchDataUpdateCoordinator,
-    api_client: OctopusFrenchApiClient,
 ) -> None:
     """Fetch initial data from the coordinator."""
     try:
         await coordinator.async_config_entry_first_refresh()
     except Exception as err:
-        await api_client.close()
         raise ConfigEntryNotReady(f"Initial data fetch failed: {err}") from err
 
 
@@ -152,11 +177,12 @@ async def _async_create_devices(
             config_entry_id=entry.entry_id,
             identifiers={(DOMAIN, str(account_number))},
             name="Compte Octopus Energy",
+            manufacturer="Octopus Energy France",
             model="Compte client",
         )
 
     for elec_meter in supply_points.get("electricity", []):
-        prm_id = elec_meter.get("id")
+        prm_id = elec_meter.get("prm")
         if not prm_id:
             continue
 
@@ -166,11 +192,12 @@ async def _async_create_devices(
             config_entry_id=entry.entry_id,
             identifiers={(DOMAIN, str(prm_id))},
             name=f"{meter_kind} {prm_id}",
+            manufacturer="Enedis",
             model=f"{elec_meter.get('meterKind', 'N/A')} - {suscribed_max_power} {UnitOfApparentPower.KILO_VOLT_AMPERE}",
         )
 
     for gas_meter in supply_points.get("gas", []):
-        pce_ref = gas_meter.get("id")
+        pce_ref = gas_meter.get("prm")
         if not pce_ref:
             continue
 
@@ -179,6 +206,7 @@ async def _async_create_devices(
             config_entry_id=entry.entry_id,
             identifiers={(DOMAIN, str(pce_ref))},
             name=f"Gazpar {pce_ref}",
+            manufacturer="GrDF",
             model="Gazpar" if is_smart else "Compteur gaz traditionnel",
         )
 
@@ -207,18 +235,6 @@ async def _async_create_intelligent_devices(
         )
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: OctopusFrenchConfigEntry) -> bool:
     """Unload a config entry."""
-
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-
-    if unload_ok:
-        data = hass.data[DOMAIN].pop(entry.entry_id)
-
-        if api_client := data.get("api"):
-            with suppress(Exception):
-                await api_client.close()
-    if not hass.data[DOMAIN]:
-        hass.services.async_remove(DOMAIN, SERVICE_FORCE_UPDATE)
-        _LOGGER.debug("Services unregistered")
-    return unload_ok
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

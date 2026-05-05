@@ -20,17 +20,24 @@
       "already_configured": "This account is already configured"
     }
   },
-  "options": {
+  "reauth": {
+    "title": "Re-authenticate Octopus Energy France",
+    "description": "Your session has expired. Please enter your password to re-authenticate.",
     "step": {
-      "init": {
-        "title": "Octopus Energy France options",
-        "description": "Configure the update interval"
+      "reauth_confirm": {
+        "title": "Re-authenticate",
+        "data": {
+          "password": "Password"
+        }
       }
+    },
+    "abort": {
+      "reauth_successful": "Re-authentication was successful"
     }
   },
   "entity": {
     "sensor": {
-      "conso_base": {
+      "energy_base": {
         "name": "Consumption / current month",
         "state_attributes": {
           "current_month": {
@@ -41,10 +48,13 @@
           },
           "calculation_method": {
             "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
           }
         }
       },
-      "conso_hp": {
+      "energy_peak_hours": {
         "name": "Peak hours / current month",
         "state_attributes": {
           "current_month": {
@@ -55,10 +65,13 @@
           },
           "calculation_method": {
             "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
           }
         }
       },
-      "conso_hc": {
+      "energy_off_peak_hours": {
         "name": "Off-peak hours / current month",
         "state_attributes": {
           "current_month": {
@@ -69,10 +82,13 @@
           },
           "calculation_method": {
             "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
           }
         }
       },
-      "cout_base": {
+      "cost_base": {
         "name": "Cost / current month",
         "state_attributes": {
           "current_month": {
@@ -83,10 +99,13 @@
           },
           "calculation_method": {
             "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
           }
         }
       },
-      "cout_hp": {
+      "cost_peak_hours": {
         "name": "Peak hours cost / current month",
         "state_attributes": {
           "current_month": {
@@ -97,10 +116,13 @@
           },
           "calculation_method": {
             "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
           }
         }
       },
-      "cout_hc": {
+      "cost_off_peak_hours": {
         "name": "Off-peak hours cost / current month",
         "state_attributes": {
           "current_month": {
@@ -111,10 +133,13 @@
           },
           "calculation_method": {
             "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
           }
         }
       },
-      "index_base": {
+      "meter_index_base": {
         "name": "Meter index",
         "state_attributes": {
           "index_start": {
@@ -146,8 +171,8 @@
           }
         }
       },
-      "index_hp": {
-        "name": "Peak hours index",
+      "meter_index_peak_hours": {
+        "name": "Peak hours meter index",
         "state_attributes": {
           "index_start": {
             "name": "Starting index"
@@ -178,8 +203,8 @@
           }
         }
       },
-      "index_hc": {
-        "name": "Off-peak hours index",
+      "meter_index_off_peak_hours": {
+        "name": "Off-peak hours meter index",
         "state_attributes": {
           "index_start": {
             "name": "Starting index"
@@ -210,7 +235,7 @@
           }
         }
       },
-      "contrat": {
+      "contract": {
         "name": "Contract",
         "state_attributes": {
           "ledger_id": {
@@ -232,10 +257,10 @@
             "name": "Subscribed power"
           },
           "is_teleoperable": {
-            "name": "Remote operable"
+            "name": "Remote controllable"
           },
           "off_peak_label": {
-            "name": "Off-peak hours schedule"
+            "name": "Off-peak schedule"
           },
           "powered_status": {
             "name": "Supply status"
@@ -254,6 +279,139 @@
           }
         }
       },
+      "subscription": {
+        "name": "Subscription",
+        "state_attributes": {
+          "current_month": {
+            "name": "Current month"
+          },
+          "contract_number": {
+            "name": "Contract number"
+          },
+          "product_name": {
+            "name": "Product name"
+          },
+          "annual_ht_eur": {
+            "name": "Annual price (excl. tax)"
+          },
+          "annual_ttc_eur": {
+            "name": "Annual price (incl. tax)"
+          },
+          "monthly_ttc_eur": {
+            "name": "Monthly price (incl. tax)"
+          },
+          "billing_frequency_months": {
+            "name": "Billing frequency (months)"
+          },
+          "valid_from": {
+            "name": "Valid from"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "next_payment_amount": {
+            "name": "Next payment amount"
+          },
+          "next_payment_date": {
+            "name": "Next payment date"
+          },
+          "days_counted": {
+            "name": "Days counted"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          }
+        }
+      },
+      "rate_base": {
+        "name": "Rate",
+        "state_attributes": {
+          "contract_number": {
+            "name": "Contract number"
+          },
+          "product_name": {
+            "name": "Product name"
+          },
+          "valid_from": {
+            "name": "Valid from"
+          },
+          "price_ht_eur_kwh": {
+            "name": "Price (excl. tax)"
+          },
+          "price_ttc_eur_kwh": {
+            "name": "Price (incl. tax)"
+          }
+        }
+      },
+      "rate_peak_hours": {
+        "name": "Peak hours rate",
+        "state_attributes": {
+          "contract_number": {
+            "name": "Contract number"
+          },
+          "product_name": {
+            "name": "Product name"
+          },
+          "valid_from": {
+            "name": "Valid from"
+          },
+          "price_ht_eur_kwh": {
+            "name": "Price (excl. tax)"
+          },
+          "price_ttc_eur_kwh": {
+            "name": "Price (incl. tax)"
+          }
+        }
+      },
+      "rate_off_peak_hours": {
+        "name": "Off-peak hours rate",
+        "state_attributes": {
+          "contract_number": {
+            "name": "Contract number"
+          },
+          "product_name": {
+            "name": "Product name"
+          },
+          "valid_from": {
+            "name": "Valid from"
+          },
+          "price_ht_eur_kwh": {
+            "name": "Price (excl. tax)"
+          },
+          "price_ttc_eur_kwh": {
+            "name": "Price (incl. tax)"
+          }
+        }
+      },
+      "latest_reading": {
+        "name": "Latest reading",
+        "state_attributes": {
+          "date_releve": {
+            "name": "Reading date"
+          },
+          "heures_base": {
+            "name": "Base hours"
+          },
+          "heures_pleines_kwh": {
+            "name": "Peak hours"
+          },
+          "heures_creuses_kwh": {
+            "name": "Off-peak hours"
+          },
+          "cout_base_euro": {
+            "name": "Base cost"
+          },
+          "cout_heures_pleines_euro": {
+            "name": "Peak hours cost"
+          },
+          "cout_heures_creuses_euro": {
+            "name": "Off-peak hours cost"
+          },
+          "cout_abonnement_euro": {
+            "name": "Subscription cost"
+          }
+        }
+      },
       "consumption": {
         "name": "Consumption",
         "state_attributes": {
@@ -265,6 +423,29 @@
           },
           "calculation_method": {
             "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          }
+        }
+      },
+      "cost": {
+        "name": "Cost / current month",
+        "state_attributes": {
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          },
+          "tariff_eur_kwh": {
+            "name": "Tariff (€/kWh)"
           }
         }
       },
@@ -292,6 +473,9 @@
           },
           "expected_payment_date": {
             "name": "Expected payment date"
+          },
+          "ledger_type": {
+            "name": "Ledger type"
           }
         }
       },
@@ -319,11 +503,35 @@
           },
           "expected_payment_date": {
             "name": "Expected payment date"
+          },
+          "ledger_type": {
+            "name": "Ledger type"
           }
         }
       },
-      "pot_ledger": {
-        "name": "Credit balance",
+      "subscribed_power": {
+        "name": "Subscribed power"
+      },
+      "vehicle_status": {
+        "name": "Charging status"
+      },
+      "weekday_target_soc": {
+        "name": "Weekday target charge"
+      },
+      "weekday_target_time": {
+        "name": "Weekday target time"
+      },
+      "weekend_target_soc": {
+        "name": "Weekend target charge"
+      },
+      "weekend_target_time": {
+        "name": "Weekend target time"
+      },
+      "planned_dispatches": {
+        "name": "Charging windows"
+      },
+      "credit_balance": {
+        "name": "Pot balance",
         "state_attributes": {
           "ledger_number": {
             "name": "Ledger number"
@@ -333,6 +541,9 @@
           },
           "balance_cents": {
             "name": "Balance (cents)"
+          },
+          "ledger_type": {
+            "name": "Ledger type"
           }
         }
       }
@@ -360,43 +571,21 @@
             "name": "Time range 3"
           }
         }
-      },
-      "vehicle_status": {
-        "name": "Charging status",
-        "state_attributes": {
-          "device_id": { "name": "Device ID" },
-          "name": { "name": "Name" },
-          "current": { "name": "Current state" }
-        }
-      },
-      "weekday_target_soc": {
-        "name": "Weekday target charge"
-      },
-      "weekday_target_time": {
-        "name": "Weekday target time"
-      },
-      "weekend_target_soc": {
-        "name": "Weekend target charge"
-      },
-      "weekend_target_time": {
-        "name": "Weekend target time"
-      },
-      "planned_dispatches": {
-        "name": "Charging windows",
-        "state_attributes": {
-          "count": { "name": "Count" },
-          "dispatches": { "name": "Dispatches" },
-          "formatted": { "name": "Formatted" }
-        }
       }
     },
     "switch": {
       "bump_charge": {
         "name": "Boost charge",
         "state_attributes": {
-          "current": { "name": "Current state" },
-          "current_state": { "name": "Charging state" },
-          "refusal_reasons": { "name": "Refusal reasons" }
+          "current": {
+            "name": "Current status"
+          },
+          "current_state": {
+            "name": "Charging state"
+          },
+          "refusal_reasons": {
+            "name": "Refusal reasons"
+          }
         }
       }
     },

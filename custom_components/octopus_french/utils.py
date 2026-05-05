@@ -21,11 +21,9 @@ def parse_off_peak_hours(off_peak_label: str | None) -> dict[str, Any]:
         return result
 
     try:
-        # Extract type (HC, HP, etc.)
         if type_match := re.match(r"^([A-Z]+)", off_peak_label):
             result["type"] = type_match.group(1)
 
-        # Extract time ranges: format like "0H50-6H50" or "14H50-16H50"
         time_pattern = r"(\d+)H(\d+)-(\d+)H(\d+)"
         matches = re.findall(time_pattern, off_peak_label)
 
@@ -33,12 +31,9 @@ def parse_off_peak_hours(off_peak_label: str | None) -> dict[str, Any]:
 
         for match in matches:
             start_hour, start_min, end_hour, end_min = map(int, match)
-
-            # Convert to minutes since midnight
             start_minutes = start_hour * 60 + start_min
             end_minutes = end_hour * 60 + end_min
 
-            # Calculate duration (handle ranges that cross midnight)
             duration_minutes = (
                 end_minutes - start_minutes
                 if end_minutes >= start_minutes

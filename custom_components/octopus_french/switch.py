@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.core import HomeAssistant
@@ -14,43 +14,40 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 from .coordinator_intelligent import OctopusIntelligentDataUpdateCoordinator
 
-if TYPE_CHECKING:
-    from homeassistant.config_entries import ConfigEntry
-
 _LOGGER = logging.getLogger(__name__)
+
+PARALLEL_UPDATES = 0
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
+    config_entry: Any,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the switches."""
-    coordinator: OctopusIntelligentDataUpdateCoordinator = hass.data["octopus_french"][config_entry.entry_id]["intelligent_coordinator"]
+    coordinator: OctopusIntelligentDataUpdateCoordinator = (
+        config_entry.runtime_data.intelligent_coordinator
+    )
 
-    entities = []
-    devices = coordinator.data.get("devices", [])
+    if coordinator is None:
+        return
 
-    for device in devices:
-        device_id = device.get("id")
-        if not device_id:
-            _LOGGER.warning("Device without id for switch: %s", device)
-            continue
-
-        entities.append(
-            OctopusIntelligentBumpChargeSwitch(
-                coordinator,
-                device_id,
-                device.get("name", "Véhicule"),
-            )
+    entities = [
+        OctopusIntelligentBumpChargeSwitch(
+            coordinator,
+            device["id"],
+            device.get("name", "Véhicule"),
         )
+        for device in coordinator.data.get("devices", [])
+        if device.get("id")
+    ]
 
     if entities:
         async_add_entities(entities)
 
 
 class OctopusIntelligentBumpChargeSwitch(CoordinatorEntity, SwitchEntity):
-    """Switch for bump charge."""
+    """Switch for boost charge."""
 
     def __init__(
         self,
@@ -62,9 +59,8 @@ class OctopusIntelligentBumpChargeSwitch(CoordinatorEntity, SwitchEntity):
         super().__init__(coordinator)
         self._device_id = device_id
         self._attr_unique_id = f"{device_id}_bump_charge"
-        self._attr_name = "Recharge rapide"
         self._attr_has_entity_name = True
-        self._attr_device_class = "switch"
+        self._attr_translation_key = "bump_charge"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
             via_device=(DOMAIN, coordinator.account_number),
@@ -89,11 +85,9 @@ class OctopusIntelligentBumpChargeSwitch(CoordinatorEntity, SwitchEntity):
         """Return extra state attributes."""
         device = self._get_device_status()
         status_data = device.get("status", {})
-        current = status_data.get("current")
-        current_state = status_data.get("currentState")
         return {
-            "current": current,
-            "current_state": current_state,
+            "current": status_data.get("current"),
+            "current_state": status_data.get("currentState"),
             "refusal_reasons": self.coordinator.data.get("boost_refusal_reasons", []),
         }
 
@@ -110,21 +104,19 @@ class OctopusIntelligentBumpChargeSwitch(CoordinatorEntity, SwitchEntity):
                 ", ".join(refusal_reasons),
             )
         else:
-            # Refresh device list to get updated status
             await self.coordinator.async_refresh_devices()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
-        _LOGGER.info("Canceling boost charge for device %s", self._device_id)
-        _, refusal_reasons = await self.coordinator.intelligent_client.cancel_boost_charge(self._device_id)
+        _, refusal_reasons = await self.coordinator.intelligent_client.cancel_boost_charge(
+            self._device_id
+        )
         self.coordinator.data["boost_refusal_reasons"] = refusal_reasons
-
-        if refusal_reasons:
+        if not refusal_reasons:
+            await self.coordinator.async_refresh_devices()
+        else:
             _LOGGER.warning(
-                "Cancel boost charge response for device %s: %s",
+                "Cancel boost charge for device %s: %s",
                 self._device_id,
                 ", ".join(refusal_reasons),
             )
-        else:
-            # Refresh device list to get updated status
-            await self.coordinator.async_refresh_devices()

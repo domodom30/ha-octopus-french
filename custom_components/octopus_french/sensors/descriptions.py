@@ -1,0 +1,231 @@
+"""Sensor entity descriptions for Octopus Energy France."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntityDescription,
+    SensorStateClass,
+)
+from homeassistant.const import CURRENCY_EURO, UnitOfApparentPower, UnitOfEnergy
+from homeassistant.helpers.entity import EntityCategory
+
+
+@dataclass(frozen=True, kw_only=True)
+class OctopusIndexSensorDescription(SensorEntityDescription):
+    """Sensor description for electricity index sensors."""
+
+    index_type: str = ""
+
+
+@dataclass(frozen=True, kw_only=True)
+class OctopusLedgerSensorDescription(SensorEntityDescription):
+    """Sensor description for ledger sensors."""
+
+    ledger_type: str = ""
+
+
+ELECTRICITY_SENSORS: tuple[SensorEntityDescription, ...] = (
+    SensorEntityDescription(
+        key="energy_base",
+        icon="mdi:lightning-bolt",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=2,
+    ),
+    SensorEntityDescription(
+        key="energy_peak_hours",
+        icon="mdi:lightning-bolt",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=2,
+    ),
+    SensorEntityDescription(
+        key="energy_off_peak_hours",
+        icon="mdi:lightning-bolt-outline",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=2,
+    ),
+    SensorEntityDescription(
+        key="cost_base",
+        icon="mdi:currency-eur",
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=CURRENCY_EURO,
+        suggested_display_precision=2,
+    ),
+    SensorEntityDescription(
+        key="cost_peak_hours",
+        icon="mdi:currency-eur",
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=CURRENCY_EURO,
+        suggested_display_precision=2,
+    ),
+    SensorEntityDescription(
+        key="cost_off_peak_hours",
+        icon="mdi:currency-eur",
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=CURRENCY_EURO,
+        suggested_display_precision=2,
+    ),
+    SensorEntityDescription(
+        key="contract",
+        icon="mdi:file-document-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    SensorEntityDescription(
+        key="subscription",
+        icon="mdi:calendar-month",
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=CURRENCY_EURO,
+        suggested_display_precision=2,
+    ),
+    SensorEntityDescription(
+        key="subscribed_power",
+        icon="mdi:flash",
+        device_class=SensorDeviceClass.APPARENT_POWER,
+        native_unit_of_measurement=UnitOfApparentPower.KILO_VOLT_AMPERE,
+        suggested_display_precision=1,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    SensorEntityDescription(
+        key="rate_base",
+        icon="mdi:cash",
+        device_class=SensorDeviceClass.MONETARY,
+        native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
+        suggested_display_precision=4,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    SensorEntityDescription(
+        key="rate_peak_hours",
+        icon="mdi:cash-plus",
+        device_class=SensorDeviceClass.MONETARY,
+        native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
+        suggested_display_precision=4,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    SensorEntityDescription(
+        key="rate_off_peak_hours",
+        icon="mdi:cash-minus",
+        device_class=SensorDeviceClass.MONETARY,
+        native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
+        suggested_display_precision=4,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+)
+
+LATEST_READING_SENSOR = SensorEntityDescription(
+    key="latest_reading",
+    icon="mdi:calendar-clock",
+    device_class=SensorDeviceClass.ENERGY,
+    native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+    suggested_display_precision=2,
+    entity_category=EntityCategory.DIAGNOSTIC,
+)
+
+ELECTRICITY_INDEX_SENSORS: tuple[OctopusIndexSensorDescription, ...] = (
+    OctopusIndexSensorDescription(
+        key="meter_index_base",
+        index_type="base",
+        icon="mdi:counter",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=0,
+    ),
+    OctopusIndexSensorDescription(
+        key="meter_index_peak_hours",
+        index_type="hp",
+        icon="mdi:counter",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=0,
+    ),
+    OctopusIndexSensorDescription(
+        key="meter_index_off_peak_hours",
+        index_type="hc",
+        icon="mdi:counter",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=0,
+    ),
+)
+
+GAS_SENSORS: tuple[SensorEntityDescription, ...] = (
+    SensorEntityDescription(
+        key="consumption",
+        icon="mdi:fire",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=2,
+    ),
+    SensorEntityDescription(
+        key="cost",
+        icon="mdi:currency-eur",
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=CURRENCY_EURO,
+        suggested_display_precision=2,
+    ),
+    SensorEntityDescription(
+        key="contract",
+        icon="mdi:file-document-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    SensorEntityDescription(
+        key="subscription",
+        icon="mdi:calendar-month",
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=CURRENCY_EURO,
+        suggested_display_precision=2,
+    ),
+    SensorEntityDescription(
+        key="rate_base",
+        icon="mdi:cash",
+        device_class=SensorDeviceClass.MONETARY,
+        native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
+        suggested_display_precision=4,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+)
+
+LEDGER_SENSORS: tuple[OctopusLedgerSensorDescription, ...] = (
+    OctopusLedgerSensorDescription(
+        key="credit_balance",
+        ledger_type="POT_LEDGER",
+        icon="mdi:piggy-bank",
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=CURRENCY_EURO,
+        suggested_display_precision=2,
+    ),
+    OctopusLedgerSensorDescription(
+        key="electricity_bill",
+        ledger_type="FRA_ELECTRICITY_LEDGER",
+        icon="mdi:file-document",
+        device_class=SensorDeviceClass.MONETARY,
+        native_unit_of_measurement=CURRENCY_EURO,
+        suggested_display_precision=2,
+    ),
+    OctopusLedgerSensorDescription(
+        key="gas_bill",
+        ledger_type="FRA_GAS_LEDGER",
+        icon="mdi:file-document",
+        device_class=SensorDeviceClass.MONETARY,
+        native_unit_of_measurement=CURRENCY_EURO,
+        suggested_display_precision=2,
+    ),
+)
