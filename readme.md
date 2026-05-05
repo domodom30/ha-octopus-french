@@ -1,6 +1,77 @@
 # Octopus Energy France pour Home Assistant
+### ⚡ Recharge Intelligente (Octopus Intelligent)
 
-[![GitHub Release](https://img.shields.io/github/release/domodom30/ha-octopus-french)](https://github.com/domodom30/ha-octopus-french/releases)
+Octopus Energy propose un service « [Intelligent Octopus](https://octopusenergy.fr/intelligent-octopus) » permettant de planifier la recharge d'un véhicule électrique à tarif réduit (8 cts/kWh).
+
+Cette intégration ajoute le **support complet** de cette fonctionnalité dans Home Assistant :
+
+#### 🎛️ Contrôles
+
+- **Interrupteur Recharge Rapide** (`switch.bump_charge`) : Déclenche ou annule une recharge immédiate hors planning
+  - Active le mode BOOSTING pour une recharge instantanée
+  - Désactive pour reprendre le planning intelligent
+  - Affiche les raisons de refus en cas d'échec
+
+- **Number : Cible SOC** (`number.target_soc`) : Définit le niveau de charge souhaité (0-100%)
+  - Pas de 5% pour un ajustement précis
+  - Appliqué à tous les jours de la semaine
+
+- **Select : Heure Cible** (`select.target_time`) : Définit l'heure de fin de charge souhaitée
+  - Créneaux de 30 minutes (00:00 à 23:30)
+  - Le système planifie automatiquement le début de charge optimal
+
+#### 📊 Capteurs de monitoring
+
+- **Statut du Dispositif VE** (`sensor.vehicle_status`) : Affiche l'état courant du véhicule
+  - États possibles : `SMART_CONTROL_CAPABLE`, `BOOSTING`, `SMART_CONTROL_IN_PROGRESS`, `CHARGING`, `NOT_CONNECTED`, etc.
+  
+- **Cible SOC Semaine** (`sensor.weekday_target_soc`) : Niveau de charge cible pour les jours de semaine (%)
+- **Heure Cible Semaine** (`sensor.weekday_target_time`) : Heure de fin de charge pour les jours de semaine
+- **Cible SOC Weekend** (`sensor.weekend_target_soc`) : Niveau de charge cible pour le weekend (%)
+- **Heure Cible Weekend** (`sensor.weekend_target_time`) : Heure de fin de charge pour le weekend
+- **Fenêtres de Dispatch Planifiées** (`sensor.planned_dispatches`) : Créneaux de recharge intelligente planifiés (format JSON)
+
+#### 🔌 Codes d'état et erreurs
+
+**États du véhicule :**
+- `SMART_CONTROL_CAPABLE` : Véhicule prêt pour le contrôle intelligent
+- `BOOSTING` : Recharge rapide en cours
+- `SMART_CONTROL_IN_PROGRESS` : Recharge intelligente en cours
+- `CHARGING` : Recharge en cours
+- `NOT_CONNECTED` : Véhicule non connecté
+
+**Raisons de refus (attribut `refusal_reasons`) :**
+- `BC_DEVICE_DISCONNECTED` : Véhicule non connecté
+- `BC_DEVICE_FULLY_CHARGED` : Véhicule déjà pleinement chargé
+- `BC_DEVICE_NOT_READY` : Dispositif non prêt
+- Et autres codes spécifiques
+
+#### 💡 Exemples d'utilisation
+
+**Activer une recharge rapide :**
+```yaml
+service: switch.turn_on
+target:
+  entity_id: switch.vehicule_bump_charge
+```
+
+**Définir une cible de 80% :**
+```yaml
+service: number.set_value
+target:
+  entity_id: number.vehicule_target_soc
+data:
+  value: 80
+```
+
+**Planifier une charge pour 7h30 :**
+```yaml
+service: select.select_option
+target:
+  entity_id: select.vehicule_target_time
+data:
+  option: "07:30"
+```b Release](https://img.shields.io/github/release/domodom30/ha-octopus-french)](https://github.com/domodom30/ha-octopus-french/releases)
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 ![installation_badge](https://img.shields.io/badge/dynamic/json?color=41BDF5&logo=home-assistant&label=integration%20usage&suffix=%20installs&cacheSeconds=15600&url=https://analytics.home-assistant.io/custom_integrations.json&query=$.octopus_french.total)
 
@@ -178,6 +249,43 @@ Pour accéder aux options :
 - `period_end` : Fin de période de relevé
 - `index_reliability` : Fiabilité de l'index (REAL/ESTIMATED)
 
+#### Capteur binaire Heures Creuses (HPHC uniquement)
+
+| Entité                  | Type           | Description                                                 |
+| ----------------------- | -------------- | ----------------------------------------------------------- |
+| HC Active               | Capteur binaire | Indique si l'heure actuelle est en période heures creuses   |
+
+**États :**
+- `ON` : Période heures creuses en cours
+- `OFF` : Période heures pleines en cours
+
+**Attributs :**
+- `off_peak_type` : Type de période (HC_HC par exemple)
+- `off_peak_total_hours` : Nombre total d'heures creuses par jour
+- `off_peak_range_count` : Nombre de plages horaires
+- `off_peak_range_X_start` : Heure de début de la plage X (format HH:MM)
+- `off_peak_range_X_end` : Heure de fin de la plage X
+- `off_peak_range_X_duration` : Durée de la plage X (heures)
+
+**Exemple d'utilisation :**
+```yaml
+# Automatisation : démarrer un appareil énergivore en heures creuses
+automation:
+  - alias: "Lancer lave-linge en HC"
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.linky_XXXXXX_hc_active
+        to: "on"
+    condition:
+      - condition: state
+        entity_id: input_boolean.lave_linge_en_attente
+        state: "on"
+    action:
+      - service: switch.turn_on
+        target:
+          entity_id: switch.lave_linge
+```
+
 #### Capteur dernier relevé (Diagnostic)
 
 | Entité         | Type    | Classe | Description                        |
@@ -229,34 +337,98 @@ Pour accéder aux options :
 
 ### 🚗 Appareil Véhicule Électrique (Octopus Intelligent)
 
+> **Note :** Ces entités ne sont créées que si vous êtes abonné au service Octopus Intelligent et qu'un véhicule électrique est enregistré sur votre compte.
+
 #### Interrupteur
 
-| Entité          | Type         | Description                                              |
-| --------------- | ------------ | -------------------------------------------------------- |
-| Recharge rapide | Interrupteur | Active/désactive la recharge rapide immédiate (BOOSTING) |
+| Entité          | Type         | Description                                                               |
+| --------------- | ------------ | ------------------------------------------------------------------------- |
+| Recharge rapide | Interrupteur | Active/désactive la recharge rapide immédiate (mode BOOSTING) hors planning |
 
 **Attributs de l'interrupteur :**
+- `current` : État de connexion du véhicule (LIVE/autre)
+- `current_state` : État actuel de charge détaillé (BOOSTING, SMART_CONTROL_IN_PROGRESS, etc.)
+- `refusal_reasons` : Liste des raisons de refus si l'action a échoué
+  - `BC_DEVICE_DISCONNECTED` : Véhicule non connecté
+  - `BC_DEVICE_FULLY_CHARGED` : Batterie déjà pleine
+  - `BC_DEVICE_NOT_READY` : Dispositif non prêt
+  - Autres codes d'erreur API
 
-- `current` : État du véhicule (LIVE/autre)
-- `current_state` : État de charge (BOOSTING, SMART_CONTROL_IN_PROGRESS, etc.)
-- `refusal_reasons` : Raisons de refus si action échouée (BC_DEVICE_DISCONNECTED, BC_DEVICE_FULLY_CHARGED, etc.)
+#### Entités de configuration
 
-#### Capteurs
+| Entité                  | Type   | Plage        | Description                                                |
+| ----------------------- | ------ | ------------ | ---------------------------------------------------------- |
+| Cible SOC               | Number | 0-100% (5%)  | Niveau de charge souhaité pour la batterie                 |
+| Heure cible de recharge | Select | 00:00-23:30  | Heure à laquelle la charge doit être terminée              |
 
-| Entité                       | Type    | Description                                                     |
-| ---------------------------- | ------- | --------------------------------------------------------------- |
-| Statut de charge             | Capteur | État actuel du véhicule (BOOSTING, SMART_CONTROL_CAPABLE, etc.) |
-| Cible SOC semaine            | Capteur | État de charge cible pour les jours de semaine (%)              |
-| Heure cible semaine          | Capteur | Heure de recharge cible pour les jours de semaine               |
-| Cible SOC weekend            | Capteur | État de charge cible pour le weekend (%)                        |
-| Heure cible weekend          | Capteur | Heure de recharge cible pour le weekend                         |
-| Fenêtres dispatch planifiées | Capteur | Créneaux de recharge intelligente planifiés (JSON)              |
+**Fonctionnement :**
+- Les valeurs sont appliquées à tous les jours de la semaine
+- Le système Octopus Intelligent calcule automatiquement l'heure de début de charge optimale
+- Les modifications sont envoyées immédiatement à l'API Octopus
 
-**Attributs du capteur statut :**
+#### Capteurs de monitoring
 
-- `device_id` : ID unique du véhicule
-- `name` : Nom du véhicule
-- `current` : État de connexion
+| Entité                       | Type    | Description                                                         |
+| ---------------------------- | ------- | ------------------------------------------------------------------- |
+| Statut de charge             | Capteur | État actuel du véhicule et de la charge                             |
+| Cible SOC semaine            | Capteur | Niveau de charge cible configuré pour les jours de semaine (%)      |
+| Heure cible semaine          | Capteur | Heure de fin de charge cible pour les jours de semaine              |
+| Cible SOC weekend            | Capteur | Niveau de charge cible configuré pour le weekend (%)                |
+| Heure cible weekend          | Capteur | Heure de fin de charge cible pour le weekend                        |
+| Fenêtres dispatch planifiées | Capteur | Créneaux de recharge intelligente planifiés (format JSON)           |
+
+**États possibles du capteur de statut :**
+- `SMART_CONTROL_CAPABLE` : Véhicule prêt, contrôle intelligent disponible
+- `BOOSTING` : Recharge rapide (boost) en cours
+- `SMART_CONTROL_IN_PROGRESS` : Recharge intelligente planifiée en cours
+- `CHARGING` : En charge
+- `NOT_CONNECTED` : Véhicule non connecté
+- `READY` : Prêt à charger
+- Et autres états spécifiques API
+
+**Attributs des capteurs :**
+- `device_id` : Identifiant unique du véhicule
+- `name` : Nom du véhicule configuré dans Octopus
+- `current` : État de connexion actuel
+- `planned_dispatches` : Liste des créneaux de charge (start/end)
+
+#### 🎯 Cas d'usage
+
+**Automatisation : Boost avant départ**
+```yaml
+automation:
+  - alias: "Recharge rapide avant 8h"
+    trigger:
+      - platform: time
+        at: "07:00:00"
+    condition:
+      - condition: numeric_state
+        entity_id: sensor.vehicule_weekday_target_soc
+        below: 80
+    action:
+      - service: switch.turn_on
+        target:
+          entity_id: switch.vehicule_bump_charge
+```
+
+**Notification si recharge refusée**
+```yaml
+automation:
+  - alias: "Alerte boost refusé"
+    trigger:
+      - platform: state
+        entity_id: switch.vehicule_bump_charge
+        attribute: refusal_reasons
+    condition:
+      - condition: template
+        value_template: "{{ trigger.to_state.attributes.refusal_reasons | length > 0 }}"
+    action:
+      - service: notify.mobile_app
+        data:
+          title: "⚠️ Recharge refusée"
+          message: >
+            Raison : {{ trigger.to_state.attributes.refusal_reasons | join(', ') }}
+```
 
 ---
 
