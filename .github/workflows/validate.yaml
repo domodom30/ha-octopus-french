@@ -5,13 +5,13 @@ on:
     branches:
       - main
     paths:
-      - 'custom_components/octopus_french/**'
-      - '.github/workflows/**'
+      - "custom_components/octopus_french/**"
+      - ".github/workflows/**"
   pull_request:
     branches:
       - main
   schedule:
-    - cron: '0 0 * * 1'  # Tous les lundis à minuit
+    - cron: "0 0 * * 1" # Tous les lundis à minuit
   workflow_dispatch:
 
 jobs:
@@ -40,7 +40,7 @@ jobs:
   tag-and-release:
     name: Tag and Release
     runs-on: ubuntu-latest
-    needs: [validate, hacs]  # Attend que les validations passent
+    needs: [validate, hacs] # Attend que les validations passent
     permissions:
       contents: write
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
