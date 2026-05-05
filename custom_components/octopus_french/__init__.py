@@ -30,7 +30,9 @@ class OctopusFrenchRuntimeData:
 
     coordinator: OctopusFrenchDataUpdateCoordinator
     account_number: str
-    intelligent_coordinator: OctopusIntelligentDataUpdateCoordinator | None = field(default=None)
+    intelligent_coordinator: OctopusIntelligentDataUpdateCoordinator | None = field(
+        default=None
+    )
 
 
 type OctopusFrenchConfigEntry = ConfigEntry[OctopusFrenchRuntimeData]
@@ -63,7 +65,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: OctopusFrenchConfigEntry) -> bool:
+async def async_setup_entry(
+    hass: HomeAssistant, entry: OctopusFrenchConfigEntry
+) -> bool:
     """Set up Octopus French Energy from a config entry."""
     session = async_get_clientsession(hass)
     api_client = OctopusFrenchApiClient(
@@ -237,6 +241,8 @@ async def _async_create_intelligent_devices(
         )
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: OctopusFrenchConfigEntry) -> bool:
+async def async_unload_entry(
+    hass: HomeAssistant, entry: OctopusFrenchConfigEntry
+) -> bool:
     """Unload a config entry."""
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
