@@ -20,21 +20,6 @@
       "already_configured": "This account is already configured"
     }
   },
-  "reauth": {
-    "title": "Re-authenticate Octopus Energy France",
-    "description": "Your session has expired. Please enter your password to re-authenticate.",
-    "step": {
-      "reauth_confirm": {
-        "title": "Re-authenticate",
-        "data": {
-          "password": "Password"
-        }
-      }
-    },
-    "abort": {
-      "reauth_successful": "Re-authentication was successful"
-    }
-  },
   "entity": {
     "sensor": {
       "energy_base": {
