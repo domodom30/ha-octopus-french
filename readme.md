@@ -1,22 +1,6 @@
 # Octopus Energy France pour Home Assistant
 
-[### ⚡ Recharge Intelligente (Octopus Intelligent)
-
-> **Contributeur** : [@jeremygovi](https://github.com/jeremygovi) via [PR #31](https://github.com/domodom30/ha-octopus-french/pull/31)
-
-Octopus Energy propose un service « [Intelligent Octopus](https://octopusenergy.fr/intelligent-octopus) » permettant de planifier la recharge d'un véhicule électrique à tarif réduit (8 cts/kWh).
-
-Cette intégration ajoute le **support complet** de cette fonctionnalité dans Home Assistant :
-
-**Contrôles disponibles :**
-- **Interrupteur Recharge Rapide** (`switch.bump_charge`) : Déclenche ou annule une recharge immédiate (mode BOOSTING)
-- **Number : Cible SOC** (`number.target_soc`) : Définit le niveau de charge souhaité (0-100%, pas de 5%)
-- **Select : Heure Cible** (`select.target_time`) : Définit l'heure de fin de charge (créneaux 30min)
-
-**Capteurs de monitoring :**
-- État du dispositif VE, cibles SOC/temps semaine/weekend, fenêtres de dispatch planifiées
-
-📖 **[Documentation complète de la recharge intelligente](#-recharge-intelligente-octopus-intelligent-détails)**Release](https://img.shields.io/github/release/domodom30/ha-octopus-french)](https://github.com/domodom30/ha-octopus-french/releases)
+[![GitHub Release](https://img.shields.io/github/release/domodom30/ha-octopus-french)](https://github.com/domodom30/ha-octopus-french/releases)
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 ![installation_badge](https://img.shields.io/badge/dynamic/json?color=41BDF5&logo=home-assistant&label=integration%20usage&suffix=%20installs&cacheSeconds=15600&url=https://analytics.home-assistant.io/custom_integrations.json&query=$.octopus_french.total)
 
