@@ -1,6 +1,8 @@
 # Octopus Energy France pour Home Assistant
 ### ⚡ Recharge Intelligente (Octopus Intelligent)
 
+> **Contributeur** : [@jeremygovi](https://github.com/jeremygovi) via [PR #31](https://github.com/domodom30/ha-octopus-french/pull/31)
+
 Octopus Energy propose un service « [Intelligent Octopus](https://octopusenergy.fr/intelligent-octopus) » permettant de planifier la recharge d'un véhicule électrique à tarif réduit (8 cts/kWh).
 
 Cette intégration ajoute le **support complet** de cette fonctionnalité dans Home Assistant :
@@ -24,7 +26,7 @@ Cette intégration ajoute le **support complet** de cette fonctionnalité dans H
 
 - **Statut du Dispositif VE** (`sensor.vehicle_status`) : Affiche l'état courant du véhicule
   - États possibles : `SMART_CONTROL_CAPABLE`, `BOOSTING`, `SMART_CONTROL_IN_PROGRESS`, `CHARGING`, `NOT_CONNECTED`, etc.
-  
+
 - **Cible SOC Semaine** (`sensor.weekday_target_soc`) : Niveau de charge cible pour les jours de semaine (%)
 - **Heure Cible Semaine** (`sensor.weekday_target_time`) : Heure de fin de charge pour les jours de semaine
 - **Cible SOC Weekend** (`sensor.weekend_target_soc`) : Niveau de charge cible pour le weekend (%)
@@ -338,6 +340,8 @@ automation:
 ### 🚗 Appareil Véhicule Électrique (Octopus Intelligent)
 
 > **Note :** Ces entités ne sont créées que si vous êtes abonné au service Octopus Intelligent et qu'un véhicule électrique est enregistré sur votre compte.
+> 
+> **Contributeur** : [@jeremygovi](https://github.com/jeremygovi) via [PR #31](https://github.com/domodom30/ha-octopus-french/pull/31)
 
 #### Interrupteur
 

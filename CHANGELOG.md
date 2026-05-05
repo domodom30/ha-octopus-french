@@ -3,18 +3,21 @@
 ### ✨ Nouveautés
 
 #### 🚗 Support complet Octopus Intelligent
+
+> **Contributeur** : [@jeremygovi](https://github.com/jeremygovi) via [PR #31](https://github.com/domodom30/ha-octopus-french/pull/31)
+
 - **Interrupteur Recharge Rapide** (`switch`) : Active/désactive la recharge immédiate (boost charge)
   - Gestion automatique des états (BOOSTING, SMART_CONTROL_IN_PROGRESS, etc.)
   - Attributs avec raisons de refus en cas d'échec (BC_DEVICE_DISCONNECTED, BC_DEVICE_FULLY_CHARGED, etc.)
-  
+
 - **Entité Number** : Cible SOC (State of Charge) pour la recharge
   - Plage : 0-100% par pas de 5%
   - Configuration séparée semaine/weekend
-  
+
 - **Entité Select** : Heure cible de recharge
   - Créneaux de 30 minutes (00:00 à 23:30)
   - Permet de définir l'heure de fin de charge souhaitée
-  
+
 - **Capteurs de monitoring** :
   - Statut du dispositif VE (SMART_CONTROL_CAPABLE, BOOSTING, etc.)
   - Cible SOC semaine/weekend
