@@ -43,7 +43,11 @@ jobs:
     needs: [validate, hacs] # Attend que les validations passent
     permissions:
       contents: write
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Ne crée un tag que si manifest.json a changé (pas juste les workflows)
+    if: |
+      github.event_name == 'push' && 
+      github.ref == 'refs/heads/main' &&
+      contains(github.event.head_commit.modified, 'custom_components/octopus_french/manifest.json')
 
     steps:
       - name: ⤵️ Check out code from GitHub
