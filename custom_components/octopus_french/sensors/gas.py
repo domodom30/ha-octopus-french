@@ -161,6 +161,7 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
             cumulative_sum = 0.0
 
         statistics = []
+        first_reading_logged = False
 
         for reading in sorted_readings:
             reading_date = reading.get("startAt")
@@ -175,12 +176,13 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
                     hour=0, minute=0, second=0, microsecond=0
                 )
 
-                if not statistics:
+                if not first_reading_logged:
                     _LOGGER.debug(
                         "First reading - original: %s, normalized: %s",
                         reading_date,
                         date_normalized.isoformat(),
                     )
+                    first_reading_logged = True
 
                 if (
                     self._last_imported_date

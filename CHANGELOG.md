@@ -1,3 +1,13 @@
+## [3.2.2] - 2026-05-14
+
+### 🐛 Corrections
+
+- Fix: erreur d'authentification transiente (réseau, API indisponible) traitée comme `UpdateFailed` → l'intégration réessaie automatiquement sans bloquer ni demander une reconfiguration
+- Fix: message d'erreur dupliqué `Authentication failed: Authentication failed: invalid credentials` réduit à un seul préfixe
+- Fix: log debug `First reading` déclenché pour chaque lecture au lieu d'une seule fois par cycle d'import de statistiques
+
+---
+
 ## [3.2.0] - 2026-05-05
 
 ### ✨ Nouveautés

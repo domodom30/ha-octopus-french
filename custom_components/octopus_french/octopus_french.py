@@ -16,7 +16,11 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class OctopusAuthError(Exception):
-    """Raised when authentication fails (bad credentials or expired token after retry)."""
+    """Raised when authentication fails due to invalid credentials."""
+
+
+class OctopusConnectionError(Exception):
+    """Raised when the API cannot be reached (network or server error)."""
 
 
 GRAPHQL_ENDPOINT = "https://api.oefr-kraken.energy/v1/graphql/"
@@ -392,7 +396,9 @@ class OctopusFrenchApiClient:
             )
 
             if not result:
-                return False
+                raise OctopusConnectionError(
+                    "Failed to reach authentication server"
+                )
 
             token = result.get("data", {}).get("obtainKrakenToken", {}).get("token")
 

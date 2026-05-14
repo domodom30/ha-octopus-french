@@ -54,6 +54,8 @@ Cette intégration ajoute le support complet de cette fonctionnalité dans Home 
 - **Capteur État du Dispositif VE** : affiche le statut courant du véhicule (SMART_CONTROL_CAPABLE, BOOSTING, SMART_CONTROL_IN_PROGRESS, etc.).
 - **Capteurs** : cible SOC semaine/weekend, heure cible, fenêtres de dispatch planifiées.
 
+> **Contributeur** : [@jeremygovi](https://github.com/jeremygovi) via [PR #31](https://github.com/domodom30/ha-octopus-french/pull/31)
+
 ### ⚙️ Fonctionnalités avancées
 
 - **Intervalle de mise à jour configurable** (5 à 1440 minutes, défaut : 60 min)

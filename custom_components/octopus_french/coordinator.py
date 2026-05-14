@@ -15,7 +15,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DEFAULT_SCAN_INTERVAL, PREVIOUS_MONTH_OVERLAP_DAYS
 
-from .octopus_french import OctopusAuthError
+from .octopus_french import OctopusAuthError, OctopusConnectionError
 
 if TYPE_CHECKING:
     from .octopus_french import OctopusFrenchApiClient
@@ -49,7 +49,9 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
         try:
             return await self._fetch_all_data()
         except OctopusAuthError as err:
-            raise ConfigEntryAuthFailed(f"Authentication failed: {err}") from err
+            raise ConfigEntryAuthFailed(str(err)) from err
+        except OctopusConnectionError as err:
+            raise UpdateFailed(f"Connection error: {err}") from err
         except UpdateFailed:
             raise
         except Exception as err:
