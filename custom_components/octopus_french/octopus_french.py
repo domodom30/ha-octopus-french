@@ -107,6 +107,12 @@ query getAccountData($accountNumber: String!, $activeAt: DateTime!) {
                 providerCalendar {
                   id
                   name
+                  temporalClasses {
+                    code
+                    label
+                    description
+                    registerId
+                  }
                 }
               }
               ... on GasMeterPoint {
@@ -166,6 +172,18 @@ query getAccountData($accountNumber: String!, $activeAt: DateTime!) {
                   pricePerUnit
                   unitType
                   pricePerUnitWithTaxes
+                  validFrom
+                  validTo
+                  temporalClass {
+                    code
+                    label
+                    description
+                    registerId
+                  }
+                  timeSlots {
+                    startAt
+                    endAt
+                  }
                 }
               }
             }
@@ -219,6 +237,17 @@ query getElectricityIndex($accountNumber: String!, $prmId: String!) {
         calendarTempClass
         consumptionReliability
         indexReliability
+        temporalClass {
+          ... on ProviderTemporalClassType {
+            code
+            label
+            description
+            registerId
+          }
+          ... on DistributorTemporalClassType {
+            code
+          }
+        }
       }
     }
   }
@@ -588,6 +617,11 @@ class OctopusFrenchApiClient:
                     meter_point.setdefault("isSmartMeter", None)
                     meter_point.setdefault("isThreePhase", None)
                     meter_point.setdefault("circuitBreakerIntensity", None)
+                    # Extraire les classes temporelles du calendrier fournisseur
+                    provider_cal = meter_point.get("providerCalendar") or {}
+                    meter_point["provider_temporal_classes"] = provider_cal.get(
+                        "temporalClasses", []
+                    )
                     supply_points["electricity"].append(meter_point)
 
                 elif "gasNature" in meter_point or "annualConsumption" in meter_point:
@@ -640,6 +674,26 @@ class OctopusFrenchApiClient:
 
         return agreements
 
+    # Correspondance entre les codes temporalClass de l'API et les clés internes.
+    # Sera complété dès que les codes réels seront connus (via tools/account.py
+    # sur un compte OctoTempo réel).
+    _TEMPORAL_CLASS_TO_KEY: dict[str, str] = {
+        # HP/HC classiques (contrats HPHC standard)
+        "HP": "heures_pleines",
+        "HC": "heures_creuses",
+        # Base (contrat BASE)
+        "BASE": "base",
+        # OctoTempo — les codes exacts seront confirmés avec un vrai compte.
+        # Convention supposée : BLEU_HP, BLEU_HC, BLANC_HP, BLANC_HC, ROUGE_HP, ROUGE_HC
+        # (à corriger si l'API retourne autre chose)
+        "BLEU_HP":  "tempo_bleu_hp",
+        "BLEU_HC":  "tempo_bleu_hc",
+        "BLANC_HP": "tempo_blanc_hp",
+        "BLANC_HC": "tempo_blanc_hc",
+        "ROUGE_HP": "tempo_rouge_hp",
+        "ROUGE_HC": "tempo_rouge_hc",
+    }
+
     def _extract_tariffs(self, energy_rate: dict[str, Any]) -> dict[str, Any]:
         """Extract tariff information from energySupplyRate."""
         tariffs: dict[str, Any] = {
@@ -666,6 +720,8 @@ class OctopusFrenchApiClient:
         for rate_edge in energy_rate.get("consumptionRates", {}).get("edges", []):
             rate = rate_edge.get("node", {})
             try:
+                temporal_class = rate.get("temporalClass") or {}
+                time_slots = rate.get("timeSlots") or []
                 consumption_rates.append(
                     {
                         "price_ht": round(float(rate.get("pricePerUnit", 0)) / 100, 4),
@@ -674,11 +730,44 @@ class OctopusFrenchApiClient:
                         ),
                         "currency": rate.get("currency"),
                         "unit_type": rate.get("unitType"),
+                        # Nouveau : classe temporelle et plages horaires
+                        "temporal_class_code": temporal_class.get("code"),
+                        "temporal_class_label": temporal_class.get("label"),
+                        "temporal_class_register_id": temporal_class.get("registerId"),
+                        "time_slots": [
+                            {"start": s.get("startAt"), "end": s.get("endAt")}
+                            for s in time_slots
+                        ],
                     }
                 )
             except (ValueError, TypeError) as e:
                 _LOGGER.warning("Error parsing consumption rate: %s", e)
 
+        # ── Mapping via temporalClass.code (méthode fiable) ────────────────────
+        # Si l'API retourne les codes temporalClass, on les utilise directement.
+        mapped_by_code = False
+        for rate in consumption_rates:
+            code = rate.get("temporal_class_code")
+            if code:
+                key = self._TEMPORAL_CLASS_TO_KEY.get(code)
+                if key:
+                    tariffs["consumption"][key] = rate
+                    mapped_by_code = True
+                    _LOGGER.debug("Taux mappé via temporalClass.code='%s' → '%s'", code, key)
+                else:
+                    _LOGGER.warning(
+                        "Code temporalClass inconnu '%s' — ajouter dans _TEMPORAL_CLASS_TO_KEY", code
+                    )
+                    # Stocker quand même avec le code brut pour ne pas perdre le taux
+                    tariffs["consumption"][f"unknown_{code.lower()}"] = rate
+
+        if mapped_by_code:
+            return tariffs
+
+        # ── Fallback par ordre de prix (méthode ancienne, sans temporalClass) ──
+        _LOGGER.debug(
+            "temporalClass absent des taux — fallback par ordre de prix décroissant"
+        )
         consumption_rates.sort(key=lambda x: x["price_ttc"], reverse=True)
 
         if len(consumption_rates) >= 2:
@@ -686,6 +775,21 @@ class OctopusFrenchApiClient:
             tariffs["consumption"]["heures_creuses"] = consumption_rates[1]
         elif len(consumption_rates) == 1:
             tariffs["consumption"]["base"] = consumption_rates[0]
+
+        # Fallback Tempo par ordre de prix (6 taux, ordre croissant conventionnel)
+        if len(consumption_rates) == 6:
+            rates_asc = sorted(consumption_rates, key=lambda x: x["price_ttc"])
+            tempo_keys_fallback = [
+                "tempo_bleu_hc", "tempo_bleu_hp",
+                "tempo_blanc_hc", "tempo_blanc_hp",
+                "tempo_rouge_hc", "tempo_rouge_hp",
+            ]
+            for key, rate in zip(tempo_keys_fallback, rates_asc):
+                tariffs["consumption"][key] = rate
+            _LOGGER.warning(
+                "OctoTempo: 6 taux assignés par ordre de prix (fallback) — "
+                "ajouter les codes temporalClass dans _TEMPORAL_CLASS_TO_KEY"
+            )
 
         return tariffs
 
@@ -858,8 +962,18 @@ class OctopusFrenchApiClient:
             node = edge.get("node", {})
             temp_class = node.get("calendarTempClass")
 
-            if temp_class in ["HP", "HC", "BASE"]:
-                key = temp_class.lower()
+            # ── Priorité 1 : temporalClass structuré (plus fiable que calendarTempClass)
+            temporal_class = node.get("temporalClass") or {}
+            tc_code = temporal_class.get("code")  # ex: "HP", "HC", "BASE", "BLEU_HP"…
+
+            if tc_code:
+                _LOGGER.debug("electricityReading temporalClass.code='%s'", tc_code)
+
+            # Détecter le type de tarif depuis temporalClass.code ou calendarTempClass
+            effective_code = tc_code or temp_class
+
+            if effective_code in ["HP", "HC", "BASE"]:
+                key = effective_code.lower()
                 index_data[key] = {
                     "consumption": node.get("consumption"),
                     "index_start": node.get("indexStartValue"),
@@ -867,16 +981,58 @@ class OctopusFrenchApiClient:
                     "status": node.get("statusProcessed"),
                     "consumption_reliability": node.get("consumptionReliability"),
                     "index_reliability": node.get("indexReliability"),
+                    "temporal_class_code": tc_code,
+                    "temporal_class_label": temporal_class.get("label"),
+                    "temporal_class_register_id": temporal_class.get("registerId"),
                 }
 
-                if temp_class == "BASE":
+                if effective_code == "BASE":
                     tariff_type = "BASE"
-                elif temp_class in ["HP", "HC"] and tariff_type != "BASE":
+                elif effective_code in ["HP", "HC"] and tariff_type != "BASE":
                     tariff_type = "HPHC"
 
                 if not period_start:
                     period_start = node.get("periodStartAt")
                     period_end = node.get("periodEndAt")
+
+            # ── OctoTempo : codes Tempo dans temporalClass.code
+            # Le code peut être "BLEU_HP", "BLEU_HC", "BLANC_HP"… (à confirmer)
+            # ou calendarTempClass peut retourner "BLEU", "BLANC", "ROUGE"
+            elif effective_code in ["BLEU", "BLANC", "ROUGE"] or (
+                effective_code
+                and any(c in effective_code for c in ["BLEU", "BLANC", "ROUGE"])
+            ):
+                tariff_type = "TEMPO"
+                # Extraire la couleur pure (BLEU, BLANC ou ROUGE)
+                color = next(
+                    (c for c in ["ROUGE", "BLANC", "BLEU"] if c in effective_code),
+                    effective_code,
+                )
+                index_data["tempo_color"] = color
+                index_data[f"tempo_{color.lower()}"] = {
+                    "consumption": node.get("consumption"),
+                    "index_start": node.get("indexStartValue"),
+                    "index_end": node.get("indexEndValue"),
+                    "status": node.get("statusProcessed"),
+                    "temporal_class_code": tc_code,
+                    "temporal_class_label": temporal_class.get("label"),
+                    "temporal_class_register_id": temporal_class.get("registerId"),
+                }
+                if not period_start:
+                    period_start = node.get("periodStartAt")
+                    period_end = node.get("periodEndAt")
+                _LOGGER.debug(
+                    "OctoTempo: classe '%s' détectée, couleur='%s'", effective_code, color
+                )
+
+            elif effective_code:
+                # Code inconnu — on le logue pour faciliter le diagnostic
+                _LOGGER.warning(
+                    "Code temporalClass inconnu dans electricityReading: '%s' "
+                    "(calendarTempClass='%s') — mettez à jour _TEMPORAL_CLASS_TO_KEY",
+                    tc_code,
+                    temp_class,
+                )
 
         if not index_data:
             _LOGGER.warning("No index data found for PRM %s", prm_id)
