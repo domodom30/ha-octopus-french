@@ -17,7 +17,7 @@ from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN
+from .const import DOMAIN, TARIFF_TYPE_TEMPO
 from .utils import parse_off_peak_hours
 
 PARALLEL_UPDATES = 0
@@ -42,6 +42,10 @@ async def async_setup_entry(
     supply_points = data.get("supply_points", {})
     electricity_points = supply_points.get("electricity", [])
 
+    # Détection du tarif pour décider s'il faut avertir d'un possible décalage
+    # entre les horaires Linky et les horaires contractuels OctoTempo.
+    from .sensor import _detect_tariff_type_for_meter  # import local pour éviter la circularité
+
     for meter in electricity_points:
         prm_id = meter.get("id")
         off_peak_label = meter.get("offPeakLabel")
@@ -50,7 +54,7 @@ async def async_setup_entry(
             off_peak_data = parse_off_peak_hours(off_peak_label)
 
             if off_peak_data["ranges"]:
-                electricity_attributes = {
+                electricity_attributes: dict[str, Any] = {
                     "off_peak_type": off_peak_data["type"],
                     "off_peak_total_hours": off_peak_data["total_hours"],
                     "off_peak_range_count": off_peak_data["range_count"],
@@ -66,6 +70,12 @@ async def async_setup_entry(
                     electricity_attributes[f"off_peak_range_{i}_duration"] = time_range[
                         "duration_hours"
                     ]
+
+                # Pour OctoTempo, les horaires HP/HC remontés par le Linky peuvent
+                # ne pas correspondre aux horaires définis dans le contrat.
+                tariff_type = _detect_tariff_type_for_meter(data, prm_id)
+                if tariff_type == TARIFF_TYPE_TEMPO:
+                    electricity_attributes["warning_tempo_hc_mismatch"] = True
 
                 hc_sensor = OctopusFrenchHcBinarySensor(
                     coordinator=coordinator,
@@ -180,7 +190,7 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
         """Return HC schedule information."""
         range_count = self._attributes.get("off_peak_range_count", 0)
 
-        attributes = {
+        attributes: dict[str, Any] = {
             "hc_schedule_available": range_count > 0,
             "total_hc_hours": self._attributes.get("off_peak_total_hours", 0),
             "hc_type": self._attributes.get("off_peak_type", "Unknown"),
@@ -198,6 +208,13 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
                 attributes[f"hc_range_{i}"] = (
                     f"{self._attributes[start_attr]} - {self._attributes[end_attr]}"
                 )
+
+        # OctoTempo : les horaires Linky peuvent différer du contrat
+        if self._attributes.get("warning_tempo_hc_mismatch"):
+            attributes["warning_tempo_hc_mismatch"] = (
+                "OctoTempo : les horaires HC/HP remontés par le Linky peuvent "
+                "ne pas correspondre aux horaires définis dans votre contrat."
+            )
 
         return attributes
 

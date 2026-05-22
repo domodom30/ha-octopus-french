@@ -124,6 +124,13 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             "energy_base": "BASE",
             "energy_peak_hours": "HEURES_PLEINES",
             "energy_off_peak_hours": "HEURES_CREUSES",
+            # OctoTempo : labels à confirmer avec un vrai compte
+            "energy_tempo_bleu_hp": "TEMPO_BLEU_HP",
+            "energy_tempo_bleu_hc": "TEMPO_BLEU_HC",
+            "energy_tempo_blanc_hp": "TEMPO_BLANC_HP",
+            "energy_tempo_blanc_hc": "TEMPO_BLANC_HC",
+            "energy_tempo_rouge_hp": "TEMPO_ROUGE_HP",
+            "energy_tempo_rouge_hc": "TEMPO_ROUGE_HC",
         }
 
         try:
@@ -339,6 +346,13 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             "energy_base": "BASE",
             "energy_peak_hours": "HEURES_PLEINES",
             "energy_off_peak_hours": "HEURES_CREUSES",
+            # OctoTempo : labels à confirmer avec un vrai compte
+            "energy_tempo_bleu_hp": "TEMPO_BLEU_HP",
+            "energy_tempo_bleu_hc": "TEMPO_BLEU_HC",
+            "energy_tempo_blanc_hp": "TEMPO_BLANC_HP",
+            "energy_tempo_blanc_hc": "TEMPO_BLANC_HC",
+            "energy_tempo_rouge_hp": "TEMPO_ROUGE_HP",
+            "energy_tempo_rouge_hc": "TEMPO_ROUGE_HC",
         }
 
         # API does NOT return cost labels → cost must be derived from consumption × tariff.
@@ -346,6 +360,13 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             "cost_base": "BASE",
             "cost_peak_hours": "HEURES_PLEINES",
             "cost_off_peak_hours": "HEURES_CREUSES",
+            # OctoTempo
+            "cost_tempo_bleu_hp": "TEMPO_BLEU_HP",
+            "cost_tempo_bleu_hc": "TEMPO_BLEU_HC",
+            "cost_tempo_blanc_hp": "TEMPO_BLANC_HP",
+            "cost_tempo_blanc_hc": "TEMPO_BLANC_HC",
+            "cost_tempo_rouge_hp": "TEMPO_ROUGE_HP",
+            "cost_tempo_rouge_hc": "TEMPO_ROUGE_HC",
         }
 
         for reading in sorted_readings:
@@ -534,6 +555,15 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             }
 
         if key.startswith("rate_"):
+            _TEMPO_RATE_KEY_MAP: dict[str, str] = {
+                "rate_tempo_bleu_hp":  "tempo_bleu_hp",
+                "rate_tempo_bleu_hc":  "tempo_bleu_hc",
+                "rate_tempo_blanc_hp": "tempo_blanc_hp",
+                "rate_tempo_blanc_hc": "tempo_blanc_hc",
+                "rate_tempo_rouge_hp": "tempo_rouge_hp",
+                "rate_tempo_rouge_hc": "tempo_rouge_hc",
+            }
+
             agreements = self.coordinator.data.get("agreements", [])
 
             for agreement in agreements:
@@ -567,6 +597,13 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                             attributes["price_ht_eur_kwh"] = hc_rate.get("price_ht")
                             attributes["price_ttc_eur_kwh"] = hc_rate.get("price_ttc")
 
+                    # OctoTempo : 6 taux
+                    elif key in _TEMPO_RATE_KEY_MAP:
+                        rate = consumption.get(_TEMPO_RATE_KEY_MAP[key])
+                        if rate:
+                            attributes["price_ht_eur_kwh"] = rate.get("price_ht")
+                            attributes["price_ttc_eur_kwh"] = rate.get("price_ttc")
+
                     return attributes
 
             return {"status": "No agreement found"}
@@ -576,6 +613,22 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
     def _get_tariff_rate(self) -> float | None:
         """Get the tariff rate from agreements."""
         key = self._sensor_config.key
+
+        # Mapping clé sensor → clé dans tariffs["consumption"] pour OctoTempo
+        _TEMPO_RATE_KEY_MAP: dict[str, str] = {
+            "rate_tempo_bleu_hp":  "tempo_bleu_hp",
+            "cost_tempo_bleu_hp":  "tempo_bleu_hp",
+            "rate_tempo_bleu_hc":  "tempo_bleu_hc",
+            "cost_tempo_bleu_hc":  "tempo_bleu_hc",
+            "rate_tempo_blanc_hp": "tempo_blanc_hp",
+            "cost_tempo_blanc_hp": "tempo_blanc_hp",
+            "rate_tempo_blanc_hc": "tempo_blanc_hc",
+            "cost_tempo_blanc_hc": "tempo_blanc_hc",
+            "rate_tempo_rouge_hp": "tempo_rouge_hp",
+            "cost_tempo_rouge_hp": "tempo_rouge_hp",
+            "rate_tempo_rouge_hc": "tempo_rouge_hc",
+            "cost_tempo_rouge_hc": "tempo_rouge_hc",
+        }
 
         agreements = self.coordinator.data.get("agreements", [])
 
@@ -598,6 +651,12 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                     hc_rate = consumption.get("heures_creuses")
                     if hc_rate:
                         return hc_rate.get("price_ttc")
+
+                # OctoTempo : 6 taux par couleur × période
+                elif key in _TEMPO_RATE_KEY_MAP:
+                    rate = consumption.get(_TEMPO_RATE_KEY_MAP[key])
+                    if rate:
+                        return rate.get("price_ttc")
 
         _LOGGER.debug(
             "No tariff rate found in agreements for PRM %s, key %s", self._prm_id, key
@@ -797,3 +856,55 @@ class OctopusElectricityIndexSensor(CoordinatorEntity, SensorEntity):
         if not index_data:
             return False
         return self._index_type in index_data
+
+
+class OctopusTempoColorSensor(CoordinatorEntity, SensorEntity):
+    """Capteur indiquant la couleur Tempo du jour (Bleu/Blanc/Rouge).
+
+    La valeur est lue depuis le champ calendarTempClass retourné par
+    l'API Octopus via QUERY_GET_INDEX_ELECTRICITY.
+    Valeurs attendues : « BLEU », « BLANC », « ROUGE » (à confirmer avec
+    un vrai compte OctoTempo — le champ pourrait ne pas être disponible
+    avant qu'Octopus l'implémente côté API).
+    """
+
+    def __init__(
+        self,
+        coordinator: OctopusFrenchDataUpdateCoordinator,
+        prm_id: str,
+        sensor_config: SensorEntityDescription,
+    ) -> None:
+        """Initialize the Tempo color sensor."""
+        super().__init__(coordinator)
+        self._prm_id = prm_id
+        self._sensor_config = sensor_config
+        self._attr_unique_id = f"{DOMAIN}_{prm_id}_{sensor_config.key}"
+        self._attr_translation_key = sensor_config.key
+        self._attr_has_entity_name = True
+        self._attr_icon = sensor_config.icon
+        self._attr_entity_category = sensor_config.entity_category
+        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, prm_id)})
+
+    @property
+    def native_value(self) -> str | None:
+        """Return today's Tempo color from the electricity index."""
+        index_data = self.coordinator.data.get("electricity", {}).get("index")
+        if not index_data:
+            return None
+        return index_data.get("tempo_color")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return extra attributes."""
+        index_data = self.coordinator.data.get("electricity", {}).get("index") or {}
+        return {
+            "prm_id": self._prm_id,
+            "period_start": index_data.get("period_start"),
+            "period_end": index_data.get("period_end"),
+            "tariff_type": index_data.get("tariff_type"),
+        }
+
+    @property
+    def available(self) -> bool:
+        """Return True only when coordinator data is fresh."""
+        return self.coordinator.last_update_success and self.coordinator.data is not None

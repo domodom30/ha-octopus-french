@@ -14,7 +14,12 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN
+from .const import (
+    DOMAIN,
+    TARIFF_TYPE_TEMPO,
+    TEMPO_PRODUCT_CODE_KEYWORDS,
+    TEMPO_STATISTICS_LABELS,
+)
 from .coordinator import OctopusFrenchDataUpdateCoordinator
 from .coordinator_intelligent import OctopusIntelligentDataUpdateCoordinator
 from .sensors.descriptions import (
@@ -23,11 +28,13 @@ from .sensors.descriptions import (
     GAS_SENSORS,
     LATEST_READING_SENSOR,
     LEDGER_SENSORS,
+    TEMPO_SENSORS,
 )
 from .sensors.electricity import (
     OctopusElectricityIndexSensor,
     OctopusElectricitySensor,
     OctopusLatestReadingSensor,
+    OctopusTempoColorSensor,
 )
 from .sensors.gas import OctopusGasSensor
 from .sensors.ledger import OctopusLedgerSensor
@@ -93,6 +100,24 @@ async def async_setup_entry(
                     OctopusElectricitySensor(coordinator, prm_id, sensor_config)
                 )
 
+        # ── OctoTempo : capteurs énergie/coût/tarif × 6 couleurs-périodes ──
+        if tariff_type == TARIFF_TYPE_TEMPO:
+            for sensor_config in TEMPO_SENSORS:
+                if sensor_config.key == "tempo_color_today":
+                    entities.append(
+                        OctopusTempoColorSensor(coordinator, prm_id, sensor_config)
+                    )
+                else:
+                    entities.append(
+                        OctopusElectricitySensor(coordinator, prm_id, sensor_config)
+                    )
+            # Abonnement + puissance souscrite aussi pour Tempo
+            for sensor_config in ELECTRICITY_SENSORS:
+                if sensor_config.key in {"contract", "subscription", "subscribed_power"}:
+                    entities.append(
+                        OctopusElectricitySensor(coordinator, prm_id, sensor_config)
+                    )
+
         entities.append(
             OctopusLatestReadingSensor(coordinator, prm_id, LATEST_READING_SENSOR)
         )
@@ -105,6 +130,11 @@ async def async_setup_entry(
                 index_type = index_config.index_type
 
                 if not index_type:
+                    continue
+
+                # Pas de capteurs d'index pour Tempo : le Linky ne remonte pas
+                # les index séparés par couleur (BLEU/BLANC/ROUGE).
+                if index_tariff_type == TARIFF_TYPE_TEMPO:
                     continue
 
                 if (index_tariff_type == "BASE" and index_type == "base") or (
@@ -150,15 +180,27 @@ def _detect_tariff_type_for_meter(data: dict, prm_id: str) -> str:
             statistics = latest_reading.get("metaData", {}).get("statistics", [])
             if statistics:
                 labels = {stat.get("label", "") for stat in statistics}
+
+                # Priorité 1 : labels Tempo spécifiques dans les statistics
+                if labels & TEMPO_STATISTICS_LABELS:
+                    return TARIFF_TYPE_TEMPO
+
                 if "BASE" in labels:
                     return "BASE"
                 if "HEURES_PLEINES" in labels and "HEURES_CREUSES" in labels:
                     return "HPHC"
 
+        # Priorité 2 : code produit dans les accords actifs
+        for agreement in data.get("agreements", []):
+            if agreement.get("prm") == prm_id and agreement.get("is_active"):
+                code = agreement.get("product", {}).get("code", "").upper()
+                if any(kw in code for kw in TEMPO_PRODUCT_CODE_KEYWORDS):
+                    return TARIFF_TYPE_TEMPO
+
         # Fallback : utiliser le tariff_type de l'index électrique
         index = data.get("electricity", {}).get("index") or {}
         tariff_type = index.get("tariff_type")
-        if tariff_type in ("BASE", "HPHC"):
+        if tariff_type in ("BASE", "HPHC", TARIFF_TYPE_TEMPO):
             return tariff_type
 
     except (KeyError, IndexError, TypeError) as e:
