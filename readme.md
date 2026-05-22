@@ -735,3 +735,7 @@ automation:
 ## 📜 Note
 
 Cette intégration n'est pas officielle et n'est pas affiliée à Octopus Energy.
+
+## Don
+
+[![Support me on Liberapay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/Domodom/donate)
