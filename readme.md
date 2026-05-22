@@ -6,6 +6,8 @@
 
 Intégration Octopus Energy France (non officiel) pour Home Assistant.
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/A1V11ZZTPI)
+
 ---
 
 ## 🌟 Fonctionnalités
@@ -725,6 +727,8 @@ automation:
 - 🐛 **Problèmes** : [GitHub Issues](https://github.com/domodom30/ha-octopus-french/issues)
 - 💬 **Discussions** : [GitHub Discussions](https://github.com/domodom30/ha-octopus-french/discussions)
 - 📖 **Documentation** : [Wiki](https://github.com/domodom30/ha-octopus-french/wiki)
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/A1V11ZZTPI)
 
 ---
 
