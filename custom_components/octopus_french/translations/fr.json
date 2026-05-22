@@ -512,6 +512,183 @@
       "subscribed_power": {
         "name": "Puissance souscrite"
       },
+      "energy_tempo_bleu_hp": {
+        "name": "Jours Bleus HP / mois en cours",
+        "state_attributes": {
+          "current_month": { "name": "Mois en cours" },
+          "readings_count": { "name": "Nombre de relevés" },
+          "calculation_method": { "name": "Méthode de calcul" },
+          "last_imported_date": { "name": "Dernière date importée" }
+        }
+      },
+      "energy_tempo_bleu_hc": {
+        "name": "Jours Bleus HC / mois en cours",
+        "state_attributes": {
+          "current_month": { "name": "Mois en cours" },
+          "readings_count": { "name": "Nombre de relevés" },
+          "calculation_method": { "name": "Méthode de calcul" },
+          "last_imported_date": { "name": "Dernière date importée" }
+        }
+      },
+      "energy_tempo_blanc_hp": {
+        "name": "Jours Blancs HP / mois en cours",
+        "state_attributes": {
+          "current_month": { "name": "Mois en cours" },
+          "readings_count": { "name": "Nombre de relevés" },
+          "calculation_method": { "name": "Méthode de calcul" },
+          "last_imported_date": { "name": "Dernière date importée" }
+        }
+      },
+      "energy_tempo_blanc_hc": {
+        "name": "Jours Blancs HC / mois en cours",
+        "state_attributes": {
+          "current_month": { "name": "Mois en cours" },
+          "readings_count": { "name": "Nombre de relevés" },
+          "calculation_method": { "name": "Méthode de calcul" },
+          "last_imported_date": { "name": "Dernière date importée" }
+        }
+      },
+      "energy_tempo_rouge_hp": {
+        "name": "Jours Rouges HP / mois en cours",
+        "state_attributes": {
+          "current_month": { "name": "Mois en cours" },
+          "readings_count": { "name": "Nombre de relevés" },
+          "calculation_method": { "name": "Méthode de calcul" },
+          "last_imported_date": { "name": "Dernière date importée" }
+        }
+      },
+      "energy_tempo_rouge_hc": {
+        "name": "Jours Rouges HC / mois en cours",
+        "state_attributes": {
+          "current_month": { "name": "Mois en cours" },
+          "readings_count": { "name": "Nombre de relevés" },
+          "calculation_method": { "name": "Méthode de calcul" },
+          "last_imported_date": { "name": "Dernière date importée" }
+        }
+      },
+      "cost_tempo_bleu_hp": {
+        "name": "Coût Jours Bleus HP / mois en cours",
+        "state_attributes": {
+          "current_month": { "name": "Mois en cours" },
+          "readings_count": { "name": "Nombre de relevés" },
+          "calculation_method": { "name": "Méthode de calcul" },
+          "last_imported_date": { "name": "Dernière date importée" }
+        }
+      },
+      "cost_tempo_bleu_hc": {
+        "name": "Coût Jours Bleus HC / mois en cours",
+        "state_attributes": {
+          "current_month": { "name": "Mois en cours" },
+          "readings_count": { "name": "Nombre de relevés" },
+          "calculation_method": { "name": "Méthode de calcul" },
+          "last_imported_date": { "name": "Dernière date importée" }
+        }
+      },
+      "cost_tempo_blanc_hp": {
+        "name": "Coût Jours Blancs HP / mois en cours",
+        "state_attributes": {
+          "current_month": { "name": "Mois en cours" },
+          "readings_count": { "name": "Nombre de relevés" },
+          "calculation_method": { "name": "Méthode de calcul" },
+          "last_imported_date": { "name": "Dernière date importée" }
+        }
+      },
+      "cost_tempo_blanc_hc": {
+        "name": "Coût Jours Blancs HC / mois en cours",
+        "state_attributes": {
+          "current_month": { "name": "Mois en cours" },
+          "readings_count": { "name": "Nombre de relevés" },
+          "calculation_method": { "name": "Méthode de calcul" },
+          "last_imported_date": { "name": "Dernière date importée" }
+        }
+      },
+      "cost_tempo_rouge_hp": {
+        "name": "Coût Jours Rouges HP / mois en cours",
+        "state_attributes": {
+          "current_month": { "name": "Mois en cours" },
+          "readings_count": { "name": "Nombre de relevés" },
+          "calculation_method": { "name": "Méthode de calcul" },
+          "last_imported_date": { "name": "Dernière date importée" }
+        }
+      },
+      "cost_tempo_rouge_hc": {
+        "name": "Coût Jours Rouges HC / mois en cours",
+        "state_attributes": {
+          "current_month": { "name": "Mois en cours" },
+          "readings_count": { "name": "Nombre de relevés" },
+          "calculation_method": { "name": "Méthode de calcul" },
+          "last_imported_date": { "name": "Dernière date importée" }
+        }
+      },
+      "rate_tempo_bleu_hp": {
+        "name": "Tarif Bleu HP",
+        "state_attributes": {
+          "contract_number": { "name": "Numéro de contrat" },
+          "product_name": { "name": "Nom du produit" },
+          "valid_from": { "name": "Valide depuis" },
+          "price_ht_eur_kwh": { "name": "Prix (HT)" },
+          "price_ttc_eur_kwh": { "name": "Prix (TTC)" }
+        }
+      },
+      "rate_tempo_bleu_hc": {
+        "name": "Tarif Bleu HC",
+        "state_attributes": {
+          "contract_number": { "name": "Numéro de contrat" },
+          "product_name": { "name": "Nom du produit" },
+          "valid_from": { "name": "Valide depuis" },
+          "price_ht_eur_kwh": { "name": "Prix (HT)" },
+          "price_ttc_eur_kwh": { "name": "Prix (TTC)" }
+        }
+      },
+      "rate_tempo_blanc_hp": {
+        "name": "Tarif Blanc HP",
+        "state_attributes": {
+          "contract_number": { "name": "Numéro de contrat" },
+          "product_name": { "name": "Nom du produit" },
+          "valid_from": { "name": "Valide depuis" },
+          "price_ht_eur_kwh": { "name": "Prix (HT)" },
+          "price_ttc_eur_kwh": { "name": "Prix (TTC)" }
+        }
+      },
+      "rate_tempo_blanc_hc": {
+        "name": "Tarif Blanc HC",
+        "state_attributes": {
+          "contract_number": { "name": "Numéro de contrat" },
+          "product_name": { "name": "Nom du produit" },
+          "valid_from": { "name": "Valide depuis" },
+          "price_ht_eur_kwh": { "name": "Prix (HT)" },
+          "price_ttc_eur_kwh": { "name": "Prix (TTC)" }
+        }
+      },
+      "rate_tempo_rouge_hp": {
+        "name": "Tarif Rouge HP",
+        "state_attributes": {
+          "contract_number": { "name": "Numéro de contrat" },
+          "product_name": { "name": "Nom du produit" },
+          "valid_from": { "name": "Valide depuis" },
+          "price_ht_eur_kwh": { "name": "Prix (HT)" },
+          "price_ttc_eur_kwh": { "name": "Prix (TTC)" }
+        }
+      },
+      "rate_tempo_rouge_hc": {
+        "name": "Tarif Rouge HC",
+        "state_attributes": {
+          "contract_number": { "name": "Numéro de contrat" },
+          "product_name": { "name": "Nom du produit" },
+          "valid_from": { "name": "Valide depuis" },
+          "price_ht_eur_kwh": { "name": "Prix (HT)" },
+          "price_ttc_eur_kwh": { "name": "Prix (TTC)" }
+        }
+      },
+      "tempo_color_today": {
+        "name": "Couleur Tempo aujourd'hui",
+        "state_attributes": {
+          "prm_id": { "name": "Référence PRM" },
+          "period_start": { "name": "Début de période" },
+          "period_end": { "name": "Fin de période" },
+          "tariff_type": { "name": "Type de tarif" }
+        }
+      },
       "vehicle_status": {
         "name": "Statut de charge"
       },
