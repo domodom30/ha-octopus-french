@@ -4,6 +4,8 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 ![installation_badge](https://img.shields.io/badge/dynamic/json?color=41BDF5&logo=home-assistant&label=integration%20usage&suffix=%20installs&cacheSeconds=15600&url=https://analytics.home-assistant.io/custom_integrations.json&query=$.octopus_french.total)
 
+[![Support me on Liberapay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/Domodom/donate)
+
 Intégration Octopus Energy France (non officiel) pour Home Assistant.
 
 ---
@@ -728,6 +730,9 @@ automation:
 
 ---
 
+[![Support me on Liberapay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/Domodom/donate)
+
+---
 ## 📜 Note
 
 Cette intégration n'est pas officielle et n'est pas affiliée à Octopus Energy.
