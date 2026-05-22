@@ -14,8 +14,6 @@ de l'intégration Home Assistant.
 pip install requests
 ```
 
-C'est la seule dépendance externe. Pas d'asyncio, pas de Home Assistant.
-
 ---
 
 ## Configuration
