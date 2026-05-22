@@ -35,8 +35,6 @@ OCTOPUS_PASSWORD=votre_mot_de_passe
 OCTOPUS_ACCOUNT=A-XXXX0000
 ```
 
-> ⚠️ `tools/.env` et `tools/.token` sont ignorés par git (ne pas committer vos credentials).
-
 Alternativement, utilisez des variables d'environnement :
 ```bash
 export OCTOPUS_EMAIL=votre@email.fr
