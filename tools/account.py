@@ -124,12 +124,6 @@ query getAccountData($accountNumber: String!, $activeAt: DateTime!) {
                   pricePerUnit
                   unitType
                   pricePerUnitWithTaxes
-                  temporalClass {
-                    code
-                    label
-                    description
-                    registerId
-                  }
                   timeSlots {
                     startAt
                     endAt
@@ -243,16 +237,7 @@ def print_account_summary(account: dict) -> None:
                 )
                 print(f"      Taux de conso ({len(rates_sorted)} taux, trié par prix ↑) :")
                 for r in rates_sorted:
-                    tc = r.get("temporalClass") or {}
-                    tc_code = tc.get("code", "")
-                    tc_label = tc.get("label", "")
-                    tc_reg = tc.get("registerId")
                     slots = r.get("timeSlots") or []
-
-                    code_str = f"  [code={tc_code!r}" if tc_code else "  [code=?"
-                    label_str = f", label={tc_label!r}" if tc_label else ""
-                    reg_str = f", registerId={tc_reg}" if tc_reg else ""
-                    code_str += label_str + reg_str + "]"
 
                     slots_str = ""
                     if slots:
@@ -260,7 +245,7 @@ def print_account_summary(account: dict) -> None:
                             f"{s.get('startAt','?')}–{s.get('endAt','?')}" for s in slots
                         )
 
-                    print(f"        {_fmt_price(r.get('pricePerUnit'), r.get('pricePerUnitWithTaxes'), r.get('unitType'))}{code_str}{slots_str}")
+                    print(f"        {_fmt_price(r.get('pricePerUnit'), r.get('pricePerUnitWithTaxes'), r.get('unitType'))}{slots_str}")
 
                 if len(rates_sorted) == 6:
                     print("        ⚠️  6 taux → contrat OctoTempo !")

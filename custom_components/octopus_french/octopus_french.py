@@ -174,12 +174,6 @@ query getAccountData($accountNumber: String!, $activeAt: DateTime!) {
                   pricePerUnitWithTaxes
                   validFrom
                   validTo
-                  temporalClass {
-                    code
-                    label
-                    description
-                    registerId
-                  }
                   timeSlots {
                     startAt
                     endAt
