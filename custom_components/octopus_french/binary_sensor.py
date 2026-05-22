@@ -17,8 +17,8 @@ from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, TARIFF_TYPE_TEMPO
-from .utils import parse_off_peak_hours
+from .const import DOMAIN
+from .utils import find_contract_hc_slots, parse_off_peak_hours, parse_time_slots
 
 PARALLEL_UPDATES = 0
 
@@ -42,69 +42,45 @@ async def async_setup_entry(
     supply_points = data.get("supply_points", {})
     electricity_points = supply_points.get("electricity", [])
 
-    # Détection du tarif pour décider s'il faut avertir d'un possible décalage
-    # entre les horaires Linky et les horaires contractuels OctoTempo.
-    from .sensor import _detect_tariff_type_for_meter  # import local pour éviter la circularité
-
     for meter in electricity_points:
         prm_id = meter.get("id")
+        if not prm_id:
+            continue
+
+        # Le capteur HC est créé dès qu'une source d'horaires existe.
+        # La logique de sélection de source est déléguée au capteur lui-même
+        # (relecture dynamique à chaque mise à jour du coordinateur).
         off_peak_label = meter.get("offPeakLabel")
+        contract_slots = find_contract_hc_slots(data, prm_id)
 
-        if off_peak_label:
-            off_peak_data = parse_off_peak_hours(off_peak_label)
-
-            if off_peak_data["ranges"]:
-                electricity_attributes: dict[str, Any] = {
-                    "off_peak_type": off_peak_data["type"],
-                    "off_peak_total_hours": off_peak_data["total_hours"],
-                    "off_peak_range_count": off_peak_data["range_count"],
-                }
-
-                for i, time_range in enumerate(off_peak_data["ranges"], 1):
-                    electricity_attributes[f"off_peak_range_{i}_start"] = time_range[
-                        "start"
-                    ]
-                    electricity_attributes[f"off_peak_range_{i}_end"] = time_range[
-                        "end"
-                    ]
-                    electricity_attributes[f"off_peak_range_{i}_duration"] = time_range[
-                        "duration_hours"
-                    ]
-
-                # Pour OctoTempo, les horaires HP/HC remontés par le Linky peuvent
-                # ne pas correspondre aux horaires définis dans le contrat.
-                tariff_type = _detect_tariff_type_for_meter(data, prm_id)
-                if tariff_type == TARIFF_TYPE_TEMPO:
-                    electricity_attributes["warning_tempo_hc_mismatch"] = True
-
-                hc_sensor = OctopusFrenchHcBinarySensor(
+        if contract_slots or off_peak_label:
+            sensors.append(
+                OctopusFrenchHcBinarySensor(
                     coordinator=coordinator,
                     prm_id=prm_id,
-                    electricity_sensor_attributes=electricity_attributes,
                 )
-                sensors.append(hc_sensor)
+            )
 
     if sensors:
         async_add_entities(sensors)
 
 
 class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
-    """Binary sensor indicating if current time is in HC (Heures Creuses) period."""
+    """Binary sensor indicating if current time is in HC (Heures Creuses) period.
+
+    Priorité des sources d'horaires (ordre décroissant de fiabilité) :
+      1. timeSlots du contrat actif (données structurées, API)
+      2. offPeakLabel du compteur Linky (parsing regex, moins fiable)
+    """
 
     _attr_has_entity_name = True
     _attr_should_poll = False
     _attr_device_class = BinarySensorDeviceClass.RUNNING
 
-    def __init__(
-        self,
-        coordinator,
-        prm_id: str,
-        electricity_sensor_attributes: dict[str, Any],
-    ) -> None:
+    def __init__(self, coordinator, prm_id: str) -> None:
         """Initialize the HC binary sensor."""
         super().__init__(coordinator)
         self._prm_id = prm_id
-        self._attributes = electricity_sensor_attributes
         self._attr_unique_id = f"{DOMAIN}_{prm_id}_hc_active"
         self._attr_translation_key = "hc_active"
         self._attr_device_info = DeviceInfo(
@@ -114,7 +90,7 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
     async def async_added_to_hass(self) -> None:
         """When entity is added to hass."""
         await super().async_added_to_hass()
-
+        # Mise à jour chaque minute (le tick second=0 suffit)
         self.async_on_remove(
             async_track_time_change(self.hass, self._async_update_state, second=0)
         )
@@ -123,98 +99,94 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
         """Update state based on current time."""
         self.async_write_ha_state()
 
+    # ── Résolution de la source d'horaires ────────────────────────────────────
+
+    def _resolve_hc_schedule(self) -> dict[str, Any]:
+        """Return the best available HC schedule from coordinator data.
+
+        Returns a dict with keys: ranges, total_hours, range_count, source, type.
+        'source' is 'contract' or 'linky'.
+        """
+        data = self.coordinator.data or {}
+
+        # Source 1 : timeSlots du contrat (plus fiable)
+        if contract_slots := find_contract_hc_slots(data, self._prm_id):
+            schedule = parse_time_slots(contract_slots)
+            if schedule["range_count"] > 0:
+                return schedule
+
+        # Source 2 : offPeakLabel Linky (fallback regex)
+        supply_points = data.get("supply_points", {})
+        for meter in supply_points.get("electricity", []):
+            if meter.get("id") == self._prm_id:
+                off_peak_label = meter.get("offPeakLabel")
+                if off_peak_label:
+                    schedule = parse_off_peak_hours(off_peak_label)
+                    schedule["source"] = "linky"
+                    return schedule
+                break
+
+        return {"ranges": [], "total_hours": 0.0, "range_count": 0,
+                "source": "none", "type": None}
+
+    # ── Propriétés ────────────────────────────────────────────────────────────
+
     @property
     def available(self) -> bool:
         """Return True if entity is available."""
         return (
             self.coordinator.last_update_success
             and self.coordinator.data is not None
-            and self._attributes.get("off_peak_range_count", 0) > 0
+            and self._resolve_hc_schedule()["range_count"] > 0
         )
 
     @property
     def is_on(self) -> bool:
         """Return True if current time is within HC periods."""
-        return self._is_current_time_in_hc()
-
-    def _is_current_time_in_hc(self) -> bool:
-        """Check if current time falls within any HC time range."""
+        schedule = self._resolve_hc_schedule()
+        if not schedule["ranges"]:
+            return False
         try:
             now = dt_util.now().time()
-            range_count = self._attributes.get("off_peak_range_count", 0)
-
-        except (AttributeError, KeyError, ValueError):
+        except (AttributeError, ValueError):
             return False
+        return any(
+            self._is_time_in_range(now, r["start"], r["end"])
+            for r in schedule["ranges"]
+        )
 
-        else:
-            for i in range(1, range_count + 1):
-                start_attr = f"off_peak_range_{i}_start"
-                end_attr = f"off_peak_range_{i}_end"
-
-                if start_attr in self._attributes and end_attr in self._attributes:
-                    start_time_str = self._attributes[start_attr]
-                    end_time_str = self._attributes[end_attr]
-
-                    if self._is_time_in_range(now, start_time_str, end_time_str):
-                        return True
-            return False
-
-    def _is_time_in_range(
-        self, current_time: time, start_str: str, end_str: str
-    ) -> bool:
-        """Check if current time is within a time range (handles overnight ranges)."""
+    @staticmethod
+    def _is_time_in_range(current_time: time, start_str: str, end_str: str) -> bool:
+        """Check if current_time is within [start_str, end_str] (handles overnight)."""
         try:
-            start_parts = start_str.split(":")
-            end_parts = end_str.split(":")
-
-            start_time = time(int(start_parts[0]), int(start_parts[1]))
-            end_time = time(int(end_parts[0]), int(end_parts[1]))
-
-            current_minutes = current_time.hour * 60 + current_time.minute
-            start_minutes = start_time.hour * 60 + start_time.minute
-            end_minutes = end_time.hour * 60 + end_time.minute
-
+            sh, sm = start_str.split(":")[:2]
+            eh, em = end_str.split(":")[:2]
+            start_min = int(sh) * 60 + int(sm)
+            end_min = int(eh) * 60 + int(em)
+            cur_min = current_time.hour * 60 + current_time.minute
         except (ValueError, IndexError):
             return False
 
-        else:
-            if end_minutes <= start_minutes:
-                return (current_minutes >= start_minutes) or (
-                    current_minutes <= end_minutes
-                )
-
-            return start_minutes <= current_minutes <= end_minutes
+        if end_min <= start_min:  # plage chevauchant minuit
+            return cur_min >= start_min or cur_min <= end_min
+        return start_min <= cur_min <= end_min
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return HC schedule information."""
-        range_count = self._attributes.get("off_peak_range_count", 0)
+        schedule = self._resolve_hc_schedule()
+        ranges = schedule["ranges"]
 
         attributes: dict[str, Any] = {
-            "hc_schedule_available": range_count > 0,
-            "total_hc_hours": self._attributes.get("off_peak_total_hours", 0),
-            "hc_type": self._attributes.get("off_peak_type", "Unknown"),
+            "hc_schedule_available": len(ranges) > 0,
+            "total_hc_hours": schedule["total_hours"],
+            "hc_type": schedule.get("type") or "Unknown",
+            "hc_source": schedule["source"],
         }
 
-        for i in range(1, range_count + 1):
-            start_attr = f"off_peak_range_{i}_start"
-            end_attr = f"off_peak_range_{i}_end"
-            duration_attr = f"off_peak_range_{i}_duration"
-
-            if all(
-                attr in self._attributes
-                for attr in [start_attr, end_attr, duration_attr]
-            ):
-                attributes[f"hc_range_{i}"] = (
-                    f"{self._attributes[start_attr]} - {self._attributes[end_attr]}"
-                )
-
-        # OctoTempo : les horaires Linky peuvent différer du contrat
-        if self._attributes.get("warning_tempo_hc_mismatch"):
-            attributes["warning_tempo_hc_mismatch"] = (
-                "OctoTempo : les horaires HC/HP remontés par le Linky peuvent "
-                "ne pas correspondre aux horaires définis dans votre contrat."
-            )
+        for i, r in enumerate(ranges, 1):
+            attributes[f"hc_range_{i}"] = f"{r['start']} - {r['end']}"
+            attributes[f"hc_range_{i}_duration_h"] = r["duration_hours"]
 
         return attributes
 
