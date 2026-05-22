@@ -211,15 +211,6 @@ Ces informations permettront de **finaliser l'implémentation OctoTempo** dans
 
 ---
 
-## Fichiers générés (ignorés par git)
-
-| Fichier | Description |
-|---------|-------------|
-| `tools/.env` | Vos credentials (à créer depuis `.env.example`) |
-| `tools/.token` | Token JWT mis en cache (régénéré automatiquement à expiration) |
-
----
-
 ## Architecture des scripts
 
 ```
