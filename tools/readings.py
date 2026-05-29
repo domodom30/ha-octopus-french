@@ -80,7 +80,7 @@ query GetPropertyMeasurements(
 """
 
 QUERY_GET_ACCOUNT_FOR_PROPERTY = """
-query getAccountData($accountNumber: String!, $activeAt: DateTime!) {
+query getAccountData($accountNumber: String!) {
   account(accountNumber: $accountNumber) {
     properties {
       id
@@ -108,10 +108,9 @@ query getAccountData($accountNumber: String!, $activeAt: DateTime!) {
 
 def find_property_id_for_prm(client: OctopusClient, account_number: str, prm: str) -> str | None:
     """Cherche le property_id associé à un PRM dans les données de compte."""
-    now_iso = datetime.now(timezone.utc).isoformat()
     data = client.query(
         QUERY_GET_ACCOUNT_FOR_PROPERTY,
-        {"accountNumber": account_number, "activeAt": now_iso},
+        {"accountNumber": account_number},
     )
     props = data.get("data", {}).get("account", {}).get("properties", [])
     for prop in props:

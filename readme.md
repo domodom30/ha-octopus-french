@@ -204,21 +204,48 @@ Pour accéder aux options :
 
 **Exemple d'utilisation :**
 ```yaml
-# Automatisation : démarrer un appareil énergivore en heures creuses
-automation:
-  - alias: "Lancer lave-linge en HC"
-    trigger:
-      - platform: state
-        entity_id: binary_sensor.linky_XXXXXX_hc_active
-        to: "on"
-    condition:
-      - condition: state
-        entity_id: input_boolean.lave_linge_en_attente
-        state: "on"
-    action:
-      - service: switch.turn_on
-        target:
-          entity_id: switch.lave_linge
+
+  # Chauffe-eau allumé pendant les HC, éteint en HP
+  # Remplacez switch.chauffe_eau par votre entité
+
+  automation:
+    - alias: "Octopus — Chauffe-eau ON en heures creuses"
+      description: >
+        Allume le chauffe-eau dès que les HC commencent,
+        l'éteint dès qu'elles se terminent.
+      triggers:
+        - trigger: state
+          entity_id: binary_sensor.octopus_french_hc_active
+          to: "on"
+          id: hc_debut
+        - trigger: state
+          entity_id: binary_sensor.octopus_french_hc_active
+          to: "off"
+          id: hc_fin
+      conditions: []
+      actions:
+        - choose:
+            - conditions:
+                - condition: trigger
+                  id: hc_debut
+              sequence:
+                - action: switch.turn_on
+                  target:
+                    entity_id: switch.chauffe_eau
+                - action: notify.mobile_app_votre_telephone
+                  data:
+                    title: "⚡ Heures Creuses"
+                    message: >
+                      HC actives jusqu'à {{ state_attr('binary_sensor.octopus_french_hc_active', 'hc_range_1') }}.
+                      Total : {{ state_attr('binary_sensor.octopus_french_hc_active', 'total_hc_hours') }} h
+            - conditions:
+                - conditions:
+                  - condition: trigger
+                    id: hc_fin
+              sequence:
+                - action: switch.turn_off
+                  target:
+                    entity_id: switch.chauffe_eau
 ```
 
 #### Capteur dernier relevé (Diagnostic)
