@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "custom_components/octopus_french/**"
-      - ".github/workflows/**"
     tags:
       - "v*.*.*"
   pull_request:
