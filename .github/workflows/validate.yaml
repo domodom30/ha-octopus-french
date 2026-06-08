@@ -42,7 +42,7 @@ jobs:
     needs: [validate, hacs]
     permissions:
       contents: write
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     steps:
       - name: ⤵️ Check out code from GitHub
         uses: actions/checkout@v4
