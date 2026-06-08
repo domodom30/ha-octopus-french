@@ -216,7 +216,7 @@ query getElectricityIndex($accountNumber: String!, $prmId: String!) {
   electricityReading(
     accountNumber: $accountNumber
     prmId: $prmId
-    first: 2
+    first: 8
     calendarType: PROVIDER
   ) {
     edges {
@@ -423,7 +423,7 @@ class OctopusFrenchApiClient:
                     "Failed to reach authentication server"
                 )
 
-            token = result.get("data", {}).get("obtainKrakenToken", {}).get("token")
+            token = ((result.get("data") or {}).get("obtainKrakenToken") or {}).get("token")
 
             if not token:
                 error_messages = (
@@ -677,9 +677,14 @@ class OctopusFrenchApiClient:
         "HC": "heures_creuses",
         # Base (contrat BASE)
         "BASE": "base",
-        # OctoTempo — les codes exacts seront confirmés avec un vrai compte.
-        # Convention supposée : BLEU_HP, BLEU_HC, BLANC_HP, BLANC_HC, ROUGE_HP, ROUGE_HC
-        # (à corriger si l'API retourne autre chose)
+        # OctoTempo — codes confirmés via API réelle (calendrier OCTOFLEX_4_V4)
+        "HPP":  "tempo_rouge_hp",   # Heures Pleines rouges  (registerId=1)
+        "HCP":  "tempo_rouge_hc",   # Heures Creuses rouges  (registerId=2)
+        "HPHI": "tempo_blanc_hp",   # Heures Pleines Hiver   (registerId=3)
+        "HCHI": "tempo_blanc_hc",   # Heures Creuses Hiver   (registerId=4)
+        "HPE":  "tempo_bleu_hp",    # Heures Pleines Été     (registerId=5)
+        "HCE":  "tempo_bleu_hc",    # Heures Creuses Été     (registerId=6)
+        # Codes alternatifs hypothétiques (ancienne convention)
         "BLEU_HP":  "tempo_bleu_hp",
         "BLEU_HC":  "tempo_bleu_hc",
         "BLANC_HP": "tempo_blanc_hp",
@@ -981,17 +986,38 @@ class OctopusFrenchApiClient:
                 }
 
                 if effective_code == "BASE":
-                    tariff_type = "BASE"
-                elif effective_code in ["HP", "HC"] and tariff_type != "BASE":
+                    # Pour OctoTempo, Linky remonte aussi un registre BASE (registerId=1)
+                    # qui contient la consommation totale — ne pas écraser une détection
+                    # TEMPO déjà établie par les codes HPP/HPHI/etc.
+                    if tariff_type != "TEMPO":
+                        tariff_type = "BASE"
+                elif effective_code in ["HP", "HC"] and tariff_type not in ("BASE", "TEMPO"):
                     tariff_type = "HPHC"
 
                 if not period_start:
                     period_start = node.get("periodStartAt")
                     period_end = node.get("periodEndAt")
 
-            # ── OctoTempo : codes Tempo dans temporalClass.code
-            # Le code peut être "BLEU_HP", "BLEU_HC", "BLANC_HP"… (à confirmer)
-            # ou calendarTempClass peut retourner "BLEU", "BLANC", "ROUGE"
+            # ── OctoTempo : codes confirmés (HPP/HCP/HPHI/HCHI/HPE/HCE)
+            elif effective_code in ("HPP", "HCP", "HPHI", "HCHI", "HPE", "HCE"):
+                tariff_type = "TEMPO"
+                key = self._TEMPORAL_CLASS_TO_KEY.get(effective_code)
+                if key:
+                    index_data[key] = {
+                        "consumption": node.get("consumption"),
+                        "index_start": node.get("indexStartValue"),
+                        "index_end": node.get("indexEndValue"),
+                        "status": node.get("statusProcessed"),
+                        "temporal_class_code": tc_code,
+                        "temporal_class_label": temporal_class.get("label"),
+                        "temporal_class_register_id": temporal_class.get("registerId"),
+                    }
+                if not period_start:
+                    period_start = node.get("periodStartAt")
+                    period_end = node.get("periodEndAt")
+                _LOGGER.debug("OctoTempo: code '%s' → clé '%s'", effective_code, key)
+
+            # ── OctoTempo : codes couleur BLEU/BLANC/ROUGE (ancienne convention ou calendarTempClass)
             elif effective_code in ["BLEU", "BLANC", "ROUGE"] or (
                 effective_code
                 and any(c in effective_code for c in ["BLEU", "BLANC", "ROUGE"])

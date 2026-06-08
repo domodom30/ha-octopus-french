@@ -1,3 +1,13 @@
+## [3.2.3] - 2026-06-08
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/A1V11ZZTPI)
+
+### 🐛 Corrections
+
+- Fix: `AttributeError` lors de l'ajout de l'intégration avec des credentials invalides & non capturée dans le config flow ([#41](https://github.com/domodom30/ha-octopus-french/issues/41))
+
+---
+
 ## [3.2.2] - 2026-05-14
 
 ### 🐛 Corrections

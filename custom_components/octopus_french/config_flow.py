@@ -76,7 +76,7 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except ValueError as err:
                 _LOGGER.error("Invalid data received: %s", err)
                 errors["base"] = "invalid_auth"
-            except (KeyError, IndexError, TypeError) as err:
+            except (KeyError, IndexError, TypeError, AttributeError) as err:
                 _LOGGER.error("Error parsing account data: %s", err)
                 errors["base"] = "unknown"
 

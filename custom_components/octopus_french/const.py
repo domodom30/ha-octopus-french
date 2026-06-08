@@ -31,8 +31,8 @@ TEMPO_STATISTICS_LABELS: frozenset[str] = frozenset({
 })
 
 # Mots-clés recherchés dans product.code pour identifier un contrat OctoTempo.
-# À compléter quand le code produit réel sera connu.
-TEMPO_PRODUCT_CODE_KEYWORDS: tuple[str, ...] = ("TEMPO",)
+# "OCTOFLEX" couvre le produit OctoTempo réel (ex: OCTOFLEX_4).
+TEMPO_PRODUCT_CODE_KEYWORDS: tuple[str, ...] = ("TEMPO", "OCTOFLEX")
 
 # Valeurs de calendarTempClass retournées par l'API pour les jours Tempo.
 # Actuellement hypothétiques — à valider avec un compte Tempo réel.

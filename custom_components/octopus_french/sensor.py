@@ -171,26 +171,43 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
+_TEMPO_TEMPORAL_CLASS_CODES: frozenset[str] = frozenset(
+    {"HPP", "HCP", "HPHI", "HCHI", "HPE", "HCE"}
+)
+
+
 def _detect_tariff_type_for_meter(data: dict, prm_id: str) -> str:
     """Détecte le type de tarif pour un compteur spécifique."""
     try:
+        # Priorité 1 : classes temporelles du calendrier fournisseur (source la plus fiable).
+        # 6 classes OctoTempo connues → TEMPO ; 2 classes → HPHC ; 1 classe → BASE.
+        for meter in data.get("supply_points", {}).get("electricity", []):
+            if meter.get("prm") != prm_id:
+                continue
+            classes = meter.get("provider_temporal_classes") or []
+            codes = {c.get("code") for c in classes if c.get("code")}
+            if codes & _TEMPO_TEMPORAL_CLASS_CODES:
+                return TARIFF_TYPE_TEMPO
+            if len(codes) == 2:
+                return "HPHC"
+            if len(codes) == 1:
+                return "BASE"
+
+        # Priorité 2 : labels Tempo spécifiques dans les statistics des relevés
         electricity_readings = data.get("electricity", {}).get("readings", [])
         if electricity_readings:
             latest_reading = electricity_readings[-1]
             statistics = latest_reading.get("metaData", {}).get("statistics", [])
             if statistics:
                 labels = {stat.get("label", "") for stat in statistics}
-
-                # Priorité 1 : labels Tempo spécifiques dans les statistics
                 if labels & TEMPO_STATISTICS_LABELS:
                     return TARIFF_TYPE_TEMPO
-
                 if "BASE" in labels:
                     return "BASE"
                 if "HEURES_PLEINES" in labels and "HEURES_CREUSES" in labels:
                     return "HPHC"
 
-        # Priorité 2 : code produit dans les accords actifs
+        # Priorité 3 : code produit dans les accords actifs
         for agreement in data.get("agreements", []):
             if agreement.get("prm") == prm_id and agreement.get("is_active"):
                 code = agreement.get("product", {}).get("code", "").upper()
