@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-    tags:
-      - "v*.*.*"
   pull_request:
     branches:
       - main
@@ -42,26 +40,39 @@ jobs:
     needs: [validate, hacs]
     permissions:
       contents: write
-    if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     steps:
       - name: ⤵️ Check out code from GitHub
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: 📋 Extract version from tag
+      - name: 📋 Read version from manifest.json
         id: get_version
         run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
+          VERSION=$(jq -r '.version' custom_components/octopus_french/manifest.json)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "📦 Version: $VERSION"
 
+      - name: 🔍 Check if tag already exists
+        id: check_tag
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          if git ls-remote --tags origin "refs/tags/v${VERSION}" | grep -q "refs/tags/v${VERSION}"; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "🏷️ Tag v${VERSION} already exists — skipping release"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "🆕 Tag v${VERSION} not found — creating release"
+          fi
+
       - name: 📝 Extract changelog for version
         id: changelog
+        if: steps.check_tag.outputs.exists == 'false'
         run: |
           VERSION="${{ steps.get_version.outputs.version }}"
           if [ -f CHANGELOG.md ]; then
-            awk "/^## \\[$VERSION\\]/,/^## \\[/ {if (/^## \\[$VERSION\\]/) print; else if (/^## \\[/) exit; else print}" CHANGELOG.md > release_notes.md
+            awk "/^## \[$VERSION\]/,/^## \[/ {if (/^## \[$VERSION\]/) print; else if (/^## \[/) exit; else print}" CHANGELOG.md > release_notes.md
             if [ -s release_notes.md ]; then
               echo "notes<<EOF" >> $GITHUB_OUTPUT
               cat release_notes.md >> $GITHUB_OUTPUT
@@ -77,11 +88,11 @@ jobs:
           fi
 
       - name: 🚀 Create GitHub Release
+        if: steps.check_tag.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
+          tag_name: v${{ steps.get_version.outputs.version }}
+          name: Release v${{ steps.get_version.outputs.version }}
           body: ${{ steps.changelog.outputs.notes }}
-          generate_release_notes: true
           draft: false
           prerelease: false
