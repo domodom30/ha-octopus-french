@@ -125,12 +125,14 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             "energy_peak_hours": "HEURES_PLEINES",
             "energy_off_peak_hours": "HEURES_CREUSES",
             # OctoTempo : labels à confirmer avec un vrai compte
-            "energy_tempo_bleu_hp": "TEMPO_BLEU_HP",
-            "energy_tempo_bleu_hc": "TEMPO_BLEU_HC",
-            "energy_tempo_blanc_hp": "TEMPO_BLANC_HP",
-            "energy_tempo_blanc_hc": "TEMPO_BLANC_HC",
-            "energy_tempo_rouge_hp": "TEMPO_ROUGE_HP",
-            "energy_tempo_rouge_hc": "TEMPO_ROUGE_HC",
+            "energy_tempo_bleu_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
+            "energy_tempo_bleu_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCE_0.0_37.0",
+
+            "energy_tempo_blanc_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPHI_0.0_37.0",
+            "energy_tempo_blanc_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCHI_0.0_37.0",
+
+            "energy_tempo_rouge_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0",
+            "energy_tempo_rouge_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCP_0.0_37.0",
         }
 
         try:
@@ -347,12 +349,14 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             "energy_peak_hours": "HEURES_PLEINES",
             "energy_off_peak_hours": "HEURES_CREUSES",
             # OctoTempo : labels à confirmer avec un vrai compte
-            "energy_tempo_bleu_hp": "TEMPO_BLEU_HP",
-            "energy_tempo_bleu_hc": "TEMPO_BLEU_HC",
-            "energy_tempo_blanc_hp": "TEMPO_BLANC_HP",
-            "energy_tempo_blanc_hc": "TEMPO_BLANC_HC",
-            "energy_tempo_rouge_hp": "TEMPO_ROUGE_HP",
-            "energy_tempo_rouge_hc": "TEMPO_ROUGE_HC",
+            "energy_tempo_bleu_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
+            "energy_tempo_bleu_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCE_0.0_37.0",
+
+            "energy_tempo_blanc_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPHI_0.0_37.0",
+            "energy_tempo_blanc_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCHI_0.0_37.0",
+
+            "energy_tempo_rouge_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0",
+            "energy_tempo_rouge_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCP_0.0_37.0",
         }
 
         # API does NOT return cost labels → cost must be derived from consumption × tariff.
@@ -361,12 +365,14 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             "cost_peak_hours": "HEURES_PLEINES",
             "cost_off_peak_hours": "HEURES_CREUSES",
             # OctoTempo
-            "cost_tempo_bleu_hp": "TEMPO_BLEU_HP",
-            "cost_tempo_bleu_hc": "TEMPO_BLEU_HC",
-            "cost_tempo_blanc_hp": "TEMPO_BLANC_HP",
-            "cost_tempo_blanc_hc": "TEMPO_BLANC_HC",
-            "cost_tempo_rouge_hp": "TEMPO_ROUGE_HP",
-            "cost_tempo_rouge_hc": "TEMPO_ROUGE_HC",
+            "cost_tempo_bleu_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
+            "cost_tempo_bleu_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCE_0.0_37.0",
+
+            "cost_tempo_blanc_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPHI_0.0_37.0",
+            "cost_tempo_blanc_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCHI_0.0_37.0",
+
+            "cost_tempo_rouge_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0",
+            "cost_tempo_rouge_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCP_0.0_37.0",
         }
 
         for reading in sorted_readings:
