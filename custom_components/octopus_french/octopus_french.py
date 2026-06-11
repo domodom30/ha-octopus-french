@@ -1001,7 +1001,19 @@ class OctopusFrenchApiClient:
             # ── OctoTempo : codes confirmés (HPP/HCP/HPHI/HCHI/HPE/HCE)
             elif effective_code in ("HPP", "HCP", "HPHI", "HCHI", "HPE", "HCE"):
                 tariff_type = "TEMPO"
+
+                # Déduction couleur Tempo
+                if effective_code in ("HPE", "HCE"):
+                    index_data["tempo_color"] = "BLEU"
+
+                elif effective_code in ("HPHI", "HCHI"):
+                    index_data["tempo_color"] = "BLANC"
+
+                elif effective_code in ("HPP", "HCP"):
+                    index_data["tempo_color"] = "ROUGE"
+
                 key = self._TEMPORAL_CLASS_TO_KEY.get(effective_code)
+
                 if key:
                     index_data[key] = {
                         "consumption": node.get("consumption"),
@@ -1012,10 +1024,16 @@ class OctopusFrenchApiClient:
                         "temporal_class_label": temporal_class.get("label"),
                         "temporal_class_register_id": temporal_class.get("registerId"),
                     }
+
                 if not period_start:
                     period_start = node.get("periodStartAt")
                     period_end = node.get("periodEndAt")
-                _LOGGER.debug("OctoTempo: code '%s' → clé '%s'", effective_code, key)
+
+                _LOGGER.debug(
+                    "OctoTempo: code '%s' → clé '%s'",
+                    effective_code,
+                    key,
+                )
 
             # ── OctoTempo : codes couleur BLEU/BLANC/ROUGE (ancienne convention ou calendarTempClass)
             elif effective_code in ["BLEU", "BLANC", "ROUGE"] or (
