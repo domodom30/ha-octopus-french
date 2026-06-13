@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from datetime import date, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -14,6 +15,10 @@ from custom_components.octopus_french.const import (
 from custom_components.octopus_french.octopus_french import OctopusFrenchApiClient
 from custom_components.octopus_french.sensor import _detect_tariff_type_for_meter
 from custom_components.octopus_french.sensors.descriptions import TEMPO_SENSORS
+from custom_components.octopus_french.sensors.electricity import (
+    OctopusTempoCurrentRateSensor,
+    _COST_TO_CONSUMPTION_LABEL,
+)
 
 
 # ── Constantes ──────────────────────────────────────────────────────────────
@@ -225,11 +230,11 @@ class TestExtractTariffsTempo:
 # ── Tests des descriptions de capteurs ───────────────────────────────────────
 
 class TestTempoSensorDescriptions:
-    """Tests pour vérifier que les 19 descriptions Tempo sont définies."""
+    """Tests pour vérifier les 21 descriptions Tempo définies."""
 
     def test_tempo_sensors_count(self) -> None:
-        """Il doit y avoir exactement 19 descriptions de capteurs Tempo."""
-        assert len(TEMPO_SENSORS) == 19
+        """Il doit y avoir exactement 21 descriptions de capteurs Tempo."""
+        assert len(TEMPO_SENSORS) == 21
 
     def test_energy_sensor_keys(self) -> None:
         """Les 6 clés de capteurs d'énergie doivent être présentes."""
@@ -250,6 +255,16 @@ class TestTempoSensorDescriptions:
         """Le capteur couleur du jour doit être présent."""
         keys = {s.key for s in TEMPO_SENSORS}
         assert "tempo_color_today" in keys
+
+    def test_tomorrow_color_key(self) -> None:
+        """Le capteur couleur de demain doit être présent."""
+        keys = {s.key for s in TEMPO_SENSORS}
+        assert "tempo_color_tomorrow" in keys
+
+    def test_current_rate_key(self) -> None:
+        """Le capteur tarif en cours doit être présent."""
+        keys = {s.key for s in TEMPO_SENSORS}
+        assert "tempo_current_rate" in keys
 
     def test_no_index_sensors(self) -> None:
         """Aucun capteur d'index Linky ne doit être dans TEMPO_SENSORS."""
@@ -336,3 +351,267 @@ class TestElectricityIndexTempo:
         assert result is not None
         assert result["tariff_type"] == "HPHC"
         assert "tempo_color" not in result
+
+    def _make_index_response_with_date(self, temp_class: str, period_date: str) -> dict:
+        """Construit une fausse réponse API avec une date de période explicite."""
+        return {
+            "data": {
+                "electricityReading": {
+                    "edges": [
+                        {
+                            "node": {
+                                "calendarTempClass": temp_class,
+                                "consumption": "8.0",
+                                "indexStartValue": "2000",
+                                "indexEndValue": "2008",
+                                "statusProcessed": "REAL",
+                                "consumptionReliability": "REAL",
+                                "indexReliability": "REAL",
+                                "periodStartAt": f"{period_date}T00:00:00+00:00",
+                                "periodEndAt": f"{period_date}T23:59:59+00:00",
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+
+    @pytest.mark.asyncio
+    async def test_today_color_not_tomorrow(self) -> None:
+        """Une edge datée d'aujourd'hui → tempo_color, pas tempo_color_tomorrow."""
+        from custom_components.octopus_french.octopus_french import OctopusFrenchApiClient
+
+        client = OctopusFrenchApiClient.__new__(OctopusFrenchApiClient)
+        today_str = date.today().isoformat()
+
+        with patch.object(
+            client,
+            "_execute_with_auth",
+            return_value=self._make_index_response_with_date("BLEU", today_str),
+        ):
+            result = await client.get_electricity_index("ACC123", "PRM456")
+
+        assert result is not None
+        assert result.get("tempo_color") == "BLEU"
+        assert "tempo_color_tomorrow" not in result
+
+    @pytest.mark.asyncio
+    async def test_tomorrow_color_detected(self) -> None:
+        """Une edge datée de demain → tempo_color_tomorrow (sans tempo_color)."""
+        from custom_components.octopus_french.octopus_french import OctopusFrenchApiClient
+
+        client = OctopusFrenchApiClient.__new__(OctopusFrenchApiClient)
+        tomorrow_str = (date.today() + timedelta(days=1)).isoformat()
+
+        with patch.object(
+            client,
+            "_execute_with_auth",
+            return_value=self._make_index_response_with_date("ROUGE", tomorrow_str),
+        ):
+            result = await client.get_electricity_index("ACC123", "PRM456")
+
+        assert result is not None
+        assert result.get("tempo_color_tomorrow") == "ROUGE"
+        assert "tempo_color" not in result
+
+
+# ── Tests du capteur tarif courant ────────────────────────────────────────────
+
+class TestTempoCurrentRateSensor:
+    """Tests pour OctopusTempoCurrentRateSensor."""
+
+    def _make_coordinator(
+        self,
+        tempo_color: str | None,
+        rate_key: str,
+        rate_value: float,
+        prm_id: str = "TEST_PRM",
+        hc_slots: list[dict] | None = None,
+    ) -> MagicMock:
+        """Construit un coordinateur factice avec couleur Tempo et tarifs."""
+        coordinator = MagicMock()
+        coordinator.last_update_success = True
+        coordinator.data = {
+            "electricity": {
+                "index": {"tempo_color": tempo_color} if tempo_color else {},
+            },
+            "agreements": [
+                {
+                    "prm": prm_id,
+                    "is_active": True,
+                    "tariffs": {
+                        "consumption": {
+                            rate_key: {"price_ttc": rate_value, "price_ht": rate_value * 0.8},
+                        }
+                    },
+                    "time_slots": hc_slots or [],
+                }
+            ],
+            "supply_points": {"electricity": []},
+        }
+        return coordinator
+
+    def _make_sensor(
+        self,
+        coordinator: MagicMock,
+        prm_id: str = "TEST_PRM",
+    ) -> OctopusTempoCurrentRateSensor:
+        """Instancie le capteur sans passer par HA."""
+        from homeassistant.components.sensor import SensorDeviceClass, SensorEntityDescription
+        from homeassistant.const import CURRENCY_EURO
+
+        config = SensorEntityDescription(
+            key="tempo_current_rate",
+            device_class=SensorDeviceClass.MONETARY,
+            native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
+            suggested_display_precision=4,
+        )
+        sensor = OctopusTempoCurrentRateSensor.__new__(OctopusTempoCurrentRateSensor)
+        sensor.coordinator = coordinator
+        sensor._prm_id = prm_id
+        sensor._sensor_config = config
+        return sensor
+
+    def test_returns_rate_bleu_hp(self) -> None:
+        """Couleur BLEU + période HP → tarif tempo_bleu_hp."""
+        coordinator = self._make_coordinator("BLEU", "tempo_bleu_hp", 0.1234)
+        sensor = self._make_sensor(coordinator)
+
+        with patch.object(sensor, "_is_currently_hc", return_value=False):
+            assert sensor.native_value == pytest.approx(0.1234)
+
+    def test_returns_rate_rouge_hc(self) -> None:
+        """Couleur ROUGE + période HC → tarif tempo_rouge_hc."""
+        coordinator = self._make_coordinator("ROUGE", "tempo_rouge_hc", 0.1568)
+        sensor = self._make_sensor(coordinator)
+
+        with patch.object(sensor, "_is_currently_hc", return_value=True):
+            assert sensor.native_value == pytest.approx(0.1568)
+
+    def test_returns_none_when_no_color(self) -> None:
+        """Sans couleur Tempo dans l'index → None."""
+        coordinator = self._make_coordinator(None, "tempo_bleu_hp", 0.1234)
+        sensor = self._make_sensor(coordinator)
+
+        assert sensor.native_value is None
+
+    def test_extra_attributes_contain_color_and_period(self) -> None:
+        """Les attributs doivent exposer la couleur et la période."""
+        coordinator = self._make_coordinator("BLANC", "tempo_blanc_hp", 0.18)
+        sensor = self._make_sensor(coordinator)
+
+        with patch.object(sensor, "_is_currently_hc", return_value=False):
+            attrs = sensor.extra_state_attributes
+
+        assert attrs["tempo_color"] == "BLANC"
+        assert attrs["period_type"] == "HP"
+        assert attrs["prm_id"] == "TEST_PRM"
+
+
+# ── Tests de _COST_TO_CONSUMPTION_LABEL ──────────────────────────────────────
+
+class TestCostToConsumptionLabel:
+    """Vérifie que la constante partagée couvre tous les capteurs de coût."""
+
+    def test_all_cost_tempo_keys_present(self) -> None:
+        """Les 6 clés cost_tempo_* doivent être dans la constante."""
+        tempo_cost_keys = {
+            "cost_tempo_bleu_hp", "cost_tempo_bleu_hc",
+            "cost_tempo_blanc_hp", "cost_tempo_blanc_hc",
+            "cost_tempo_rouge_hp", "cost_tempo_rouge_hc",
+        }
+        assert tempo_cost_keys.issubset(_COST_TO_CONSUMPTION_LABEL.keys())
+
+    def test_labels_match_tempo_statistics_labels(self) -> None:
+        """Les labels de consommation Tempo doivent correspondre à TEMPO_STATISTICS_LABELS."""
+        from custom_components.octopus_french.const import TEMPO_STATISTICS_LABELS
+
+        tempo_labels_in_map = {
+            v for k, v in _COST_TO_CONSUMPTION_LABEL.items()
+            if k.startswith("cost_tempo_")
+        }
+        assert tempo_labels_in_map == TEMPO_STATISTICS_LABELS
+
+
+# ── Tests des attributs Tempo dans latest_reading ────────────────────────────
+
+class TestLatestReadingTempoAttributes:
+    """Tests pour les attributs Tempo dans OctopusLatestReadingSensor."""
+
+    def _make_coordinator(
+        self,
+        stats: list[dict],
+        prm_id: str = "TEST_PRM",
+        rate_key: str | None = None,
+        rate_value: float = 0.0,
+    ) -> MagicMock:
+        """Construit un coordinateur factice pour latest_reading."""
+        coordinator = MagicMock()
+        coordinator.last_update_success = True
+        agreements = []
+        if rate_key:
+            agreements = [
+                {
+                    "prm": prm_id,
+                    "is_active": True,
+                    "tariffs": {
+                        "consumption": {
+                            rate_key: {"price_ttc": rate_value, "price_ht": rate_value * 0.8},
+                        }
+                    },
+                }
+            ]
+        coordinator.data = {
+            "electricity": {
+                "readings": [
+                    {"startAt": "2026-06-13T00:00:00", "value": "15.0",
+                     "metaData": {"statistics": stats}}
+                ],
+            },
+            "agreements": agreements,
+        }
+        return coordinator
+
+    def _make_sensor(self, coordinator: MagicMock, prm_id: str = "TEST_PRM"):
+        """Instancie OctopusLatestReadingSensor sans passer par HA."""
+        from homeassistant.components.sensor import SensorEntityDescription
+        from custom_components.octopus_french.sensors.electricity import OctopusLatestReadingSensor
+
+        config = SensorEntityDescription(key="latest_reading")
+        sensor = OctopusLatestReadingSensor.__new__(OctopusLatestReadingSensor)
+        sensor.coordinator = coordinator
+        sensor._prm_id = prm_id
+        sensor._sensor_config = config
+        return sensor
+
+    def test_tempo_kwh_attributes_populated(self) -> None:
+        """Les labels TEMPO_BLEU_HP/ROUGE_HC doivent peupler les attributs kWh."""
+        stats = [
+            {"label": "TEMPO_BLEU_HP", "value": "5.0", "costInclTax": None},
+            {"label": "TEMPO_ROUGE_HC", "value": "2.3", "costInclTax": None},
+        ]
+        coordinator = self._make_coordinator(stats)
+        sensor = self._make_sensor(coordinator)
+
+        attrs = sensor.extra_state_attributes
+        assert attrs.get("tempo_bleu_hp") == pytest.approx(5.0)
+        assert attrs.get("tempo_rouge_hc") == pytest.approx(2.3)
+
+    def test_tempo_cost_computed(self) -> None:
+        """Avec un tarif disponible, le coût €/kWh doit être calculé."""
+        stats = [{"label": "TEMPO_BLEU_HP", "value": "10.0", "costInclTax": None}]
+        coordinator = self._make_coordinator(stats, rate_key="tempo_bleu_hp", rate_value=0.12)
+        sensor = self._make_sensor(coordinator)
+
+        attrs = sensor.extra_state_attributes
+        assert attrs.get("cout_tempo_bleu_hp_euro") == pytest.approx(10.0 * 0.12, rel=1e-4)
+
+    def test_non_tempo_attributes_unchanged(self) -> None:
+        """Un relevé BASE ne doit pas produire d'attributs Tempo."""
+        stats = [{"label": "HEURES_BASE", "value": "8.0", "costInclTax": None}]
+        coordinator = self._make_coordinator(stats)
+        sensor = self._make_sensor(coordinator)
+
+        attrs = sensor.extra_state_attributes
+        assert attrs.get("heures_base") == pytest.approx(8.0)
+        assert "tempo_bleu_hp" not in attrs

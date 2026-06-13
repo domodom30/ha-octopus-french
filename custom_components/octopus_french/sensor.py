@@ -35,6 +35,7 @@ from .sensors.electricity import (
     OctopusElectricitySensor,
     OctopusLatestReadingSensor,
     OctopusTempoColorSensor,
+    OctopusTempoCurrentRateSensor,
 )
 from .sensors.gas import OctopusGasSensor
 from .sensors.ledger import OctopusLedgerSensor
@@ -105,7 +106,15 @@ async def async_setup_entry(
             for sensor_config in TEMPO_SENSORS:
                 if sensor_config.key == "tempo_color_today":
                     entities.append(
-                        OctopusTempoColorSensor(coordinator, prm_id, sensor_config)
+                        OctopusTempoColorSensor(coordinator, prm_id, sensor_config, is_tomorrow=False)
+                    )
+                elif sensor_config.key == "tempo_color_tomorrow":
+                    entities.append(
+                        OctopusTempoColorSensor(coordinator, prm_id, sensor_config, is_tomorrow=True)
+                    )
+                elif sensor_config.key == "tempo_current_rate":
+                    entities.append(
+                        OctopusTempoCurrentRateSensor(coordinator, prm_id, sensor_config)
                     )
                 else:
                     entities.append(

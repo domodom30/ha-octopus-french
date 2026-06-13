@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import suppress
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 import logging
 import re
 from typing import Any
@@ -1028,22 +1028,36 @@ class OctopusFrenchApiClient:
                     (c for c in ["ROUGE", "BLANC", "BLEU"] if c in effective_code),
                     effective_code,
                 )
-                index_data["tempo_color"] = color
-                index_data[f"tempo_{color.lower()}"] = {
-                    "consumption": node.get("consumption"),
-                    "index_start": node.get("indexStartValue"),
-                    "index_end": node.get("indexEndValue"),
-                    "status": node.get("statusProcessed"),
-                    "temporal_class_code": tc_code,
-                    "temporal_class_label": temporal_class.get("label"),
-                    "temporal_class_register_id": temporal_class.get("registerId"),
-                }
+                # Distinguer aujourd'hui et demain via periodStartAt
+                node_date = node.get("periodStartAt", "")[:10]
+                today_str = datetime.now(UTC).date().isoformat()
+                tomorrow_str = (datetime.now(UTC).date() + timedelta(days=1)).isoformat()
+
+                if node_date == tomorrow_str:
+                    index_data["tempo_color_tomorrow"] = color
+                    _LOGGER.debug(
+                        "OctoTempo: couleur demain '%s' détectée depuis '%s'",
+                        color, node_date,
+                    )
+                else:
+                    # Aujourd'hui (ou date absente/inconnue → on l'attribue à aujourd'hui)
+                    index_data["tempo_color"] = color
+                    index_data[f"tempo_{color.lower()}"] = {
+                        "consumption": node.get("consumption"),
+                        "index_start": node.get("indexStartValue"),
+                        "index_end": node.get("indexEndValue"),
+                        "status": node.get("statusProcessed"),
+                        "temporal_class_code": tc_code,
+                        "temporal_class_label": temporal_class.get("label"),
+                        "temporal_class_register_id": temporal_class.get("registerId"),
+                    }
+                    _LOGGER.debug(
+                        "OctoTempo: couleur aujourd'hui '%s' détectée depuis '%s'",
+                        color, node_date,
+                    )
                 if not period_start:
                     period_start = node.get("periodStartAt")
                     period_end = node.get("periodEndAt")
-                _LOGGER.debug(
-                    "OctoTempo: classe '%s' détectée, couleur='%s'", effective_code, color
-                )
 
             elif effective_code:
                 # Code inconnu — on le logue pour faciliter le diagnostic

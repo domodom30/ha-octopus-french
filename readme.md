@@ -17,8 +17,9 @@ Intégration Octopus Energy France (non officiel) pour Home Assistant.
 - **Consommation électrique**
   - Mode BASE : consommation et coût mensuel
   - Mode HPHC : consommation et coût mensuel (heures pleines / heures creuses)
+  - **Mode OctoTempo** : consommation et coût mensuel par couleur × période (6 capteurs : Bleu HP/HC, Blanc HP/HC, Rouge HP/HC)
   - **Statistiques historiques** : Import automatique de l'historique dans le tableau de bord Énergie
-  - **Dernier relevé** : Valeur et détails de la dernière lecture quotidienne
+  - **Dernier relevé** : Valeur et détails de la dernière lecture quotidienne (avec ventilation Tempo si applicable)
 - **Consommation de gaz** : cumulative mensuelle
 - **Abonnement** : Coût mensuel de l'abonnement électricité
 
@@ -160,6 +161,41 @@ Pour accéder aux options :
 | Abonnement         | Capteur | Monetary | Total            | Coût mensuel de l'abonnement      |
 | Contrat            | Capteur | -        | -                | Type de contrat et informations   |
 
+**Pour les contrats OctoTempo :**
+
+| Entité                  | Type    | Classe   | State Class | Description                                  |
+| ----------------------- | ------- | -------- | ----------- | -------------------------------------------- |
+| Bleu HP / mois en cours | Capteur | Energy   | Total       | Consommation jours Bleu Heures Pleines (kWh) |
+| Bleu HC / mois en cours | Capteur | Energy   | Total       | Consommation jours Bleu Heures Creuses (kWh) |
+| Blanc HP / mois en cours| Capteur | Energy   | Total       | Consommation jours Blanc Heures Pleines (kWh)|
+| Blanc HC / mois en cours| Capteur | Energy   | Total       | Consommation jours Blanc Heures Creuses (kWh)|
+| Rouge HP / mois en cours| Capteur | Energy   | Total       | Consommation jours Rouge Heures Pleines (kWh)|
+| Rouge HC / mois en cours| Capteur | Energy   | Total       | Consommation jours Rouge Heures Creuses (kWh)|
+| Coût Bleu HP            | Capteur | Monetary | Total       | Coût jours Bleu HP (€)                       |
+| Coût Bleu HC            | Capteur | Monetary | Total       | Coût jours Bleu HC (€)                       |
+| Coût Blanc HP           | Capteur | Monetary | Total       | Coût jours Blanc HP (€)                      |
+| Coût Blanc HC           | Capteur | Monetary | Total       | Coût jours Blanc HC (€)                      |
+| Coût Rouge HP           | Capteur | Monetary | Total       | Coût jours Rouge HP (€)                      |
+| Coût Rouge HC           | Capteur | Monetary | Total       | Coût jours Rouge HC (€)                      |
+| Abonnement              | Capteur | Monetary | Total       | Coût mensuel de l'abonnement                 |
+| Contrat                 | Capteur | -        | -           | Type de contrat et informations              |
+
+**Capteurs de diagnostic OctoTempo :**
+
+| Entité                   | Type    | Classe   | Description                                                                              |
+| ------------------------ | ------- | -------- | ---------------------------------------------------------------------------------------- |
+| Tarif Bleu HP            | Capteur | Monetary | Tarif Bleu Heures Pleines (€/kWh)                                                        |
+| Tarif Bleu HC            | Capteur | Monetary | Tarif Bleu Heures Creuses (€/kWh)                                                        |
+| Tarif Blanc HP           | Capteur | Monetary | Tarif Blanc Heures Pleines (€/kWh)                                                       |
+| Tarif Blanc HC           | Capteur | Monetary | Tarif Blanc Heures Creuses (€/kWh)                                                       |
+| Tarif Rouge HP           | Capteur | Monetary | Tarif Rouge Heures Pleines (€/kWh)                                                       |
+| Tarif Rouge HC           | Capteur | Monetary | Tarif Rouge Heures Creuses (€/kWh)                                                       |
+| Couleur Tempo aujourd'hui| Capteur | -        | Couleur du jour (BLEU / BLANC / ROUGE)                                                   |
+| Couleur Tempo demain     | Capteur | -        | Couleur de demain — disponible après ~11h (annonce RTE) ; `unavailable` avant l'annonce  |
+| Tarif Tempo en cours     | Capteur | Monetary | €/kWh actif à l'instant (couleur du jour × HC/HP), mis à jour chaque minute             |
+
+---
+
 #### Capteurs d'index (Diagnostic)
 
 **Pour les contrats BASE :**
@@ -184,7 +220,7 @@ Pour accéder aux options :
 - `period_end` : Fin de période de relevé
 - `index_reliability` : Fiabilité de l'index (REAL/ESTIMATED)
 
-#### Capteur binaire Heures Creuses (HPHC uniquement)
+#### Capteur binaire Heures Creuses (HPHC et OctoTempo)
 
 | Entité                  | Type           | Description                                                 |
 | ----------------------- | -------------- | ----------------------------------------------------------- |
@@ -257,13 +293,17 @@ Pour accéder aux options :
 **Attributs du dernier relevé :**
 
 - `date_releve` : Date du relevé
-- `heures_base` : Heures en base (si applicable)
-- `heures_pleines_kwh` : Consommation heures pleines (si applicable)
-- `heures_creuses_kwh` : Consommation heures creuses (si applicable)
-- `cout_base_euro` : Coût base (si applicable)
-- `cout_heures_pleines_euro` : Coût heures pleines (si applicable)
-- `cout_heures_creuses_euro` : Coût heures creuses (si applicable)
+- `heures_base` : Heures en base (contrat BASE)
+- `heures_pleines_kwh` : Consommation heures pleines (contrat HPHC)
+- `heures_creuses_kwh` : Consommation heures creuses (contrat HPHC)
+- `cout_base_euro` : Coût base
+- `cout_heures_pleines_euro` : Coût heures pleines
+- `cout_heures_creuses_euro` : Coût heures creuses
 - `cout_abonnement_euro` : Coût abonnement journalier
+- `tempo_bleu_hp` / `tempo_bleu_hc` : kWh Bleu HP/HC (contrat OctoTempo)
+- `tempo_blanc_hp` / `tempo_blanc_hc` : kWh Blanc HP/HC
+- `tempo_rouge_hp` / `tempo_rouge_hc` : kWh Rouge HP/HC
+- `cout_tempo_bleu_hp_euro` … `cout_tempo_rouge_hc_euro` : coûts estimés par couleur-période
 
 **Attributs du contrat :**
 
@@ -425,6 +465,17 @@ L'intégration importe automatiquement l'historique de vos consommations et coû
   - Heures creuses : `sensor.linky_XXXXXX_conso_hc`
 - **Coût** (optionnel) : Utilisez les statistiques importées automatiquement
 
+#### Pour un contrat OctoTempo :
+
+- **Consommation depuis le réseau** (6 capteurs) :
+  - `sensor.linky_XXXXXX_energy_tempo_bleu_hp`
+  - `sensor.linky_XXXXXX_energy_tempo_bleu_hc`
+  - `sensor.linky_XXXXXX_energy_tempo_blanc_hp`
+  - `sensor.linky_XXXXXX_energy_tempo_blanc_hc`
+  - `sensor.linky_XXXXXX_energy_tempo_rouge_hp`
+  - `sensor.linky_XXXXXX_energy_tempo_rouge_hc`
+- **Coût** (optionnel) : Statistiques importées automatiquement pour chaque couleur-période
+
 #### Pour le gaz :
 
 - **Consommation de gaz** : `sensor.gazpar_XXXXXX_consumption`
@@ -499,6 +550,69 @@ automation:
             Coût estimé :
             {{ state_attr('sensor.linky_XXXXXX_latest_reading', 'cout_heures_pleines_euro') | float(0) +
                state_attr('sensor.linky_XXXXXX_latest_reading', 'cout_heures_creuses_euro') | float(0) }} €
+```
+
+### OctoTempo — Alerte jour rouge demain
+
+```yaml
+automation:
+  - alias: "OctoTempo — Alerte jour rouge demain"
+    trigger:
+      - platform: state
+        entity_id: sensor.linky_XXXXXX_tempo_color_tomorrow
+        to: "ROUGE"
+    action:
+      - service: notify.mobile_app_votre_telephone
+        data:
+          title: "🔴 Jour Rouge demain !"
+          message: >
+            Demain est un jour Rouge OctoTempo.
+            Tarif HP : {{ states('sensor.linky_XXXXXX_rate_tempo_rouge_hp') }} €/kWh.
+            Pensez à décaler vos usages énergivores.
+```
+
+### OctoTempo — Suivi du tarif en cours
+
+```yaml
+automation:
+  - alias: "OctoTempo — Notification passage en Rouge HP"
+    trigger:
+      - platform: template
+        value_template: >
+          {{ states('sensor.linky_XXXXXX_tempo_color_today') == 'ROUGE'
+             and is_state('binary_sensor.linky_XXXXXX_hc_active', 'off') }}
+    action:
+      - service: notify.mobile_app_votre_telephone
+        data:
+          title: "🔴 Rouge HP en cours"
+          message: >
+            Tarif actif : {{ states('sensor.linky_XXXXXX_tempo_current_rate') }} €/kWh.
+            Limitez votre consommation.
+```
+
+### OctoTempo — Délestage automatique les jours rouges HP
+
+```yaml
+automation:
+  - alias: "OctoTempo — Délestage chauffe-eau Rouge HP"
+    trigger:
+      - trigger: state
+        entity_id: sensor.linky_XXXXXX_tempo_color_today
+        to: "ROUGE"
+      - trigger: state
+        entity_id: binary_sensor.linky_XXXXXX_hc_active
+        to: "off"
+    condition:
+      - condition: state
+        entity_id: sensor.linky_XXXXXX_tempo_color_today
+        state: "ROUGE"
+      - condition: state
+        entity_id: binary_sensor.linky_XXXXXX_hc_active
+        state: "off"
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.chauffe_eau
 ```
 
 ### Alerte statut de paiement

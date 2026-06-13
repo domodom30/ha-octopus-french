@@ -16,14 +16,28 @@ from homeassistant.components.recorder.statistics import (
 )
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from ..const import DOMAIN, LEDGER_TYPE_ELECTRICITY
 from ..coordinator import OctopusFrenchDataUpdateCoordinator
+from ..utils import find_contract_hc_slots, parse_off_peak_hours, parse_time_slots
 from .descriptions import OctopusIndexSensorDescription
 
 _LOGGER = logging.getLogger(__name__)
+
+_COST_TO_CONSUMPTION_LABEL: dict[str, str] = {
+    "cost_base":           "BASE",
+    "cost_peak_hours":     "HEURES_PLEINES",
+    "cost_off_peak_hours": "HEURES_CREUSES",
+    "cost_tempo_bleu_hp":  "TEMPO_BLEU_HP",
+    "cost_tempo_bleu_hc":  "TEMPO_BLEU_HC",
+    "cost_tempo_blanc_hp": "TEMPO_BLANC_HP",
+    "cost_tempo_blanc_hc": "TEMPO_BLANC_HC",
+    "cost_tempo_rouge_hp": "TEMPO_ROUGE_HP",
+    "cost_tempo_rouge_hc": "TEMPO_ROUGE_HC",
+}
 
 
 class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
@@ -216,14 +230,8 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                     if value is not None and label == expected_label:
                         reading_value = float(value)
 
-                elif key in ("cost_base", "cost_peak_hours", "cost_off_peak_hours"):
-                    # API has no cost labels → derive cost from consumption × tariff.
-                    consumption_label_map = {
-                        "cost_base": "BASE",
-                        "cost_peak_hours": "HEURES_PLEINES",
-                        "cost_off_peak_hours": "HEURES_CREUSES",
-                    }
-                    if label == consumption_label_map[key]:
+                elif key in _COST_TO_CONSUMPTION_LABEL:
+                    if label == _COST_TO_CONSUMPTION_LABEL[key]:
                         value = stat.get("value")
                         tariff_rate = self._get_tariff_rate()
                         if value is not None and tariff_rate:
@@ -356,18 +364,6 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
         }
 
         # API does NOT return cost labels → cost must be derived from consumption × tariff.
-        cost_to_consumption_label = {
-            "cost_base": "BASE",
-            "cost_peak_hours": "HEURES_PLEINES",
-            "cost_off_peak_hours": "HEURES_CREUSES",
-            # OctoTempo
-            "cost_tempo_bleu_hp": "TEMPO_BLEU_HP",
-            "cost_tempo_bleu_hc": "TEMPO_BLEU_HC",
-            "cost_tempo_blanc_hp": "TEMPO_BLANC_HP",
-            "cost_tempo_blanc_hc": "TEMPO_BLANC_HC",
-            "cost_tempo_rouge_hp": "TEMPO_ROUGE_HP",
-            "cost_tempo_rouge_hc": "TEMPO_ROUGE_HC",
-        }
 
         for reading in sorted_readings:
             reading_date = reading.get("startAt")
@@ -398,15 +394,15 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                     if value is not None and label == expected_label:
                         total += float(value)
 
-                elif key in cost_to_consumption_label:
+                elif key in _COST_TO_CONSUMPTION_LABEL:
                     # Accumulate kWh consumption; multiply by tariff after the loop.
-                    if label == cost_to_consumption_label[key]:
+                    if label == _COST_TO_CONSUMPTION_LABEL[key]:
                         value = stat.get("value")
                         if value is not None:
                             total += float(value)
 
         # For cost sensors: total holds kWh → convert to € using tariff.
-        if key in cost_to_consumption_label:
+        if key in _COST_TO_CONSUMPTION_LABEL:
             tariff_rate = self._get_tariff_rate()
             if tariff_rate and total > 0.0:
                 total = total * tariff_rate
@@ -758,6 +754,12 @@ class OctopusLatestReadingSensor(CoordinatorEntity, SensorEntity):
                     if cost_incl_tax.get("estimatedAmount")
                     else None
                 )
+            elif label in (
+                "TEMPO_BLEU_HP", "TEMPO_BLEU_HC",
+                "TEMPO_BLANC_HP", "TEMPO_BLANC_HC",
+                "TEMPO_ROUGE_HP", "TEMPO_ROUGE_HC",
+            ):
+                attributes[label.lower()] = float(value) if value else None
 
         # API provides no costInclTax for consumption labels → compute from consumption × tariff.
         base_kwh = attributes.get("heures_base")
@@ -784,6 +786,27 @@ class OctopusLatestReadingSensor(CoordinatorEntity, SensorEntity):
                         attributes["cout_heures_creuses_euro"] = round(
                             hc_kwh * hc_rate.get("price_ttc", 0), 4
                         )
+                    break
+
+        _TEMPO_ATTR_TO_RATE_KEY: dict[str, str] = {
+            "tempo_bleu_hp":  "tempo_bleu_hp",
+            "tempo_bleu_hc":  "tempo_bleu_hc",
+            "tempo_blanc_hp": "tempo_blanc_hp",
+            "tempo_blanc_hc": "tempo_blanc_hc",
+            "tempo_rouge_hp": "tempo_rouge_hp",
+            "tempo_rouge_hc": "tempo_rouge_hc",
+        }
+        if any(k in attributes for k in _TEMPO_ATTR_TO_RATE_KEY):
+            agreements = self.coordinator.data.get("agreements", [])
+            for agreement in agreements:
+                if agreement.get("prm") == self._prm_id and agreement.get("is_active"):
+                    consumption = agreement.get("tariffs", {}).get("consumption", {})
+                    for attr_key, rate_key in _TEMPO_ATTR_TO_RATE_KEY.items():
+                        kwh = attributes.get(attr_key)
+                        if kwh is not None and (rate := consumption.get(rate_key)):
+                            attributes[f"cout_{attr_key}_euro"] = round(
+                                kwh * rate.get("price_ttc", 0), 4
+                            )
                     break
 
         return attributes
@@ -859,13 +882,11 @@ class OctopusElectricityIndexSensor(CoordinatorEntity, SensorEntity):
 
 
 class OctopusTempoColorSensor(CoordinatorEntity, SensorEntity):
-    """Capteur indiquant la couleur Tempo du jour (Bleu/Blanc/Rouge).
+    """Capteur indiquant la couleur Tempo (Bleu/Blanc/Rouge) d'aujourd'hui ou de demain.
 
-    La valeur est lue depuis le champ calendarTempClass retourné par
-    l'API Octopus via QUERY_GET_INDEX_ELECTRICITY.
-    Valeurs attendues : « BLEU », « BLANC », « ROUGE » (à confirmer avec
-    un vrai compte OctoTempo — le champ pourrait ne pas être disponible
-    avant qu'Octopus l'implémente côté API).
+    `is_tomorrow=False` (défaut) → couleur du jour depuis `index["tempo_color"]`.
+    `is_tomorrow=True`           → couleur de demain depuis `index["tempo_color_tomorrow"]`
+                                   (disponible après ~11h quand RTE publie le calendrier).
     """
 
     def __init__(
@@ -873,11 +894,13 @@ class OctopusTempoColorSensor(CoordinatorEntity, SensorEntity):
         coordinator: OctopusFrenchDataUpdateCoordinator,
         prm_id: str,
         sensor_config: SensorEntityDescription,
+        is_tomorrow: bool = False,
     ) -> None:
         """Initialize the Tempo color sensor."""
         super().__init__(coordinator)
         self._prm_id = prm_id
         self._sensor_config = sensor_config
+        self._is_tomorrow = is_tomorrow
         self._attr_unique_id = f"{DOMAIN}_{prm_id}_{sensor_config.key}"
         self._attr_translation_key = sensor_config.key
         self._attr_has_entity_name = True
@@ -887,11 +910,12 @@ class OctopusTempoColorSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def native_value(self) -> str | None:
-        """Return today's Tempo color from the electricity index."""
+        """Return the Tempo color from the electricity index."""
         index_data = self.coordinator.data.get("electricity", {}).get("index")
         if not index_data:
             return None
-        return index_data.get("tempo_color")
+        color_key = "tempo_color_tomorrow" if self._is_tomorrow else "tempo_color"
+        return index_data.get(color_key)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -906,5 +930,124 @@ class OctopusTempoColorSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def available(self) -> bool:
-        """Return True only when coordinator data is fresh."""
-        return self.coordinator.last_update_success and self.coordinator.data is not None
+        """Return True only when coordinator data is fresh (and tomorrow's color is known)."""
+        if not (self.coordinator.last_update_success and self.coordinator.data is not None):
+            return False
+        if self._is_tomorrow:
+            index_data = self.coordinator.data.get("electricity", {}).get("index") or {}
+            return "tempo_color_tomorrow" in index_data
+        return True
+
+
+class OctopusTempoCurrentRateSensor(CoordinatorEntity, SensorEntity):
+    """Capteur dynamique : tarif OctoTempo actif en ce moment (€/kWh).
+
+    Combine la couleur du jour (BLEU/BLANC/ROUGE) et la période HC/HP courante
+    pour retourner le prix TTC applicable à l'instant présent.
+    Mis à jour chaque minute via async_track_time_change.
+    Sans schedule HC disponible, la période HP est assumée par défaut.
+    """
+
+    def __init__(
+        self,
+        coordinator: OctopusFrenchDataUpdateCoordinator,
+        prm_id: str,
+        sensor_config: SensorEntityDescription,
+    ) -> None:
+        """Initialize the current Tempo rate sensor."""
+        super().__init__(coordinator)
+        self._prm_id = prm_id
+        self._sensor_config = sensor_config
+        self._attr_unique_id = f"{DOMAIN}_{prm_id}_{sensor_config.key}"
+        self._attr_translation_key = sensor_config.key
+        self._attr_has_entity_name = True
+        self._attr_icon = sensor_config.icon
+        self._attr_device_class = sensor_config.device_class
+        self._attr_native_unit_of_measurement = sensor_config.native_unit_of_measurement
+        self._attr_suggested_display_precision = sensor_config.suggested_display_precision
+        self._attr_entity_category = sensor_config.entity_category
+        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, prm_id)})
+
+    async def async_added_to_hass(self) -> None:
+        """When entity is added to hass."""
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            async_track_time_change(self.hass, self._async_update_state, second=0)
+        )
+
+    async def _async_update_state(self, now=None) -> None:
+        """Refresh state on each minute tick."""
+        self.async_write_ha_state()
+
+    @property
+    def native_value(self) -> float | None:
+        """Return the active Tempo rate (€/kWh) for the current color and HC/HP period."""
+        index_data = self.coordinator.data.get("electricity", {}).get("index") or {}
+        color = index_data.get("tempo_color")
+        if not color:
+            return None
+
+        is_hc = self._is_currently_hc()
+        rate_key = f"tempo_{color.lower()}_{'hc' if is_hc else 'hp'}"
+
+        agreements = self.coordinator.data.get("agreements", [])
+        for agreement in agreements:
+            if agreement.get("prm") == self._prm_id and agreement.get("is_active"):
+                consumption = agreement.get("tariffs", {}).get("consumption", {})
+                rate = consumption.get(rate_key)
+                if rate:
+                    return rate.get("price_ttc")
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return current color and period information."""
+        index_data = self.coordinator.data.get("electricity", {}).get("index") or {}
+        color = index_data.get("tempo_color")
+        is_hc = self._is_currently_hc() if color else None
+        return {
+            "tempo_color": color,
+            "period_type": "HC" if is_hc else ("HP" if is_hc is not None else None),
+            "prm_id": self._prm_id,
+        }
+
+    def _is_currently_hc(self) -> bool:
+        """Return True if the current time falls within an HC (off-peak) period."""
+        data = self.coordinator.data or {}
+        contract_slots = find_contract_hc_slots(data, self._prm_id)
+        if contract_slots:
+            schedule = parse_time_slots(contract_slots)
+        else:
+            off_peak_label = None
+            for meter in data.get("supply_points", {}).get("electricity", []):
+                if meter.get("id") == self._prm_id:
+                    off_peak_label = meter.get("offPeakLabel")
+                    break
+            if not off_peak_label:
+                return False
+            schedule = parse_off_peak_hours(off_peak_label)
+
+        if not schedule.get("ranges"):
+            return False
+
+        now = dt_util.now().time()
+        return any(
+            self._is_time_in_range(now, r["start"], r["end"])
+            for r in schedule["ranges"]
+        )
+
+    @staticmethod
+    def _is_time_in_range(current_time, start_str: str, end_str: str) -> bool:
+        """Check if current_time is within [start_str, end_str] (handles overnight ranges)."""
+        try:
+            sh, sm = start_str.split(":")[:2]
+            eh, em = end_str.split(":")[:2]
+            start_min = int(sh) * 60 + int(sm)
+            end_min = int(eh) * 60 + int(em)
+            cur_min = current_time.hour * 60 + current_time.minute
+        except (ValueError, IndexError):
+            return False
+
+        if end_min <= start_min:
+            return cur_min >= start_min or cur_min <= end_min
+        return start_min <= cur_min <= end_min

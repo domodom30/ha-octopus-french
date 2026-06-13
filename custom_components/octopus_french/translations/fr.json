@@ -386,30 +386,26 @@
       "latest_reading": {
         "name": "Dernier relevé",
         "state_attributes": {
-          "date_releve": {
-            "name": "Date du relevé"
-          },
-          "heures_base": {
-            "name": "Heures base"
-          },
-          "heures_pleines_kwh": {
-            "name": "Heures pleines"
-          },
-          "heures_creuses_kwh": {
-            "name": "Heures creuses"
-          },
-          "cout_base_euro": {
-            "name": "Coût base"
-          },
-          "cout_heures_pleines_euro": {
-            "name": "Coût heures pleines"
-          },
-          "cout_heures_creuses_euro": {
-            "name": "Coût heures creuses"
-          },
-          "cout_abonnement_euro": {
-            "name": "Coût abonnement"
-          }
+          "date_releve": { "name": "Date du relevé" },
+          "heures_base": { "name": "Heures base" },
+          "heures_pleines_kwh": { "name": "Heures pleines" },
+          "heures_creuses_kwh": { "name": "Heures creuses" },
+          "cout_base_euro": { "name": "Coût base" },
+          "cout_heures_pleines_euro": { "name": "Coût heures pleines" },
+          "cout_heures_creuses_euro": { "name": "Coût heures creuses" },
+          "cout_abonnement_euro": { "name": "Coût abonnement" },
+          "tempo_bleu_hp": { "name": "Bleu HP (kWh)" },
+          "tempo_bleu_hc": { "name": "Bleu HC (kWh)" },
+          "tempo_blanc_hp": { "name": "Blanc HP (kWh)" },
+          "tempo_blanc_hc": { "name": "Blanc HC (kWh)" },
+          "tempo_rouge_hp": { "name": "Rouge HP (kWh)" },
+          "tempo_rouge_hc": { "name": "Rouge HC (kWh)" },
+          "cout_tempo_bleu_hp_euro": { "name": "Coût Bleu HP" },
+          "cout_tempo_bleu_hc_euro": { "name": "Coût Bleu HC" },
+          "cout_tempo_blanc_hp_euro": { "name": "Coût Blanc HP" },
+          "cout_tempo_blanc_hc_euro": { "name": "Coût Blanc HC" },
+          "cout_tempo_rouge_hp_euro": { "name": "Coût Rouge HP" },
+          "cout_tempo_rouge_hc_euro": { "name": "Coût Rouge HC" }
         }
       },
       "consumption": {
@@ -687,6 +683,23 @@
           "period_start": { "name": "Début de période" },
           "period_end": { "name": "Fin de période" },
           "tariff_type": { "name": "Type de tarif" }
+        }
+      },
+      "tempo_color_tomorrow": {
+        "name": "Couleur Tempo demain",
+        "state_attributes": {
+          "prm_id": { "name": "Référence PRM" },
+          "period_start": { "name": "Début de période" },
+          "period_end": { "name": "Fin de période" },
+          "tariff_type": { "name": "Type de tarif" }
+        }
+      },
+      "tempo_current_rate": {
+        "name": "Tarif Tempo en cours",
+        "state_attributes": {
+          "tempo_color": { "name": "Couleur Tempo" },
+          "period_type": { "name": "Période (HP/HC)" },
+          "prm_id": { "name": "Référence PRM" }
         }
       },
       "vehicle_status": {

@@ -316,6 +316,21 @@ TEMPO_SENSORS: tuple[SensorEntityDescription, ...] = (
         icon="mdi:palette",
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
+    # ── Couleur de demain Tempo — diagnostic ─────────────────────────────────
+    SensorEntityDescription(
+        key="tempo_color_tomorrow",
+        icon="mdi:palette-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    # ── Tarif Tempo actif en ce moment (€/kWh) — diagnostic ──────────────────
+    SensorEntityDescription(
+        key="tempo_current_rate",
+        icon="mdi:currency-eur-off",
+        device_class=SensorDeviceClass.MONETARY,
+        native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
+        suggested_display_precision=4,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
 )
 
 
