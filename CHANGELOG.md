@@ -2,6 +2,8 @@
 
 ### ✨ Nouveautés — Support complet OctoTempo
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/A1V11ZZTPI)
+
 #### 🟦 Nouveaux capteurs OctoTempo
 
 - **Couleur Tempo de demain** (`tempo_color_tomorrow`) : couleur annoncée par RTE (~11h) pour anticiper les pics tarifaires ; capteur `unavailable` avant l'annonce
