@@ -1,4 +1,4 @@
-## [3.3.0] - 2026-06-13
+## [3.2.4] - 2026-06-13
 
 ### ✨ Nouveautés — Support complet OctoTempo
 
