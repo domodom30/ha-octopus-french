@@ -33,6 +33,7 @@ jobs:
         uses: hacs/action@main
         with:
           category: integration
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   release:
     name: Create GitHub Release
