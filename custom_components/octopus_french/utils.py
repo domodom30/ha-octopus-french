@@ -143,6 +143,21 @@ def find_contract_hc_slots(data: dict[str, Any], prm_id: str) -> list[dict[str, 
     return None
 
 
+def normalize_consumption_label(label: str) -> str:
+    """Normalize API label variants to canonical form.
+
+    Handles the CONSUMPTION_EFFACEMENT_HPHC_2_HC_*/HP_* format returned by
+    some Octopus France accounts alongside the legacy HEURES_PLEINES/HEURES_CREUSES.
+    """
+    if label in ("HEURES_BASE", "BASE"):
+        return "BASE"
+    if label == "HEURES_PLEINES" or "_HP_" in label or label.endswith("_HP"):
+        return "HEURES_PLEINES"
+    if label == "HEURES_CREUSES" or "_HC_" in label or label.endswith("_HC"):
+        return "HEURES_CREUSES"
+    return label
+
+
 def convert_sensor_date(date_string):
     """Convertit une date au format ISO 8601 vers le format YYYY-MM-DD."""
     if not date_string:

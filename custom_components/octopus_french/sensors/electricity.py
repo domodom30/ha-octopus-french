@@ -22,7 +22,7 @@ from homeassistant.util import dt as dt_util
 
 from ..const import DOMAIN, LEDGER_TYPE_ELECTRICITY
 from ..coordinator import OctopusFrenchDataUpdateCoordinator
-from ..utils import find_contract_hc_slots, parse_off_peak_hours, parse_time_slots
+from ..utils import find_contract_hc_slots, normalize_consumption_label, parse_off_peak_hours, parse_time_slots
 from .descriptions import OctopusIndexSensorDescription
 
 _LOGGER = logging.getLogger(__name__)
@@ -221,7 +221,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             reading_value = 0.0
 
             for stat in stat_list:
-                label = stat.get("label", "")
+                label = normalize_consumption_label(stat.get("label", ""))
 
                 if key.startswith("energy_"):
                     expected_label = consumption_mapping.get(key)
@@ -385,7 +385,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             statistics = reading.get("metaData", {}).get("statistics", [])
 
             for stat in statistics:
-                label = stat.get("label", "")
+                label = normalize_consumption_label(stat.get("label", ""))
 
                 if key.startswith("energy_"):
                     expected_label = consumption_mapping.get(key)
@@ -742,11 +742,12 @@ class OctopusLatestReadingSensor(CoordinatorEntity, SensorEntity):
             value = stat.get("value")
             cost_incl_tax = stat.get("costInclTax")
 
-            if label == "HEURES_BASE":
+            normalized = normalize_consumption_label(label)
+            if normalized == "BASE":
                 attributes["heures_base"] = float(value) if value else None
-            elif label == "HEURES_PLEINES":
+            elif normalized == "HEURES_PLEINES":
                 attributes["heures_pleines_kwh"] = float(value) if value else None
-            elif label == "HEURES_CREUSES":
+            elif normalized == "HEURES_CREUSES":
                 attributes["heures_creuses_kwh"] = float(value) if value else None
             elif label == "ABONNEMENT" and cost_incl_tax:
                 attributes["cout_abonnement_euro"] = (
