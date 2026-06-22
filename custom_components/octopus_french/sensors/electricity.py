@@ -22,21 +22,26 @@ from homeassistant.util import dt as dt_util
 
 from ..const import DOMAIN, LEDGER_TYPE_ELECTRICITY
 from ..coordinator import OctopusFrenchDataUpdateCoordinator
-from ..utils import find_contract_hc_slots, parse_off_peak_hours, parse_time_slots
+from ..utils import (
+    find_contract_hc_slots,
+    normalize_consumption_label,
+    parse_off_peak_hours,
+    parse_time_slots,
+)
 from .descriptions import OctopusIndexSensorDescription
 
 _LOGGER = logging.getLogger(__name__)
 
 _COST_TO_CONSUMPTION_LABEL: dict[str, str] = {
-    "cost_base":           "BASE",
-    "cost_peak_hours":     "HEURES_PLEINES",
-    "cost_off_peak_hours": "HEURES_CREUSES",
-    "cost_tempo_bleu_hp":  "TEMPO_BLEU_HP",
-    "cost_tempo_bleu_hc":  "TEMPO_BLEU_HC",
-    "cost_tempo_blanc_hp": "TEMPO_BLANC_HP",
-    "cost_tempo_blanc_hc": "TEMPO_BLANC_HC",
-    "cost_tempo_rouge_hp": "TEMPO_ROUGE_HP",
-    "cost_tempo_rouge_hc": "TEMPO_ROUGE_HC",
+    "cost_base":            "BASE",
+    "cost_peak_hours":      "HEURES_PLEINES",
+    "cost_off_peak_hours":  "HEURES_CREUSES",
+    "cost_tempo_ete_hp":    "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
+    "cost_tempo_ete_hc":    "CONSUMPTION_OCTOFLEX_4_V4_HCE_0.0_37.0",
+    "cost_tempo_hiver_hp":  "CONSUMPTION_OCTOFLEX_4_V4_HPHI_0.0_37.0",
+    "cost_tempo_hiver_hc":  "CONSUMPTION_OCTOFLEX_4_V4_HCHI_0.0_37.0",
+    "cost_tempo_rouge_hp":  "CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0",
+    "cost_tempo_rouge_hc":  "CONSUMPTION_OCTOFLEX_4_V4_HCP_0.0_37.0",
 }
 
 
@@ -138,13 +143,12 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             "energy_base": "BASE",
             "energy_peak_hours": "HEURES_PLEINES",
             "energy_off_peak_hours": "HEURES_CREUSES",
-            # OctoTempo : labels à confirmer avec un vrai compte
-            "energy_tempo_bleu_hp": "TEMPO_BLEU_HP",
-            "energy_tempo_bleu_hc": "TEMPO_BLEU_HC",
-            "energy_tempo_blanc_hp": "TEMPO_BLANC_HP",
-            "energy_tempo_blanc_hc": "TEMPO_BLANC_HC",
-            "energy_tempo_rouge_hp": "TEMPO_ROUGE_HP",
-            "energy_tempo_rouge_hc": "TEMPO_ROUGE_HC",
+            "energy_tempo_ete_hp":   "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
+            "energy_tempo_ete_hc":   "CONSUMPTION_OCTOFLEX_4_V4_HCE_0.0_37.0",
+            "energy_tempo_hiver_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPHI_0.0_37.0",
+            "energy_tempo_hiver_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCHI_0.0_37.0",
+            "energy_tempo_rouge_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0",
+            "energy_tempo_rouge_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCP_0.0_37.0",
         }
 
         try:
@@ -155,10 +159,6 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             _LOGGER.warning("Error sorting readings: %s", e)
             return
 
-        # Initialize cumulative_sum from the last stored statistic so the sum is
-        # monotonically increasing across all time, not just the current month.
-        # Also restore _last_imported_date from the DB after a restart so already-stored
-        # readings are skipped correctly without double-counting.
         try:
             last_stats = await get_instance(self.hass).async_add_executor_job(
                 get_last_statistics, self.hass, 1, statistic_id, False, {"sum", "start"}
@@ -167,7 +167,6 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                 last_entry = last_stats[statistic_id][0]
                 cumulative_sum = float(last_entry.get("sum") or 0.0)
                 if not self._last_imported_date:
-                    # start is a float Unix timestamp — convert to UTC ISO string
                     last_start = last_entry.get("start")
                     if last_start is not None:
                         self._last_imported_date = datetime.fromtimestamp(
@@ -204,9 +203,6 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                         date_normalized.isoformat(),
                     )
 
-                # Skip readings already stored: cumulative_sum from DB already includes
-                # them, so we must not re-add them to avoid double-counting.
-                # Both _last_imported_date and reading_date are ISO strings → comparable.
                 if (
                     self._last_imported_date
                     and reading_date <= self._last_imported_date
@@ -221,7 +217,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             reading_value = 0.0
 
             for stat in stat_list:
-                label = stat.get("label", "")
+                label = normalize_consumption_label(stat.get("label", ""))
 
                 if key.startswith("energy_"):
                     expected_label = consumption_mapping.get(key)
@@ -354,16 +350,14 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             "energy_base": "BASE",
             "energy_peak_hours": "HEURES_PLEINES",
             "energy_off_peak_hours": "HEURES_CREUSES",
-            # OctoTempo : labels à confirmer avec un vrai compte
-            "energy_tempo_bleu_hp": "TEMPO_BLEU_HP",
-            "energy_tempo_bleu_hc": "TEMPO_BLEU_HC",
-            "energy_tempo_blanc_hp": "TEMPO_BLANC_HP",
-            "energy_tempo_blanc_hc": "TEMPO_BLANC_HC",
-            "energy_tempo_rouge_hp": "TEMPO_ROUGE_HP",
-            "energy_tempo_rouge_hc": "TEMPO_ROUGE_HC",
+            "energy_tempo_ete_hp":   "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
+            "energy_tempo_ete_hc":   "CONSUMPTION_OCTOFLEX_4_V4_HCE_0.0_37.0",
+            "energy_tempo_hiver_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPHI_0.0_37.0",
+            "energy_tempo_hiver_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCHI_0.0_37.0",
+            "energy_tempo_rouge_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0",
+            "energy_tempo_rouge_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCP_0.0_37.0",
         }
 
-        # API does NOT return cost labels → cost must be derived from consumption × tariff.
 
         for reading in sorted_readings:
             reading_date = reading.get("startAt")
@@ -385,7 +379,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             statistics = reading.get("metaData", {}).get("statistics", [])
 
             for stat in statistics:
-                label = stat.get("label", "")
+                label = normalize_consumption_label(stat.get("label", ""))
 
                 if key.startswith("energy_"):
                     expected_label = consumption_mapping.get(key)
@@ -395,13 +389,11 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                         total += float(value)
 
                 elif key in _COST_TO_CONSUMPTION_LABEL:
-                    # Accumulate kWh consumption; multiply by tariff after the loop.
                     if label == _COST_TO_CONSUMPTION_LABEL[key]:
                         value = stat.get("value")
                         if value is not None:
                             total += float(value)
 
-        # For cost sensors: total holds kWh → convert to € using tariff.
         if key in _COST_TO_CONSUMPTION_LABEL:
             tariff_rate = self._get_tariff_rate()
             if tariff_rate and total > 0.0:
@@ -552,10 +544,10 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
 
         if key.startswith("rate_"):
             _TEMPO_RATE_KEY_MAP: dict[str, str] = {
-                "rate_tempo_bleu_hp":  "tempo_bleu_hp",
-                "rate_tempo_bleu_hc":  "tempo_bleu_hc",
-                "rate_tempo_blanc_hp": "tempo_blanc_hp",
-                "rate_tempo_blanc_hc": "tempo_blanc_hc",
+                "rate_tempo_ete_hp":   "tempo_ete_hp",
+                "rate_tempo_ete_hc":   "tempo_ete_hc",
+                "rate_tempo_hiver_hp": "tempo_hiver_hp",
+                "rate_tempo_hiver_hc": "tempo_hiver_hc",
                 "rate_tempo_rouge_hp": "tempo_rouge_hp",
                 "rate_tempo_rouge_hc": "tempo_rouge_hc",
             }
@@ -593,7 +585,6 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                             attributes["price_ht_eur_kwh"] = hc_rate.get("price_ht")
                             attributes["price_ttc_eur_kwh"] = hc_rate.get("price_ttc")
 
-                    # OctoTempo : 6 taux
                     elif key in _TEMPO_RATE_KEY_MAP:
                         rate = consumption.get(_TEMPO_RATE_KEY_MAP[key])
                         if rate:
@@ -610,16 +601,15 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
         """Get the tariff rate from agreements."""
         key = self._sensor_config.key
 
-        # Mapping clé sensor → clé dans tariffs["consumption"] pour OctoTempo
         _TEMPO_RATE_KEY_MAP: dict[str, str] = {
-            "rate_tempo_bleu_hp":  "tempo_bleu_hp",
-            "cost_tempo_bleu_hp":  "tempo_bleu_hp",
-            "rate_tempo_bleu_hc":  "tempo_bleu_hc",
-            "cost_tempo_bleu_hc":  "tempo_bleu_hc",
-            "rate_tempo_blanc_hp": "tempo_blanc_hp",
-            "cost_tempo_blanc_hp": "tempo_blanc_hp",
-            "rate_tempo_blanc_hc": "tempo_blanc_hc",
-            "cost_tempo_blanc_hc": "tempo_blanc_hc",
+            "rate_tempo_ete_hp":   "tempo_ete_hp",
+            "cost_tempo_ete_hp":   "tempo_ete_hp",
+            "rate_tempo_ete_hc":   "tempo_ete_hc",
+            "cost_tempo_ete_hc":   "tempo_ete_hc",
+            "rate_tempo_hiver_hp": "tempo_hiver_hp",
+            "cost_tempo_hiver_hp": "tempo_hiver_hp",
+            "rate_tempo_hiver_hc": "tempo_hiver_hc",
+            "cost_tempo_hiver_hc": "tempo_hiver_hc",
             "rate_tempo_rouge_hp": "tempo_rouge_hp",
             "cost_tempo_rouge_hp": "tempo_rouge_hp",
             "rate_tempo_rouge_hc": "tempo_rouge_hc",
@@ -648,7 +638,6 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                     if hc_rate:
                         return hc_rate.get("price_ttc")
 
-                # OctoTempo : 6 taux par couleur × période
                 elif key in _TEMPO_RATE_KEY_MAP:
                     rate = consumption.get(_TEMPO_RATE_KEY_MAP[key])
                     if rate:
@@ -738,15 +727,16 @@ class OctopusLatestReadingSensor(CoordinatorEntity, SensorEntity):
         attributes = {"date_releve": reading.get("startAt")}
 
         for stat in statistics:
-            label = stat.get("label")
+            label = stat.get("label", "")
             value = stat.get("value")
             cost_incl_tax = stat.get("costInclTax")
 
-            if label == "HEURES_BASE":
+            normalized = normalize_consumption_label(label)
+            if normalized == "BASE":
                 attributes["heures_base"] = float(value) if value else None
-            elif label == "HEURES_PLEINES":
+            elif normalized == "HEURES_PLEINES":
                 attributes["heures_pleines_kwh"] = float(value) if value else None
-            elif label == "HEURES_CREUSES":
+            elif normalized == "HEURES_CREUSES":
                 attributes["heures_creuses_kwh"] = float(value) if value else None
             elif label == "ABONNEMENT" and cost_incl_tax:
                 attributes["cout_abonnement_euro"] = (
@@ -755,13 +745,12 @@ class OctopusLatestReadingSensor(CoordinatorEntity, SensorEntity):
                     else None
                 )
             elif label in (
-                "TEMPO_BLEU_HP", "TEMPO_BLEU_HC",
-                "TEMPO_BLANC_HP", "TEMPO_BLANC_HC",
+                "TEMPO_ETE_HP", "TEMPO_ETE_HC",
+                "TEMPO_HIVER_HP", "TEMPO_HIVER_HC",
                 "TEMPO_ROUGE_HP", "TEMPO_ROUGE_HC",
             ):
                 attributes[label.lower()] = float(value) if value else None
 
-        # API provides no costInclTax for consumption labels → compute from consumption × tariff.
         base_kwh = attributes.get("heures_base")
         hp_kwh = attributes.get("heures_pleines_kwh")
         hc_kwh = attributes.get("heures_creuses_kwh")
@@ -789,10 +778,10 @@ class OctopusLatestReadingSensor(CoordinatorEntity, SensorEntity):
                     break
 
         _TEMPO_ATTR_TO_RATE_KEY: dict[str, str] = {
-            "tempo_bleu_hp":  "tempo_bleu_hp",
-            "tempo_bleu_hc":  "tempo_bleu_hc",
-            "tempo_blanc_hp": "tempo_blanc_hp",
-            "tempo_blanc_hc": "tempo_blanc_hc",
+            "tempo_ete_hp":   "tempo_ete_hp",
+            "tempo_ete_hc":   "tempo_ete_hc",
+            "tempo_hiver_hp": "tempo_hiver_hp",
+            "tempo_hiver_hc": "tempo_hiver_hc",
             "tempo_rouge_hp": "tempo_rouge_hp",
             "tempo_rouge_hc": "tempo_rouge_hc",
         }

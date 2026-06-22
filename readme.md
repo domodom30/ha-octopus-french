@@ -17,7 +17,7 @@ Intégration Octopus Energy France (non officiel) pour Home Assistant.
 - **Consommation électrique**
   - Mode BASE : consommation et coût mensuel
   - Mode HPHC : consommation et coût mensuel (heures pleines / heures creuses)
-  - **Mode OctoTempo** : consommation et coût mensuel par couleur × période (6 capteurs : Bleu HP/HC, Blanc HP/HC, Rouge HP/HC)
+  - **Mode OctoTempo** : consommation et coût mensuel par couleur × période (6 capteurs : Été HP/HC, Hiver HP/HC, Rouge HP/HC)
   - **Statistiques historiques** : Import automatique de l'historique dans le tableau de bord Énergie
   - **Dernier relevé** : Valeur et détails de la dernière lecture quotidienne (avec ventilation Tempo si applicable)
 - **Consommation de gaz** : cumulative mensuelle
@@ -165,16 +165,16 @@ Pour accéder aux options :
 
 | Entité                  | Type    | Classe   | State Class | Description                                  |
 | ----------------------- | ------- | -------- | ----------- | -------------------------------------------- |
-| Bleu HP / mois en cours | Capteur | Energy   | Total       | Consommation jours Bleu Heures Pleines (kWh) |
-| Bleu HC / mois en cours | Capteur | Energy   | Total       | Consommation jours Bleu Heures Creuses (kWh) |
-| Blanc HP / mois en cours| Capteur | Energy   | Total       | Consommation jours Blanc Heures Pleines (kWh)|
-| Blanc HC / mois en cours| Capteur | Energy   | Total       | Consommation jours Blanc Heures Creuses (kWh)|
+| Été HP / mois en cours  | Capteur | Energy   | Total       | Consommation jours Été Heures Pleines (kWh)  |
+| Été HC / mois en cours  | Capteur | Energy   | Total       | Consommation jours Été Heures Creuses (kWh)  |
+| Hiver HP / mois en cours| Capteur | Energy   | Total       | Consommation jours Hiver Heures Pleines (kWh)|
+| Hiver HC / mois en cours| Capteur | Energy   | Total       | Consommation jours Hiver Heures Creuses (kWh)|
 | Rouge HP / mois en cours| Capteur | Energy   | Total       | Consommation jours Rouge Heures Pleines (kWh)|
 | Rouge HC / mois en cours| Capteur | Energy   | Total       | Consommation jours Rouge Heures Creuses (kWh)|
-| Coût Bleu HP            | Capteur | Monetary | Total       | Coût jours Bleu HP (€)                       |
-| Coût Bleu HC            | Capteur | Monetary | Total       | Coût jours Bleu HC (€)                       |
-| Coût Blanc HP           | Capteur | Monetary | Total       | Coût jours Blanc HP (€)                      |
-| Coût Blanc HC           | Capteur | Monetary | Total       | Coût jours Blanc HC (€)                      |
+| Coût Été HP             | Capteur | Monetary | Total       | Coût jours Été HP (€)                        |
+| Coût Été HC             | Capteur | Monetary | Total       | Coût jours Été HC (€)                        |
+| Coût Hiver HP           | Capteur | Monetary | Total       | Coût jours Hiver HP (€)                      |
+| Coût Hiver HC           | Capteur | Monetary | Total       | Coût jours Hiver HC (€)                      |
 | Coût Rouge HP           | Capteur | Monetary | Total       | Coût jours Rouge HP (€)                      |
 | Coût Rouge HC           | Capteur | Monetary | Total       | Coût jours Rouge HC (€)                      |
 | Abonnement              | Capteur | Monetary | Total       | Coût mensuel de l'abonnement                 |
@@ -184,13 +184,13 @@ Pour accéder aux options :
 
 | Entité                   | Type    | Classe   | Description                                                                              |
 | ------------------------ | ------- | -------- | ---------------------------------------------------------------------------------------- |
-| Tarif Bleu HP            | Capteur | Monetary | Tarif Bleu Heures Pleines (€/kWh)                                                        |
-| Tarif Bleu HC            | Capteur | Monetary | Tarif Bleu Heures Creuses (€/kWh)                                                        |
-| Tarif Blanc HP           | Capteur | Monetary | Tarif Blanc Heures Pleines (€/kWh)                                                       |
-| Tarif Blanc HC           | Capteur | Monetary | Tarif Blanc Heures Creuses (€/kWh)                                                       |
+| Tarif Été HP             | Capteur | Monetary | Tarif Été Heures Pleines (€/kWh)                                                         |
+| Tarif Été HC             | Capteur | Monetary | Tarif Été Heures Creuses (€/kWh)                                                         |
+| Tarif Hiver HP           | Capteur | Monetary | Tarif Hiver Heures Pleines (€/kWh)                                                       |
+| Tarif Hiver HC           | Capteur | Monetary | Tarif Hiver Heures Creuses (€/kWh)                                                       |
 | Tarif Rouge HP           | Capteur | Monetary | Tarif Rouge Heures Pleines (€/kWh)                                                       |
 | Tarif Rouge HC           | Capteur | Monetary | Tarif Rouge Heures Creuses (€/kWh)                                                       |
-| Couleur Tempo aujourd'hui| Capteur | -        | Couleur du jour (BLEU / BLANC / ROUGE)                                                   |
+| Couleur Tempo aujourd'hui| Capteur | -        | Couleur du jour (ETE / HIVER / ROUGE)                                                    |
 | Couleur Tempo demain     | Capteur | -        | Couleur de demain — disponible après ~11h (annonce RTE) ; `unavailable` avant l'annonce  |
 | Tarif Tempo en cours     | Capteur | Monetary | €/kWh actif à l'instant (couleur du jour × HC/HP), mis à jour chaque minute             |
 
@@ -300,10 +300,10 @@ Pour accéder aux options :
 - `cout_heures_pleines_euro` : Coût heures pleines
 - `cout_heures_creuses_euro` : Coût heures creuses
 - `cout_abonnement_euro` : Coût abonnement journalier
-- `tempo_bleu_hp` / `tempo_bleu_hc` : kWh Bleu HP/HC (contrat OctoTempo)
-- `tempo_blanc_hp` / `tempo_blanc_hc` : kWh Blanc HP/HC
+- `tempo_ete_hp` / `tempo_ete_hc` : kWh Été HP/HC (contrat OctoTempo)
+- `tempo_hiver_hp` / `tempo_hiver_hc` : kWh Hiver HP/HC
 - `tempo_rouge_hp` / `tempo_rouge_hc` : kWh Rouge HP/HC
-- `cout_tempo_bleu_hp_euro` … `cout_tempo_rouge_hc_euro` : coûts estimés par couleur-période
+- `cout_tempo_ete_hp_euro` … `cout_tempo_rouge_hc_euro` : coûts estimés par couleur-période
 
 **Attributs du contrat :**
 
@@ -468,10 +468,10 @@ L'intégration importe automatiquement l'historique de vos consommations et coû
 #### Pour un contrat OctoTempo :
 
 - **Consommation depuis le réseau** (6 capteurs) :
-  - `sensor.linky_XXXXXX_energy_tempo_bleu_hp`
-  - `sensor.linky_XXXXXX_energy_tempo_bleu_hc`
-  - `sensor.linky_XXXXXX_energy_tempo_blanc_hp`
-  - `sensor.linky_XXXXXX_energy_tempo_blanc_hc`
+  - `sensor.linky_XXXXXX_energy_tempo_ete_hp`
+  - `sensor.linky_XXXXXX_energy_tempo_ete_hc`
+  - `sensor.linky_XXXXXX_energy_tempo_hiver_hp`
+  - `sensor.linky_XXXXXX_energy_tempo_hiver_hc`
   - `sensor.linky_XXXXXX_energy_tempo_rouge_hp`
   - `sensor.linky_XXXXXX_energy_tempo_rouge_hc`
 - **Coût** (optionnel) : Statistiques importées automatiquement pour chaque couleur-période

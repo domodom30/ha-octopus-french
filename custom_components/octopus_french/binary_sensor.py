@@ -47,9 +47,6 @@ async def async_setup_entry(
         if not prm_id:
             continue
 
-        # Le capteur HC est créé dès qu'une source d'horaires existe.
-        # La logique de sélection de source est déléguée au capteur lui-même
-        # (relecture dynamique à chaque mise à jour du coordinateur).
         off_peak_label = meter.get("offPeakLabel")
         contract_slots = find_contract_hc_slots(data, prm_id)
 
@@ -90,7 +87,6 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
     async def async_added_to_hass(self) -> None:
         """When entity is added to hass."""
         await super().async_added_to_hass()
-        # Mise à jour chaque minute (le tick second=0 suffit)
         self.async_on_remove(
             async_track_time_change(self.hass, self._async_update_state, second=0)
         )
@@ -99,7 +95,6 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
         """Update state based on current time."""
         self.async_write_ha_state()
 
-    # ── Résolution de la source d'horaires ────────────────────────────────────
 
     def _resolve_hc_schedule(self) -> dict[str, Any]:
         """Return the best available HC schedule from coordinator data.
@@ -109,13 +104,11 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
         """
         data = self.coordinator.data or {}
 
-        # Source 1 : timeSlots du contrat (plus fiable)
         if contract_slots := find_contract_hc_slots(data, self._prm_id):
             schedule = parse_time_slots(contract_slots)
             if schedule["range_count"] > 0:
                 return schedule
 
-        # Source 2 : offPeakLabel Linky (fallback regex)
         supply_points = data.get("supply_points", {})
         for meter in supply_points.get("electricity", []):
             if meter.get("id") == self._prm_id:
@@ -129,7 +122,6 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
         return {"ranges": [], "total_hours": 0.0, "range_count": 0,
                 "source": "none", "type": None}
 
-    # ── Propriétés ────────────────────────────────────────────────────────────
 
     @property
     def available(self) -> bool:
@@ -167,7 +159,7 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
         except (ValueError, IndexError):
             return False
 
-        if end_min <= start_min:  # plage chevauchant minuit
+        if end_min <= start_min:
             return cur_min >= start_min or cur_min <= end_min
         return start_min <= cur_min <= end_min
 

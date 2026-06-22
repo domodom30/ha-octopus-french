@@ -25,7 +25,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from _client import OctopusClient, get_account_number, hr, print_json
 
-# ── Requêtes GraphQL ──────────────────────────────────────────────────────────
 
 QUERY_GET_ACCOUNTS = """
 {
@@ -145,7 +144,6 @@ query getAccountData($accountNumber: String!, $activeAt: DateTime!) {
 """
 
 
-# ── Helpers d'affichage ───────────────────────────────────────────────────────
 
 def _fmt_price(price_unit: str | None, with_taxes: str | None, unit_type: str | None) -> str:
     ht = float(price_unit or 0) / 100
@@ -160,7 +158,6 @@ def print_account_summary(account: dict) -> None:
     print(f"  Compte : {account.get('number', '?')}")
     print(f"{'═' * 60}")
 
-    # ── Compteurs ──────────────────────────────────────────────────────────
     props = account.get("properties", [])
     for prop in props:
         print(f"\n📍  Propriété #{prop.get('id', '?')}  —  {prop.get('address', '')}")
@@ -175,7 +172,6 @@ def print_account_summary(account: dict) -> None:
             )
 
             if "meterKind" in mp or "subscribedMaxPower" in mp:
-                # Électricité
                 status = mp.get("distributorStatus", "?")
                 powered = mp.get("poweredStatus", "?")
                 provider_cal = mp.get("providerCalendar") or {}
@@ -198,13 +194,11 @@ def print_account_summary(account: dict) -> None:
                         print("        ⚠️  6 classes détectées → contrat OctoTempo !")
 
             elif "gasNature" in mp or "serial" in mp:
-                # Gaz
                 print(f"\n  🔥  Gaz  PCE: {prm}")
                 print(f"      Statut: {mp.get('contractualStatus', '?')}")
                 print(f"      Conso annuelle: {mp.get('annualConsumption', '?')} kWh")
                 print(f"      Numéro de série: {mp.get('serial', '?')}")
 
-    # ── Accords / tarifs ───────────────────────────────────────────────────
     agreements = account.get("agreements", {}).get("edges", [])
     if agreements:
         print(f"\n{hr()}")
@@ -260,7 +254,6 @@ def print_account_summary(account: dict) -> None:
                 print(f"      Prochain prélèvement : {amount:.2f} € le {nxt.get('date', '?')}")
 
 
-# ── Point d'entrée ────────────────────────────────────────────────────────────
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -275,7 +268,6 @@ def main() -> None:
     client = OctopusClient()
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    # Récupérer les comptes disponibles
     accounts_data = client.query(QUERY_GET_ACCOUNTS)
     accounts = accounts_data.get("data", {}).get("viewer", {}).get("accounts", [])
 
@@ -294,7 +286,6 @@ def main() -> None:
             print("\nUtilisez --account <numéro> ou OCTOPUS_ACCOUNT=<numéro> dans .env")
             sys.exit(0)
 
-    # Données complètes du compte
     account_data = client.query(
         QUERY_GET_ACCOUNT_DATA,
         {"accountNumber": account_number, "activeAt": now_iso},

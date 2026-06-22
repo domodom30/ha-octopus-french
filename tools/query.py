@@ -35,7 +35,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from _client import OctopusClient, print_json
 
-# ── Point d'entrée ────────────────────────────────────────────────────────────
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -69,7 +68,6 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    # ── Lecture de la query ────────────────────────────────────────────────
     if args.file:
         path = Path(args.file)
         if not path.exists():
@@ -90,7 +88,6 @@ def main() -> None:
         print("❌  La query est vide.", file=sys.stderr)
         sys.exit(1)
 
-    # ── Lecture des variables ──────────────────────────────────────────────
     variables: dict | None = None
     if args.vars:
         try:
@@ -109,7 +106,6 @@ def main() -> None:
             print(f"❌  JSON invalide dans {args.vars_file} : {exc}", file=sys.stderr)
             sys.exit(1)
 
-    # ── Exécution ──────────────────────────────────────────────────────────
     if args.no_auth:
         import requests
         from _client import API_URL
@@ -122,7 +118,6 @@ def main() -> None:
         client = OctopusClient()
         result = client.query_raw(query_str, variables)
 
-    # ── Affichage ──────────────────────────────────────────────────────────
     if args.compact:
         print(json.dumps(result, ensure_ascii=False, default=str))
     else:

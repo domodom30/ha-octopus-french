@@ -163,9 +163,8 @@ ELECTRICITY_INDEX_SENSORS: tuple[OctopusIndexSensorDescription, ...] = (
 )
 
 TEMPO_SENSORS: tuple[SensorEntityDescription, ...] = (
-    # ── Énergie par couleur × période (kWh / mois en cours) ──────────────────
     SensorEntityDescription(
-        key="energy_tempo_bleu_hp",
+        key="energy_tempo_ete_hp",
         icon="mdi:lightning-bolt",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -173,7 +172,7 @@ TEMPO_SENSORS: tuple[SensorEntityDescription, ...] = (
         suggested_display_precision=2,
     ),
     SensorEntityDescription(
-        key="energy_tempo_bleu_hc",
+        key="energy_tempo_ete_hc",
         icon="mdi:lightning-bolt-outline",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -181,7 +180,7 @@ TEMPO_SENSORS: tuple[SensorEntityDescription, ...] = (
         suggested_display_precision=2,
     ),
     SensorEntityDescription(
-        key="energy_tempo_blanc_hp",
+        key="energy_tempo_hiver_hp",
         icon="mdi:lightning-bolt",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -189,7 +188,7 @@ TEMPO_SENSORS: tuple[SensorEntityDescription, ...] = (
         suggested_display_precision=2,
     ),
     SensorEntityDescription(
-        key="energy_tempo_blanc_hc",
+        key="energy_tempo_hiver_hc",
         icon="mdi:lightning-bolt-outline",
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
@@ -212,9 +211,8 @@ TEMPO_SENSORS: tuple[SensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         suggested_display_precision=2,
     ),
-    # ── Coût par couleur × période (€ / mois en cours) ───────────────────────
     SensorEntityDescription(
-        key="cost_tempo_bleu_hp",
+        key="cost_tempo_ete_hp",
         icon="mdi:currency-eur",
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
@@ -222,7 +220,7 @@ TEMPO_SENSORS: tuple[SensorEntityDescription, ...] = (
         suggested_display_precision=2,
     ),
     SensorEntityDescription(
-        key="cost_tempo_bleu_hc",
+        key="cost_tempo_ete_hc",
         icon="mdi:currency-eur",
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
@@ -230,7 +228,7 @@ TEMPO_SENSORS: tuple[SensorEntityDescription, ...] = (
         suggested_display_precision=2,
     ),
     SensorEntityDescription(
-        key="cost_tempo_blanc_hp",
+        key="cost_tempo_hiver_hp",
         icon="mdi:currency-eur",
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
@@ -238,7 +236,7 @@ TEMPO_SENSORS: tuple[SensorEntityDescription, ...] = (
         suggested_display_precision=2,
     ),
     SensorEntityDescription(
-        key="cost_tempo_blanc_hc",
+        key="cost_tempo_hiver_hc",
         icon="mdi:currency-eur",
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
@@ -261,9 +259,8 @@ TEMPO_SENSORS: tuple[SensorEntityDescription, ...] = (
         native_unit_of_measurement=CURRENCY_EURO,
         suggested_display_precision=2,
     ),
-    # ── Tarifs (€/kWh) — diagnostic ──────────────────────────────────────────
     SensorEntityDescription(
-        key="rate_tempo_bleu_hp",
+        key="rate_tempo_ete_hp",
         icon="mdi:cash-plus",
         device_class=SensorDeviceClass.MONETARY,
         native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
@@ -271,7 +268,7 @@ TEMPO_SENSORS: tuple[SensorEntityDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
     SensorEntityDescription(
-        key="rate_tempo_bleu_hc",
+        key="rate_tempo_ete_hc",
         icon="mdi:cash-minus",
         device_class=SensorDeviceClass.MONETARY,
         native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
@@ -279,7 +276,7 @@ TEMPO_SENSORS: tuple[SensorEntityDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
     SensorEntityDescription(
-        key="rate_tempo_blanc_hp",
+        key="rate_tempo_hiver_hp",
         icon="mdi:cash-plus",
         device_class=SensorDeviceClass.MONETARY,
         native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
@@ -287,7 +284,7 @@ TEMPO_SENSORS: tuple[SensorEntityDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
     SensorEntityDescription(
-        key="rate_tempo_blanc_hc",
+        key="rate_tempo_hiver_hc",
         icon="mdi:cash-minus",
         device_class=SensorDeviceClass.MONETARY,
         native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
@@ -310,19 +307,16 @@ TEMPO_SENSORS: tuple[SensorEntityDescription, ...] = (
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
-    # ── Couleur du jour Tempo — diagnostic ───────────────────────────────────
     SensorEntityDescription(
         key="tempo_color_today",
         icon="mdi:palette",
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
-    # ── Couleur de demain Tempo — diagnostic ─────────────────────────────────
     SensorEntityDescription(
         key="tempo_color_tomorrow",
         icon="mdi:palette-outline",
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
-    # ── Tarif Tempo actif en ce moment (€/kWh) — diagnostic ──────────────────
     SensorEntityDescription(
         key="tempo_current_rate",
         icon="mdi:currency-eur-off",

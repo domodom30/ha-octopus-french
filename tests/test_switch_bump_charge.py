@@ -80,7 +80,6 @@ async def test_bump_charge_switch_on_refused(bump_charge_switch, mock_coordinato
     await bump_charge_switch.async_turn_on()
 
     mock_coordinator.intelligent_client.trigger_boost_charge.assert_called_once_with("abc-123")
-    # No refresh should be called on error
     mock_coordinator.async_refresh_devices.assert_not_called()
 
 
@@ -95,7 +94,6 @@ async def test_bump_charge_switch_off_refused(bump_charge_switch, mock_coordinat
     await bump_charge_switch.async_turn_off()
 
     mock_coordinator.intelligent_client.cancel_boost_charge.assert_called_once_with("abc-123")
-    # No refresh should be called on error
     mock_coordinator.async_refresh_devices.assert_not_called()
 
 

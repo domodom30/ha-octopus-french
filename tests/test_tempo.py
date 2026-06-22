@@ -21,37 +21,35 @@ from custom_components.octopus_french.sensors.electricity import (
 )
 
 
-# ── Constantes ──────────────────────────────────────────────────────────────
 
 _TEMPO_ENERGY_KEYS = {
-    "energy_tempo_bleu_hp",
-    "energy_tempo_bleu_hc",
-    "energy_tempo_blanc_hp",
-    "energy_tempo_blanc_hc",
+    "energy_tempo_ete_hp",
+    "energy_tempo_ete_hc",
+    "energy_tempo_hiver_hp",
+    "energy_tempo_hiver_hc",
     "energy_tempo_rouge_hp",
     "energy_tempo_rouge_hc",
 }
 
 _TEMPO_COST_KEYS = {
-    "cost_tempo_bleu_hp",
-    "cost_tempo_bleu_hc",
-    "cost_tempo_blanc_hp",
-    "cost_tempo_blanc_hc",
+    "cost_tempo_ete_hp",
+    "cost_tempo_ete_hc",
+    "cost_tempo_hiver_hp",
+    "cost_tempo_hiver_hc",
     "cost_tempo_rouge_hp",
     "cost_tempo_rouge_hc",
 }
 
 _TEMPO_RATE_KEYS = {
-    "rate_tempo_bleu_hp",
-    "rate_tempo_bleu_hc",
-    "rate_tempo_blanc_hp",
-    "rate_tempo_blanc_hc",
+    "rate_tempo_ete_hp",
+    "rate_tempo_ete_hc",
+    "rate_tempo_hiver_hp",
+    "rate_tempo_hiver_hc",
     "rate_tempo_rouge_hp",
     "rate_tempo_rouge_hc",
 }
 
 
-# ── Tests de détection du tarif ──────────────────────────────────────────────
 
 class TestDetectTariffTypeTempo:
     """Tests pour la détection du type de tarif OctoTempo."""
@@ -82,8 +80,11 @@ class TestDetectTariffTypeTempo:
         }
 
     def test_detection_via_tempo_label(self) -> None:
-        """Un label TEMPO_BLEU_HP dans les statistics doit retourner TEMPO."""
-        data = self._make_data(["TEMPO_BLEU_HP", "TEMPO_BLEU_HC"])
+        """Un label CONSUMPTION_OCTOFLEX_4_V4_HPE dans les statistics doit retourner TEMPO."""
+        data = self._make_data([
+            "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
+            "CONSUMPTION_OCTOFLEX_4_V4_HCE_0.0_37.0",
+        ])
         result = _detect_tariff_type_for_meter(data, "TEST_PRM")
         assert result == TARIFF_TYPE_TEMPO
 
@@ -112,8 +113,12 @@ class TestDetectTariffTypeTempo:
         assert result == "HPHC"
 
     def test_tempo_label_takes_priority_over_hphc(self) -> None:
-        """TEMPO_BLEU_HP dans les labels a la priorité sur HEURES_PLEINES."""
-        data = self._make_data(["HEURES_PLEINES", "HEURES_CREUSES", "TEMPO_BLEU_HP"])
+        """Le label OctoTempo a la priorité sur HEURES_PLEINES."""
+        data = self._make_data([
+            "HEURES_PLEINES",
+            "HEURES_CREUSES",
+            "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
+        ])
         result = _detect_tariff_type_for_meter(data, "TEST_PRM")
         assert result == TARIFF_TYPE_TEMPO
 
@@ -124,7 +129,6 @@ class TestDetectTariffTypeTempo:
             prm_id="OTHER_PRM",
             product_code="FR_TEMPO",
         )
-        # On cherche TEST_PRM qui n'a qu'un reading BASE et pas d'accord Tempo
         data["electricity"]["readings"][0]["metaData"]["statistics"] = [
             {"label": "BASE", "value": "1.0"}
         ]
@@ -136,7 +140,7 @@ class TestDetectTariffTypeTempo:
         data = {
             "electricity": {
                 "readings": [],
-                "index": {"tariff_type": TARIFF_TYPE_TEMPO, "tempo_color": "BLEU"},
+                "index": {"tariff_type": TARIFF_TYPE_TEMPO, "tempo_color": "ETE"},
             },
             "agreements": [],
         }
@@ -144,7 +148,6 @@ class TestDetectTariffTypeTempo:
         assert result == TARIFF_TYPE_TEMPO
 
 
-# ── Tests d'extraction des tarifs ────────────────────────────────────────────
 
 class TestExtractTariffsTempo:
     """Tests pour l'extraction des 6 taux OctoTempo depuis l'API."""
@@ -171,38 +174,36 @@ class TestExtractTariffsTempo:
     def test_six_rates_assigns_tempo_keys(self) -> None:
         """Avec 6 taux, les clés Tempo doivent être présentes dans consumption."""
         client = self._make_api_client()
-        # 6 prix dans l'ordre croissant
         energy_rate = self._make_consumption_rates([0.10, 0.12, 0.14, 0.16, 0.40, 0.60])
         result = client._extract_tariffs(energy_rate)
         consumption = result["consumption"]
 
-        assert "tempo_bleu_hc" in consumption
-        assert "tempo_bleu_hp" in consumption
-        assert "tempo_blanc_hc" in consumption
-        assert "tempo_blanc_hp" in consumption
+        assert "tempo_ete_hc" in consumption
+        assert "tempo_ete_hp" in consumption
+        assert "tempo_hiver_hc" in consumption
+        assert "tempo_hiver_hp" in consumption
         assert "tempo_rouge_hc" in consumption
         assert "tempo_rouge_hp" in consumption
 
     def test_six_rates_ordered_by_price_ascending(self) -> None:
         """Les taux Tempo doivent être ordonnés du moins cher au plus cher."""
         client = self._make_api_client()
-        # Prix dans le désordre — on s'attend à ce qu'ils soient triés
         prices = [0.40, 0.12, 0.60, 0.10, 0.16, 0.14]
         energy_rate = self._make_consumption_rates(prices)
         result = client._extract_tariffs(energy_rate)
         consumption = result["consumption"]
 
-        bleu_hc = consumption["tempo_bleu_hc"]["price_ttc"]
-        bleu_hp = consumption["tempo_bleu_hp"]["price_ttc"]
-        blanc_hc = consumption["tempo_blanc_hc"]["price_ttc"]
-        blanc_hp = consumption["tempo_blanc_hp"]["price_ttc"]
+        ete_hc = consumption["tempo_ete_hc"]["price_ttc"]
+        ete_hp = consumption["tempo_ete_hp"]["price_ttc"]
+        hiver_hc = consumption["tempo_hiver_hc"]["price_ttc"]
+        hiver_hp = consumption["tempo_hiver_hp"]["price_ttc"]
         rouge_hc = consumption["tempo_rouge_hc"]["price_ttc"]
         rouge_hp = consumption["tempo_rouge_hp"]["price_ttc"]
 
-        assert bleu_hc <= bleu_hp
-        assert bleu_hp <= blanc_hc
-        assert blanc_hc <= blanc_hp
-        assert blanc_hp <= rouge_hc
+        assert ete_hc <= ete_hp
+        assert ete_hp <= hiver_hc
+        assert hiver_hc <= hiver_hp
+        assert hiver_hp <= rouge_hc
         assert rouge_hc <= rouge_hp
 
     def test_two_rates_does_not_create_tempo_keys(self) -> None:
@@ -212,7 +213,7 @@ class TestExtractTariffsTempo:
         result = client._extract_tariffs(energy_rate)
         consumption = result["consumption"]
 
-        assert "tempo_bleu_hc" not in consumption
+        assert "tempo_ete_hc" not in consumption
         assert "heures_pleines" in consumption
         assert "heures_creuses" in consumption
 
@@ -224,10 +225,9 @@ class TestExtractTariffsTempo:
         consumption = result["consumption"]
 
         assert "base" in consumption
-        assert "tempo_bleu_hc" not in consumption
+        assert "tempo_ete_hc" not in consumption
 
 
-# ── Tests des descriptions de capteurs ───────────────────────────────────────
 
 class TestTempoSensorDescriptions:
     """Tests pour vérifier les 21 descriptions Tempo définies."""
@@ -275,7 +275,6 @@ class TestTempoSensorDescriptions:
         )
 
 
-# ── Tests de la détection de couleur via l'index électrique ──────────────────
 
 class TestElectricityIndexTempo:
     """Tests pour la détection de la couleur Tempo via get_electricity_index."""
@@ -306,7 +305,7 @@ class TestElectricityIndexTempo:
 
     @pytest.mark.asyncio
     async def test_blue_day_detected(self) -> None:
-        """Une classe BLEU doit être détectée comme TEMPO avec couleur BLEU."""
+        """Une classe BLEU (legacy) doit être détectée comme TEMPO avec couleur ETE."""
         from custom_components.octopus_french.octopus_french import OctopusFrenchApiClient
 
         client = OctopusFrenchApiClient.__new__(OctopusFrenchApiClient)
@@ -318,7 +317,7 @@ class TestElectricityIndexTempo:
 
         assert result is not None
         assert result["tariff_type"] == TARIFF_TYPE_TEMPO
-        assert result["tempo_color"] == "BLEU"
+        assert result["tempo_color"] == "ETE"
 
     @pytest.mark.asyncio
     async def test_rouge_day_detected(self) -> None:
@@ -392,7 +391,7 @@ class TestElectricityIndexTempo:
             result = await client.get_electricity_index("ACC123", "PRM456")
 
         assert result is not None
-        assert result.get("tempo_color") == "BLEU"
+        assert result.get("tempo_color") == "ETE"
         assert "tempo_color_tomorrow" not in result
 
     @pytest.mark.asyncio
@@ -415,7 +414,6 @@ class TestElectricityIndexTempo:
         assert "tempo_color" not in result
 
 
-# ── Tests du capteur tarif courant ────────────────────────────────────────────
 
 class TestTempoCurrentRateSensor:
     """Tests pour OctopusTempoCurrentRateSensor."""
@@ -472,9 +470,9 @@ class TestTempoCurrentRateSensor:
         sensor._sensor_config = config
         return sensor
 
-    def test_returns_rate_bleu_hp(self) -> None:
-        """Couleur BLEU + période HP → tarif tempo_bleu_hp."""
-        coordinator = self._make_coordinator("BLEU", "tempo_bleu_hp", 0.1234)
+    def test_returns_rate_ete_hp(self) -> None:
+        """Couleur ETE + période HP → tarif tempo_ete_hp."""
+        coordinator = self._make_coordinator("ETE", "tempo_ete_hp", 0.1234)
         sensor = self._make_sensor(coordinator)
 
         with patch.object(sensor, "_is_currently_hc", return_value=False):
@@ -490,25 +488,24 @@ class TestTempoCurrentRateSensor:
 
     def test_returns_none_when_no_color(self) -> None:
         """Sans couleur Tempo dans l'index → None."""
-        coordinator = self._make_coordinator(None, "tempo_bleu_hp", 0.1234)
+        coordinator = self._make_coordinator(None, "tempo_ete_hp", 0.1234)
         sensor = self._make_sensor(coordinator)
 
         assert sensor.native_value is None
 
     def test_extra_attributes_contain_color_and_period(self) -> None:
         """Les attributs doivent exposer la couleur et la période."""
-        coordinator = self._make_coordinator("BLANC", "tempo_blanc_hp", 0.18)
+        coordinator = self._make_coordinator("HIVER", "tempo_hiver_hp", 0.18)
         sensor = self._make_sensor(coordinator)
 
         with patch.object(sensor, "_is_currently_hc", return_value=False):
             attrs = sensor.extra_state_attributes
 
-        assert attrs["tempo_color"] == "BLANC"
+        assert attrs["tempo_color"] == "HIVER"
         assert attrs["period_type"] == "HP"
         assert attrs["prm_id"] == "TEST_PRM"
 
 
-# ── Tests de _COST_TO_CONSUMPTION_LABEL ──────────────────────────────────────
 
 class TestCostToConsumptionLabel:
     """Vérifie que la constante partagée couvre tous les capteurs de coût."""
@@ -516,8 +513,8 @@ class TestCostToConsumptionLabel:
     def test_all_cost_tempo_keys_present(self) -> None:
         """Les 6 clés cost_tempo_* doivent être dans la constante."""
         tempo_cost_keys = {
-            "cost_tempo_bleu_hp", "cost_tempo_bleu_hc",
-            "cost_tempo_blanc_hp", "cost_tempo_blanc_hc",
+            "cost_tempo_ete_hp",   "cost_tempo_ete_hc",
+            "cost_tempo_hiver_hp", "cost_tempo_hiver_hc",
             "cost_tempo_rouge_hp", "cost_tempo_rouge_hc",
         }
         assert tempo_cost_keys.issubset(_COST_TO_CONSUMPTION_LABEL.keys())
@@ -533,7 +530,6 @@ class TestCostToConsumptionLabel:
         assert tempo_labels_in_map == TEMPO_STATISTICS_LABELS
 
 
-# ── Tests des attributs Tempo dans latest_reading ────────────────────────────
 
 class TestLatestReadingTempoAttributes:
     """Tests pour les attributs Tempo dans OctopusLatestReadingSensor."""
@@ -585,26 +581,26 @@ class TestLatestReadingTempoAttributes:
         return sensor
 
     def test_tempo_kwh_attributes_populated(self) -> None:
-        """Les labels TEMPO_BLEU_HP/ROUGE_HC doivent peupler les attributs kWh."""
+        """Les labels TEMPO_ETE_HP/ROUGE_HC doivent peupler les attributs kWh."""
         stats = [
-            {"label": "TEMPO_BLEU_HP", "value": "5.0", "costInclTax": None},
+            {"label": "TEMPO_ETE_HP", "value": "5.0", "costInclTax": None},
             {"label": "TEMPO_ROUGE_HC", "value": "2.3", "costInclTax": None},
         ]
         coordinator = self._make_coordinator(stats)
         sensor = self._make_sensor(coordinator)
 
         attrs = sensor.extra_state_attributes
-        assert attrs.get("tempo_bleu_hp") == pytest.approx(5.0)
+        assert attrs.get("tempo_ete_hp") == pytest.approx(5.0)
         assert attrs.get("tempo_rouge_hc") == pytest.approx(2.3)
 
     def test_tempo_cost_computed(self) -> None:
         """Avec un tarif disponible, le coût €/kWh doit être calculé."""
-        stats = [{"label": "TEMPO_BLEU_HP", "value": "10.0", "costInclTax": None}]
-        coordinator = self._make_coordinator(stats, rate_key="tempo_bleu_hp", rate_value=0.12)
+        stats = [{"label": "TEMPO_ETE_HP", "value": "10.0", "costInclTax": None}]
+        coordinator = self._make_coordinator(stats, rate_key="tempo_ete_hp", rate_value=0.12)
         sensor = self._make_sensor(coordinator)
 
         attrs = sensor.extra_state_attributes
-        assert attrs.get("cout_tempo_bleu_hp_euro") == pytest.approx(10.0 * 0.12, rel=1e-4)
+        assert attrs.get("cout_tempo_ete_hp_euro") == pytest.approx(10.0 * 0.12, rel=1e-4)
 
     def test_non_tempo_attributes_unchanged(self) -> None:
         """Un relevé BASE ne doit pas produire d'attributs Tempo."""
@@ -614,4 +610,4 @@ class TestLatestReadingTempoAttributes:
 
         attrs = sensor.extra_state_attributes
         assert attrs.get("heures_base") == pytest.approx(8.0)
-        assert "tempo_bleu_hp" not in attrs
+        assert "tempo_ete_hp" not in attrs

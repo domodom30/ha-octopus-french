@@ -108,7 +108,7 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
                 index = await self.api_client.get_electricity_index(
                     account_number, electricity_meter_id
                 )
-            except Exception as err:  # noqa: BLE001
+            except Exception as err:
                 _LOGGER.warning("Failed to fetch electricity data: %s", err)
                 return [], None
             else:
@@ -128,7 +128,7 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
                     reading_quality="ACTUAL",
                     first=100,
                 )
-            except Exception as err:  # noqa: BLE001
+            except Exception as err:
                 _LOGGER.warning("Failed to fetch gas data: %s", err)
                 return []
 
@@ -137,7 +137,7 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
         async def fetch_payments() -> dict:
             try:
                 return await self.api_client.get_all_payment_requests(ledgers)
-            except Exception as err:  # noqa: BLE001
+            except Exception as err:
                 _LOGGER.warning("Failed to fetch payment requests: %s", err)
                 return {}
 
@@ -147,7 +147,6 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
             payment_requests,
         ) = await asyncio.gather(fetch_electricity(), fetch_gas(), fetch_payments())
 
-        # Expose active tariffs for the electricity supply point
         tariffs = None
         agreements = account_data.get("agreements", [])
         for agreement in agreements:

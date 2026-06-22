@@ -1,3 +1,42 @@
+## [3.2.6] - 2026-06-22
+
+### 🐛 Correction — Labels Effacement HPHC
+
+Certains comptes (offre Effacement HPHC) renvoient les labels de consommation sous la forme `CONSUMPTION_EFFACEMENT_HPHC_2_HP_*` / `..._HC_*` au lieu des `HEURES_PLEINES` / `HEURES_CREUSES` historiques. Le matching exact échouait silencieusement : capteurs HP/HC du mois en cours bloqués à `0.0`, `last_imported_date` jamais renseigné et aucune statistique importée.
+
+- Ajout de `normalize_consumption_label()` dans `utils.py` qui remappe uniquement les labels Effacement explicites vers leur forme canonique HP/HC (les labels legacy, Tempo OctoFlex et `ABONNEMENT` restent inchangés).
+- Normalisation appliquée à l'import des statistiques, au calcul du total mensuel et aux attributs du dernier relevé dans `electricity.py`.
+
+---
+
+## [3.2.5] - 2026-06-15
+
+### 🔧 Corrections OctoTempo — Alignement sur les labels réels de l'API
+
+#### 🏷️ Renommage des couleurs Tempo (BREAKING pour les entités existantes)
+
+Les labels de consommation retournés par l'API Octopus suivent le format `CONSUMPTION_OCTOFLEX_4_V4_{code}_0.0_37.0`. La convention `BLEU/BLANC/ROUGE` était hypothétique ; les codes réels de l'API sont `ETE` (été), `HIVER` (hiver) et `ROUGE`.
+
+- Toutes les clés de capteurs `_bleu_` / `_blanc_` sont renommées en `_ete_` / `_hiver_` :
+  - `energy_tempo_bleu_hp/hc` → `energy_tempo_ete_hp/hc`
+  - `energy_tempo_blanc_hp/hc` → `energy_tempo_hiver_hp/hc`
+  - `cost_tempo_bleu_hp/hc` → `cost_tempo_ete_hp/hc`
+  - `cost_tempo_blanc_hp/hc` → `cost_tempo_hiver_hp/hc`
+  - `rate_tempo_bleu_hp/hc` → `rate_tempo_ete_hp/hc`
+  - `rate_tempo_blanc_hp/hc` → `rate_tempo_hiver_hp/hc`
+- Les labels de statistiques sont mis à jour vers le format `CONSUMPTION_OCTOFLEX_4_V4_*` (ex. `CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0`)
+- Les valeurs `tempo_color` / `tempo_color_tomorrow` passent de `BLEU`/`BLANC` à `ETE`/`HIVER`
+- Les codes alternatifs legacy (`BLEU_HP`, `BLANC_HP`) sont également mappés vers les nouvelles clés
+
+#### 🐛 Corrections
+
+- **Dérivation de couleur Tempo depuis `temporalClass`** : la couleur ETE/HIVER/ROUGE est désormais extraite directement depuis le code (`HPE`→`ETE`, `HPHI`→`HIVER`, `HPP`→`ROUGE`) lors du parsing de l'index, sans dépendre du champ `calendarTempClass`
+- Les couleurs legacy BLEU/BLANC reçues via `calendarTempClass` sont converties en ETE/HIVER avant stockage
+
+> ⚠️ **Migration** : Les entités `energy_tempo_bleu_*` et `energy_tempo_blanc_*` créées par les versions précédentes deviendront orphelines. Supprimez-les manuellement dans **Paramètres → Appareils et services** ou via les outils de nettoyage des entités HA.
+
+---
+
 ## [3.2.4] - 2026-06-13
 
 ### ✨ Nouveautés — Support complet OctoTempo

@@ -25,7 +25,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from _client import OctopusClient, get_account_number, hr, print_json
 
-# ── Requête GraphQL ───────────────────────────────────────────────────────────
 
 QUERY_GET_INDEX_ELECTRICITY = """
 query getElectricityIndex($accountNumber: String!, $prmId: String!, $first: Int!) {
@@ -64,15 +63,14 @@ query getElectricityIndex($accountNumber: String!, $prmId: String!, $first: Int!
 }
 """
 
-# ── Couleurs terminal ─────────────────────────────────────────────────────────
 
 _COLOR_MAP = {
-    "BLEU":  "\033[94m",   # bleu clair
-    "BLANC": "\033[97m",   # blanc brillant
-    "ROUGE": "\033[91m",   # rouge
-    "HP":    "\033[93m",   # jaune
-    "HC":    "\033[96m",   # cyan
-    "BASE":  "\033[92m",   # vert
+    "BLEU":  "\033[94m",
+    "BLANC": "\033[97m",
+    "ROUGE": "\033[91m",
+    "HP":    "\033[93m",
+    "HC":    "\033[96m",
+    "BASE":  "\033[92m",
 }
 _RESET = "\033[0m"
 
@@ -83,7 +81,6 @@ def _color(text: str, key: str) -> str:
     return f"{code}{text}{_RESET}" if code else text
 
 
-# ── Affichage ─────────────────────────────────────────────────────────────────
 
 def _get_temporal_code(entry: dict) -> tuple[str, str]:
     """Retourne (code, source) depuis temporalClass ou calendarTempClass (fallback).
@@ -102,7 +99,6 @@ def _get_temporal_code(entry: dict) -> tuple[str, str]:
 
 def print_index(entries: list[dict], prm: str) -> None:
     """Affiche les entrées d'index de façon lisible."""
-    # Valeurs uniques de codes temporels rencontrées
     all_codes: set[str] = set()
     for e in entries:
         code, _ = _get_temporal_code(e)
@@ -119,7 +115,6 @@ def print_index(entries: list[dict], prm: str) -> None:
     else:
         print("    (champ absent ou vide)")
 
-    # Détection Tempo (codes contenant BLEU/BLANC/ROUGE ou les valeurs legacy)
     tempo_colors = {c for c in all_codes if any(col in c for col in ("BLEU", "BLANC", "ROUGE"))}
     if tempo_colors:
         print(f"\n🎨  Classes Tempo détectées : {', '.join(sorted(tempo_colors))}")
@@ -144,7 +139,6 @@ def print_index(entries: list[dict], prm: str) -> None:
         conso_rel = entry.get("consumptionReliability") or "?"
         idx_rel = entry.get("indexReliability") or "?"
 
-        # Classe temporelle : temporalClass (nouveau) ou calendarTempClass (legacy)
         tc_code, tc_source = _get_temporal_code(entry)
         tc_obj = entry.get("temporalClass") or {}
         tc_label = tc_obj.get("label", "")
@@ -158,7 +152,6 @@ def print_index(entries: list[dict], prm: str) -> None:
             else "— (index non disponible)"
         )
 
-        # Couleur basée sur le code (cherche BLEU/BLANC/ROUGE ou HP/HC/BASE)
         color_key = tc_code
         for k in ("BLEU", "BLANC", "ROUGE"):
             if k in tc_code:
@@ -185,7 +178,6 @@ def print_index(entries: list[dict], prm: str) -> None:
     print()
 
 
-# ── Point d'entrée ────────────────────────────────────────────────────────────
 
 def main() -> None:
     parser = argparse.ArgumentParser(

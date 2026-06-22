@@ -19,7 +19,6 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Ajout du répertoire parent au path pour permettre l'exécution depuis n'importe où
 sys.path.insert(0, str(Path(__file__).parent))
 from _client import (
     OctopusClient,
@@ -50,7 +49,6 @@ def main() -> None:
     token = client._authenticate()
     save_token(token)
 
-    # Décodage du payload JWT
     payload = decode_jwt_payload(token)
     exp_ts = payload.get("exp")
     iat_ts = payload.get("iat")

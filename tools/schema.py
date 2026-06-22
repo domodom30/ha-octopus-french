@@ -26,7 +26,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from _client import OctopusClient, hr, print_json
 
-# ── Requête d'introspection ───────────────────────────────────────────────────
 
 QUERY_INTROSPECT_FULL = """
 {
@@ -76,7 +75,6 @@ QUERY_INTROSPECT_FULL = """
 }
 """
 
-# ── Helpers d'affichage ───────────────────────────────────────────────────────
 
 def _type_str(type_ref: dict | None) -> str:
     """Formate une référence de type GraphQL en chaîne lisible."""
@@ -99,7 +97,6 @@ def _is_builtin(name: str) -> bool:
     return name.startswith("__") if name else True
 
 
-# ── Fonctions principales ─────────────────────────────────────────────────────
 
 def list_types(types: list[dict], kind_filter: str | None = None) -> None:
     """Affiche la liste des types disponibles."""
@@ -131,7 +128,6 @@ def show_type(types: list[dict], type_name: str) -> None:
     """Affiche les champs d'un type spécifique."""
     found = next((t for t in types if t.get("name") == type_name), None)
     if not found:
-        # Recherche insensible à la casse
         type_name_lower = type_name.lower()
         candidates = [t for t in types if type_name_lower in (t.get("name") or "").lower()]
         if not candidates:
@@ -206,19 +202,17 @@ def show_type(types: list[dict], type_name: str) -> None:
 def search_schema(types: list[dict], keyword: str) -> None:
     """Cherche les types et champs contenant le mot-clé."""
     kw = keyword.lower()
-    results: list[tuple[str, str, str]] = []  # (type, champ, contexte)
+    results: list[tuple[str, str, str]] = []
 
     for t in types:
         tname = t.get("name") or ""
         if _is_builtin(tname):
             continue
 
-        # Correspondance sur le nom du type
         if kw in tname.lower():
             desc = (t.get("description") or "").replace("\n", " ").strip()[:80]
             results.append((tname, "", desc or t.get("kind", "")))
 
-        # Correspondance sur les champs du type
         for field in t.get("fields") or []:
             fname = field.get("name") or ""
             fdesc = field.get("description") or ""
@@ -226,7 +220,6 @@ def search_schema(types: list[dict], keyword: str) -> None:
                 ftype = _type_str(field.get("type"))
                 results.append((tname, fname, ftype))
 
-        # Correspondance sur les valeurs d'énumération
         for ev in t.get("enumValues") or []:
             evname = ev.get("name") or ""
             if kw in evname.lower():
@@ -253,7 +246,6 @@ def search_schema(types: list[dict], keyword: str) -> None:
     print()
 
 
-# ── Point d'entrée ────────────────────────────────────────────────────────────
 
 def main() -> None:
     parser = argparse.ArgumentParser(

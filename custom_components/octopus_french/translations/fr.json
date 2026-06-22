@@ -394,16 +394,16 @@
           "cout_heures_pleines_euro": { "name": "Coût heures pleines" },
           "cout_heures_creuses_euro": { "name": "Coût heures creuses" },
           "cout_abonnement_euro": { "name": "Coût abonnement" },
-          "tempo_bleu_hp": { "name": "Bleu HP (kWh)" },
-          "tempo_bleu_hc": { "name": "Bleu HC (kWh)" },
-          "tempo_blanc_hp": { "name": "Blanc HP (kWh)" },
-          "tempo_blanc_hc": { "name": "Blanc HC (kWh)" },
+          "tempo_ete_hp": { "name": "Été HP (kWh)" },
+          "tempo_ete_hc": { "name": "Été HC (kWh)" },
+          "tempo_hiver_hp": { "name": "Hiver HP (kWh)" },
+          "tempo_hiver_hc": { "name": "Hiver HC (kWh)" },
           "tempo_rouge_hp": { "name": "Rouge HP (kWh)" },
           "tempo_rouge_hc": { "name": "Rouge HC (kWh)" },
-          "cout_tempo_bleu_hp_euro": { "name": "Coût Bleu HP" },
-          "cout_tempo_bleu_hc_euro": { "name": "Coût Bleu HC" },
-          "cout_tempo_blanc_hp_euro": { "name": "Coût Blanc HP" },
-          "cout_tempo_blanc_hc_euro": { "name": "Coût Blanc HC" },
+          "cout_tempo_ete_hp_euro": { "name": "Coût Été HP" },
+          "cout_tempo_ete_hc_euro": { "name": "Coût Été HC" },
+          "cout_tempo_hiver_hp_euro": { "name": "Coût Hiver HP" },
+          "cout_tempo_hiver_hc_euro": { "name": "Coût Hiver HC" },
           "cout_tempo_rouge_hp_euro": { "name": "Coût Rouge HP" },
           "cout_tempo_rouge_hc_euro": { "name": "Coût Rouge HC" }
         }
@@ -508,8 +508,8 @@
       "subscribed_power": {
         "name": "Puissance souscrite"
       },
-      "energy_tempo_bleu_hp": {
-        "name": "Jours Bleus HP / mois en cours",
+      "energy_tempo_ete_hp": {
+        "name": "Jours Été HP / mois en cours",
         "state_attributes": {
           "current_month": { "name": "Mois en cours" },
           "readings_count": { "name": "Nombre de relevés" },
@@ -517,8 +517,8 @@
           "last_imported_date": { "name": "Dernière date importée" }
         }
       },
-      "energy_tempo_bleu_hc": {
-        "name": "Jours Bleus HC / mois en cours",
+      "energy_tempo_ete_hc": {
+        "name": "Jours Été HC / mois en cours",
         "state_attributes": {
           "current_month": { "name": "Mois en cours" },
           "readings_count": { "name": "Nombre de relevés" },
@@ -526,8 +526,8 @@
           "last_imported_date": { "name": "Dernière date importée" }
         }
       },
-      "energy_tempo_blanc_hp": {
-        "name": "Jours Blancs HP / mois en cours",
+      "energy_tempo_hiver_hp": {
+        "name": "Jours Hiver HP / mois en cours",
         "state_attributes": {
           "current_month": { "name": "Mois en cours" },
           "readings_count": { "name": "Nombre de relevés" },
@@ -535,8 +535,8 @@
           "last_imported_date": { "name": "Dernière date importée" }
         }
       },
-      "energy_tempo_blanc_hc": {
-        "name": "Jours Blancs HC / mois en cours",
+      "energy_tempo_hiver_hc": {
+        "name": "Jours Hiver HC / mois en cours",
         "state_attributes": {
           "current_month": { "name": "Mois en cours" },
           "readings_count": { "name": "Nombre de relevés" },
@@ -562,8 +562,8 @@
           "last_imported_date": { "name": "Dernière date importée" }
         }
       },
-      "cost_tempo_bleu_hp": {
-        "name": "Coût Jours Bleus HP / mois en cours",
+      "cost_tempo_ete_hp": {
+        "name": "Coût Jours Été HP / mois en cours",
         "state_attributes": {
           "current_month": { "name": "Mois en cours" },
           "readings_count": { "name": "Nombre de relevés" },
@@ -571,8 +571,8 @@
           "last_imported_date": { "name": "Dernière date importée" }
         }
       },
-      "cost_tempo_bleu_hc": {
-        "name": "Coût Jours Bleus HC / mois en cours",
+      "cost_tempo_ete_hc": {
+        "name": "Coût Jours Été HC / mois en cours",
         "state_attributes": {
           "current_month": { "name": "Mois en cours" },
           "readings_count": { "name": "Nombre de relevés" },
@@ -580,8 +580,8 @@
           "last_imported_date": { "name": "Dernière date importée" }
         }
       },
-      "cost_tempo_blanc_hp": {
-        "name": "Coût Jours Blancs HP / mois en cours",
+      "cost_tempo_hiver_hp": {
+        "name": "Coût Jours Hiver HP / mois en cours",
         "state_attributes": {
           "current_month": { "name": "Mois en cours" },
           "readings_count": { "name": "Nombre de relevés" },
@@ -589,8 +589,8 @@
           "last_imported_date": { "name": "Dernière date importée" }
         }
       },
-      "cost_tempo_blanc_hc": {
-        "name": "Coût Jours Blancs HC / mois en cours",
+      "cost_tempo_hiver_hc": {
+        "name": "Coût Jours Hiver HC / mois en cours",
         "state_attributes": {
           "current_month": { "name": "Mois en cours" },
           "readings_count": { "name": "Nombre de relevés" },
@@ -616,8 +616,8 @@
           "last_imported_date": { "name": "Dernière date importée" }
         }
       },
-      "rate_tempo_bleu_hp": {
-        "name": "Tarif Bleu HP",
+      "rate_tempo_ete_hp": {
+        "name": "Tarif Été HP",
         "state_attributes": {
           "contract_number": { "name": "Numéro de contrat" },
           "product_name": { "name": "Nom du produit" },
@@ -626,8 +626,8 @@
           "price_ttc_eur_kwh": { "name": "Prix (TTC)" }
         }
       },
-      "rate_tempo_bleu_hc": {
-        "name": "Tarif Bleu HC",
+      "rate_tempo_ete_hc": {
+        "name": "Tarif Été HC",
         "state_attributes": {
           "contract_number": { "name": "Numéro de contrat" },
           "product_name": { "name": "Nom du produit" },
@@ -636,8 +636,8 @@
           "price_ttc_eur_kwh": { "name": "Prix (TTC)" }
         }
       },
-      "rate_tempo_blanc_hp": {
-        "name": "Tarif Blanc HP",
+      "rate_tempo_hiver_hp": {
+        "name": "Tarif Hiver HP",
         "state_attributes": {
           "contract_number": { "name": "Numéro de contrat" },
           "product_name": { "name": "Nom du produit" },
@@ -646,8 +646,8 @@
           "price_ttc_eur_kwh": { "name": "Prix (TTC)" }
         }
       },
-      "rate_tempo_blanc_hc": {
-        "name": "Tarif Blanc HC",
+      "rate_tempo_hiver_hc": {
+        "name": "Tarif Hiver HC",
         "state_attributes": {
           "contract_number": { "name": "Numéro de contrat" },
           "product_name": { "name": "Nom du produit" },

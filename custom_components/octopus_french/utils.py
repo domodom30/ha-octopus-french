@@ -129,18 +129,35 @@ def find_contract_hc_slots(data: dict[str, Any], prm_id: str) -> list[dict[str, 
             continue
         consumption = (agreement.get("tariffs") or {}).get("consumption", {})
 
-        # Contrat HP/HC standard
         hc_rate = consumption.get("heures_creuses") or {}
         if slots := hc_rate.get("time_slots"):
             return slots
 
-        # Contrat OctoTempo : prendre les créneaux HC d'une couleur (identiques)
         for key, rate in consumption.items():
             if key.endswith("_hc") and isinstance(rate, dict):
                 if slots := rate.get("time_slots"):
                     return slots
 
     return None
+
+
+def normalize_consumption_label(label: str) -> str:
+    """Normalise les variantes de label de l'API vers leur forme canonique.
+
+    Certains comptes (offre Effacement HPHC) renvoient les labels sous la forme
+    CONSUMPTION_EFFACEMENT_HPHC_2_HP_* / ..._HC_* au lieu des
+    HEURES_PLEINES / HEURES_CREUSES historiques. Seuls ces labels Effacement
+    explicites sont remappés ; tout autre label (legacy, Tempo OctoFlex,
+    ABONNEMENT, …) est renvoyé inchangé.
+    """
+    if label in ("HEURES_BASE", "BASE"):
+        return "BASE"
+    if label.startswith("CONSUMPTION_EFFACEMENT_HPHC"):
+        if "_HP_" in label or label.endswith("_HP"):
+            return "HEURES_PLEINES"
+        if "_HC_" in label or label.endswith("_HC"):
+            return "HEURES_CREUSES"
+    return label
 
 
 def convert_sensor_date(date_string):

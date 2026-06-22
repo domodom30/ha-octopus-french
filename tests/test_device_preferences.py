@@ -18,7 +18,6 @@ from custom_components.octopus_french.select import (
 )
 
 
-# --- API tests ---
 
 
 @pytest.fixture
@@ -112,7 +111,6 @@ async def test_set_target_time_success(intelligent_client, mock_api_client):
     assert "max: 100" in call_args
 
 
-# --- Number entity tests ---
 
 
 @pytest.fixture
@@ -198,7 +196,6 @@ async def test_target_soc_set_value_failure(target_soc_number, mock_coordinator)
     mock_coordinator.async_request_refresh.assert_not_called()
 
 
-# --- Select entity tests ---
 
 
 def test_time_options_count():

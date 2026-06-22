@@ -101,7 +101,6 @@ async def async_setup_entry(
                     OctopusElectricitySensor(coordinator, prm_id, sensor_config)
                 )
 
-        # ── OctoTempo : capteurs énergie/coût/tarif × 6 couleurs-périodes ──
         if tariff_type == TARIFF_TYPE_TEMPO:
             for sensor_config in TEMPO_SENSORS:
                 if sensor_config.key == "tempo_color_today":
@@ -120,7 +119,6 @@ async def async_setup_entry(
                     entities.append(
                         OctopusElectricitySensor(coordinator, prm_id, sensor_config)
                     )
-            # Abonnement + puissance souscrite aussi pour Tempo
             for sensor_config in ELECTRICITY_SENSORS:
                 if sensor_config.key in {"contract", "subscription", "subscribed_power"}:
                     entities.append(
@@ -141,8 +139,6 @@ async def async_setup_entry(
                 if not index_type:
                     continue
 
-                # Pas de capteurs d'index pour Tempo : le Linky ne remonte pas
-                # les index séparés par couleur (BLEU/BLANC/ROUGE).
                 if index_tariff_type == TARIFF_TYPE_TEMPO:
                     continue
 
@@ -188,8 +184,6 @@ _TEMPO_TEMPORAL_CLASS_CODES: frozenset[str] = frozenset(
 def _detect_tariff_type_for_meter(data: dict, prm_id: str) -> str:
     """Détecte le type de tarif pour un compteur spécifique."""
     try:
-        # Priorité 1 : classes temporelles du calendrier fournisseur (source la plus fiable).
-        # 6 classes OctoTempo connues → TEMPO ; 2 classes → HPHC ; 1 classe → BASE.
         for meter in data.get("supply_points", {}).get("electricity", []):
             if meter.get("prm") != prm_id:
                 continue
@@ -202,7 +196,6 @@ def _detect_tariff_type_for_meter(data: dict, prm_id: str) -> str:
             if len(codes) == 1:
                 return "BASE"
 
-        # Priorité 2 : labels Tempo spécifiques dans les statistics des relevés
         electricity_readings = data.get("electricity", {}).get("readings", [])
         if electricity_readings:
             latest_reading = electricity_readings[-1]
@@ -216,14 +209,12 @@ def _detect_tariff_type_for_meter(data: dict, prm_id: str) -> str:
                 if "HEURES_PLEINES" in labels and "HEURES_CREUSES" in labels:
                     return "HPHC"
 
-        # Priorité 3 : code produit dans les accords actifs
         for agreement in data.get("agreements", []):
             if agreement.get("prm") == prm_id and agreement.get("is_active"):
                 code = agreement.get("product", {}).get("code", "").upper()
                 if any(kw in code for kw in TEMPO_PRODUCT_CODE_KEYWORDS):
                     return TARIFF_TYPE_TEMPO
 
-        # Fallback : utiliser le tariff_type de l'index électrique
         index = data.get("electricity", {}).get("index") or {}
         tariff_type = index.get("tariff_type")
         if tariff_type in ("BASE", "HPHC", TARIFF_TYPE_TEMPO):

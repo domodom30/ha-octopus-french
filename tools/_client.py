@@ -19,7 +19,6 @@ except ImportError:
     print("❌  Module 'requests' manquant. Installez-le avec : pip install requests", file=sys.stderr)
     sys.exit(1)
 
-# ── Constantes ────────────────────────────────────────────────────────────────
 
 API_URL = "https://api.oefr-kraken.energy/v1/graphql/"
 
@@ -27,7 +26,6 @@ _TOOLS_DIR = Path(__file__).parent
 _TOKEN_FILE = _TOOLS_DIR / ".token"
 _ENV_FILE = _TOOLS_DIR / ".env"
 
-# ── Chargement de la configuration ───────────────────────────────────────────
 
 def load_env() -> None:
     """Charge les variables depuis tools/.env (si présent) sans python-dotenv."""
@@ -66,7 +64,6 @@ def get_account_number() -> str | None:
     return os.environ.get("OCTOPUS_ACCOUNT")
 
 
-# ── Décodage JWT ──────────────────────────────────────────────────────────────
 
 def decode_jwt_payload(token: str) -> dict:
     """Décode le payload d'un JWT sans vérifier la signature."""
@@ -74,7 +71,6 @@ def decode_jwt_payload(token: str) -> dict:
         parts = token.split(".")
         if len(parts) != 3:
             return {}
-        # Padding base64url → base64 standard
         payload_b64 = parts[1] + "=" * (4 - len(parts[1]) % 4)
         payload_bytes = base64.urlsafe_b64decode(payload_b64)
         return json.loads(payload_bytes)
@@ -91,7 +87,6 @@ def token_is_expired(token: str, buffer_seconds: int = 60) -> bool:
     return datetime.now(timezone.utc).timestamp() + buffer_seconds > exp
 
 
-# ── Gestion du token ──────────────────────────────────────────────────────────
 
 def save_token(token: str) -> None:
     """Sauvegarde le token JWT dans tools/.token."""
@@ -108,7 +103,6 @@ def load_cached_token() -> str | None:
     return token
 
 
-# ── Requête GraphQL ───────────────────────────────────────────────────────────
 
 def graphql_request(token: str, query: str, variables: dict | None = None) -> dict:
     """Exécute une requête GraphQL authentifiée.
@@ -163,7 +157,6 @@ def graphql_request_raw(token: str, query: str, variables: dict | None = None) -
     return resp.json()
 
 
-# ── Client principal ──────────────────────────────────────────────────────────
 
 class OctopusClient:
     """Client Octopus avec gestion automatique du token JWT."""
@@ -186,7 +179,6 @@ class OctopusClient:
             self._token = cached
             return cached
 
-        # Authentification fraîche
         token = self._authenticate()
         self._token = token
         save_token(token)
@@ -243,7 +235,6 @@ class OctopusClient:
         return graphql_request_raw(self.ensure_token(), gql, variables)
 
 
-# ── Utilitaires d'affichage ────────────────────────────────────────────────────
 
 def print_json(obj: object) -> None:
     """Affiche un objet Python en JSON indenté."""

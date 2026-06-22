@@ -10,7 +10,6 @@ from custom_components.octopus_french.utils import (
 )
 
 
-# ── Fixtures ──────────────────────────────────────────────────────────────────
 
 def _make_coordinator_data(
     prm: str,
@@ -42,7 +41,6 @@ def _make_coordinator_data(
     }
 
 
-# ── parse_time_slots ──────────────────────────────────────────────────────────
 
 class TestParseTimeSlots:
     def test_single_slot(self):
@@ -52,7 +50,6 @@ class TestParseTimeSlots:
         assert result["ranges"][0]["start"] == "22:00"
         assert result["ranges"][0]["end"] == "06:00"
         assert result["source"] == "contract"
-        # durée chevauchant minuit : 8h
         assert result["ranges"][0]["duration_hours"] == 8.0
         assert result["total_hours"] == 8.0
 
@@ -82,10 +79,10 @@ class TestParseTimeSlots:
             {"start": "22:00:00", "end": "06:00:00"},
         ]
         result = parse_time_slots(slots)
-        assert result["range_count"] == 1  # seul le bon est gardé
+        assert result["range_count"] == 1
 
     def test_missing_keys_skipped(self):
-        slots = [{"start": "22:00:00"}]  # pas de 'end'
+        slots = [{"start": "22:00:00"}]
         result = parse_time_slots(slots)
         assert result["range_count"] == 0
 
@@ -96,7 +93,6 @@ class TestParseTimeSlots:
         assert result["ranges"][0]["duration_hours"] == 3.0
 
 
-# ── find_contract_hc_slots ────────────────────────────────────────────────────
 
 class TestFindContractHcSlots:
     def test_hphc_contract(self):
@@ -131,7 +127,7 @@ class TestFindContractHcSlots:
     def test_tempo_hc_key(self):
         """Pour OctoTempo : cherche la première clé se terminant par '_hc'."""
         slots = [{"start": "22:00:00", "end": "06:00:00"}]
-        data = _make_coordinator_data("PRM1", time_slots=slots, tariff_key="tempo_bleu_hc")
+        data = _make_coordinator_data("PRM1", time_slots=slots, tariff_key="tempo_ete_hc")
         result = find_contract_hc_slots(data, "PRM1")
         assert result == slots
 

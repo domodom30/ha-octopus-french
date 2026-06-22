@@ -1,7 +1,5 @@
 """API client for OctopusFrench Energy."""
 
-from __future__ import annotations
-
 import asyncio
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
@@ -353,7 +351,9 @@ class TokenManager:
 class OctopusFrenchApiClient:
     """OctopusFrench API Client with robust authentication."""
 
-    def __init__(self, email: str, password: str, session: aiohttp.ClientSession) -> None:
+    def __init__(
+        self, email: str, password: str, session: aiohttp.ClientSession
+    ) -> None:
         """Initialize the API client."""
         self.email = email
         self.password = password
@@ -394,7 +394,7 @@ class OctopusFrenchApiClient:
                     )
                     if attempt < MAX_RETRY_ATTEMPTS - 1:
                         await asyncio.sleep(RETRY_DELAY * (attempt + 1))
-            except (aiohttp.ClientError, TimeoutError):
+            except aiohttp.ClientError, TimeoutError:
                 if attempt < MAX_RETRY_ATTEMPTS - 1:
                     await asyncio.sleep(RETRY_DELAY * (attempt + 1))
                     continue
@@ -419,11 +419,11 @@ class OctopusFrenchApiClient:
             )
 
             if not result:
-                raise OctopusConnectionError(
-                    "Failed to reach authentication server"
-                )
+                raise OctopusConnectionError("Failed to reach authentication server")
 
-            token = ((result.get("data") or {}).get("obtainKrakenToken") or {}).get("token")
+            token = ((result.get("data") or {}).get("obtainKrakenToken") or {}).get(
+                "token"
+            )
 
             if not token:
                 error_messages = (
@@ -480,7 +480,6 @@ class OctopusFrenchApiClient:
                 )
 
         return result
-
 
     async def get_accounts(self) -> list[dict[str, Any]]:
         """Get all accounts."""
@@ -607,11 +606,9 @@ class OctopusFrenchApiClient:
                 meter_point["market_name"] = node.get("marketName")
 
                 if "meterKind" in meter_point or "distributorStatus" in meter_point:
-                    # Electricity-specific fields from schema introspection
                     meter_point.setdefault("isSmartMeter", None)
                     meter_point.setdefault("isThreePhase", None)
                     meter_point.setdefault("circuitBreakerIntensity", None)
-                    # Extraire les classes temporelles du calendrier fournisseur
                     provider_cal = meter_point.get("providerCalendar") or {}
                     meter_point["provider_temporal_classes"] = provider_cal.get(
                         "temporalClasses", []
@@ -619,7 +616,6 @@ class OctopusFrenchApiClient:
                     supply_points["electricity"].append(meter_point)
 
                 elif "gasNature" in meter_point or "annualConsumption" in meter_point:
-                    # Gas-specific fields from schema introspection
                     meter_point.setdefault("serial", None)
                     meter_point.setdefault("contractualStatus", None)
                     meter_point.setdefault("cutDate", None)
@@ -668,29 +664,39 @@ class OctopusFrenchApiClient:
 
         return agreements
 
-    # Correspondance entre les codes temporalClass de l'API et les clés internes.
-    # Sera complété dès que les codes réels seront connus (via tools/account.py
-    # sur un compte OctoTempo réel).
     _TEMPORAL_CLASS_TO_KEY: dict[str, str] = {
-        # HP/HC classiques (contrats HPHC standard)
         "HP": "heures_pleines",
         "HC": "heures_creuses",
-        # Base (contrat BASE)
         "BASE": "base",
-        # OctoTempo — codes confirmés via API réelle (calendrier OCTOFLEX_4_V4)
-        "HPP":  "tempo_rouge_hp",   # Heures Pleines rouges  (registerId=1)
-        "HCP":  "tempo_rouge_hc",   # Heures Creuses rouges  (registerId=2)
-        "HPHI": "tempo_blanc_hp",   # Heures Pleines Hiver   (registerId=3)
-        "HCHI": "tempo_blanc_hc",   # Heures Creuses Hiver   (registerId=4)
-        "HPE":  "tempo_bleu_hp",    # Heures Pleines Été     (registerId=5)
-        "HCE":  "tempo_bleu_hc",    # Heures Creuses Été     (registerId=6)
-        # Codes alternatifs hypothétiques (ancienne convention)
-        "BLEU_HP":  "tempo_bleu_hp",
-        "BLEU_HC":  "tempo_bleu_hc",
-        "BLANC_HP": "tempo_blanc_hp",
-        "BLANC_HC": "tempo_blanc_hc",
+        "HPP": "tempo_rouge_hp",
+        "HCP": "tempo_rouge_hc",
+        "HPHI": "tempo_hiver_hp",
+        "HCHI": "tempo_hiver_hc",
+        "HPE": "tempo_ete_hp",
+        "HCE": "tempo_ete_hc",
+        "ETE_HP": "tempo_ete_hp",
+        "ETE_HC": "tempo_ete_hc",
+        "HIVER_HP": "tempo_hiver_hp",
+        "HIVER_HC": "tempo_hiver_hc",
         "ROUGE_HP": "tempo_rouge_hp",
         "ROUGE_HC": "tempo_rouge_hc",
+    }
+
+    _REGISTER_CODE_TO_COLOR: dict[str, str] = {
+        "HPP": "ROUGE",
+        "HCP": "ROUGE",
+        "HPHI": "HIVER",
+        "HCHI": "HIVER",
+        "HPE": "ETE",
+        "HCE": "ETE",
+    }
+
+    _CALENDAR_COLOR_TO_COLOR: dict[str, str] = {
+        "BLEU": "ETE",
+        "BLANC": "HIVER",
+        "ROUGE": "ROUGE",
+        "ETE": "ETE",
+        "HIVER": "HIVER",
     }
 
     def _extract_tariffs(self, energy_rate: dict[str, Any]) -> dict[str, Any]:
@@ -729,7 +735,6 @@ class OctopusFrenchApiClient:
                         ),
                         "currency": rate.get("currency"),
                         "unit_type": rate.get("unitType"),
-                        # Nouveau : classe temporelle et plages horaires
                         "temporal_class_code": temporal_class.get("code"),
                         "temporal_class_label": temporal_class.get("label"),
                         "temporal_class_register_id": temporal_class.get("registerId"),
@@ -742,8 +747,6 @@ class OctopusFrenchApiClient:
             except (ValueError, TypeError) as e:
                 _LOGGER.warning("Error parsing consumption rate: %s", e)
 
-        # ── Mapping via temporalClass.code (méthode fiable) ────────────────────
-        # Si l'API retourne les codes temporalClass, on les utilise directement.
         mapped_by_code = False
         for rate in consumption_rates:
             code = rate.get("temporal_class_code")
@@ -752,18 +755,19 @@ class OctopusFrenchApiClient:
                 if key:
                     tariffs["consumption"][key] = rate
                     mapped_by_code = True
-                    _LOGGER.debug("Taux mappé via temporalClass.code='%s' → '%s'", code, key)
+                    _LOGGER.debug(
+                        "Taux mappé via temporalClass.code='%s' → '%s'", code, key
+                    )
                 else:
                     _LOGGER.warning(
-                        "Code temporalClass inconnu '%s' — ajouter dans _TEMPORAL_CLASS_TO_KEY", code
+                        "Code temporalClass inconnu '%s' — ajouter dans _TEMPORAL_CLASS_TO_KEY",
+                        code,
                     )
-                    # Stocker quand même avec le code brut pour ne pas perdre le taux
                     tariffs["consumption"][f"unknown_{code.lower()}"] = rate
 
         if mapped_by_code:
             return tariffs
 
-        # ── Fallback par ordre de prix (méthode ancienne, sans temporalClass) ──
         _LOGGER.debug(
             "temporalClass absent des taux — fallback par ordre de prix décroissant"
         )
@@ -775,15 +779,17 @@ class OctopusFrenchApiClient:
         elif len(consumption_rates) == 1:
             tariffs["consumption"]["base"] = consumption_rates[0]
 
-        # Fallback Tempo par ordre de prix (6 taux, ordre croissant conventionnel)
         if len(consumption_rates) == 6:
             rates_asc = sorted(consumption_rates, key=lambda x: x["price_ttc"])
             tempo_keys_fallback = [
-                "tempo_bleu_hc", "tempo_bleu_hp",
-                "tempo_blanc_hc", "tempo_blanc_hp",
-                "tempo_rouge_hc", "tempo_rouge_hp",
+                "tempo_ete_hc",
+                "tempo_ete_hp",
+                "tempo_hiver_hc",
+                "tempo_hiver_hp",
+                "tempo_rouge_hc",
+                "tempo_rouge_hp",
             ]
-            for key, rate in zip(tempo_keys_fallback, rates_asc):
+            for key, rate in zip(tempo_keys_fallback, rates_asc, strict=True):
                 tariffs["consumption"][key] = rate
             _LOGGER.warning(
                 "OctoTempo: 6 taux assignés par ordre de prix (fallback) — "
@@ -830,13 +836,9 @@ class OctopusFrenchApiClient:
             }
             result = await self._execute_with_auth(query=query, variables=variables)
             measurements = (
-                result.get("data", {})
-                .get("property", {})
-                .get("measurements", {})
+                result.get("data", {}).get("property", {}).get("measurements", {})
             )
-            all_nodes.extend(
-                edge["node"] for edge in measurements.get("edges", [])
-            )
+            all_nodes.extend(edge["node"] for edge in measurements.get("edges", []))
             page_info = measurements.get("pageInfo", {})
             if not page_info.get("hasNextPage"):
                 break
@@ -853,7 +855,7 @@ class OctopusFrenchApiClient:
         first: int = 100,
     ) -> list[dict[str, Any]]:
         """Get gas readings using the dedicated gasReading query, fetching all pages."""
-        # gasReading uses Date scalar (YYYY-MM-DD), not DateTime
+
         period_start = start_at[:10]
         period_end = end_at[:10]
 
@@ -873,19 +875,20 @@ class OctopusFrenchApiClient:
                 query=QUERY_GET_GAS_READINGS, variables=variables
             )
             gas_reading = result.get("data", {}).get("gasReading", {})
-            # Normalise vers le format IntervalMeasurement attendu par sensor.py
-            # (gasReading: consumption/periodStartAt → value/startAt)
+
             for edge in gas_reading.get("edges", []):
                 node = edge["node"]
-                all_nodes.append({
-                    "value": node.get("consumption"),
-                    "startAt": node.get("periodStartAt"),
-                    "endAt": node.get("periodEndAt"),
-                    "indexStartValue": node.get("indexStartValue"),
-                    "indexEndValue": node.get("indexEndValue"),
-                    "statusProcessed": node.get("statusProcessed"),
-                    "energyQualification": node.get("energyQualification"),
-                })
+                all_nodes.append(
+                    {
+                        "value": node.get("consumption"),
+                        "startAt": node.get("periodStartAt"),
+                        "endAt": node.get("periodEndAt"),
+                        "indexStartValue": node.get("indexStartValue"),
+                        "indexEndValue": node.get("indexEndValue"),
+                        "statusProcessed": node.get("statusProcessed"),
+                        "energyQualification": node.get("energyQualification"),
+                    }
+                )
             page_info = gas_reading.get("pageInfo", {})
             if not page_info.get("hasNextPage"):
                 break
@@ -956,19 +959,18 @@ class OctopusFrenchApiClient:
         period_start = None
         period_end = None
         tariff_type = None
+        tomorrow_str = (datetime.now(UTC).date() + timedelta(days=1)).isoformat()
 
         for edge in edges:
             node = edge.get("node", {})
             temp_class = node.get("calendarTempClass")
 
-            # ── Priorité 1 : temporalClass structuré (plus fiable que calendarTempClass)
             temporal_class = node.get("temporalClass") or {}
-            tc_code = temporal_class.get("code")  # ex: "HP", "HC", "BASE", "BLEU_HP"…
+            tc_code = temporal_class.get("code")
 
             if tc_code:
                 _LOGGER.debug("electricityReading temporalClass.code='%s'", tc_code)
 
-            # Détecter le type de tarif depuis temporalClass.code ou calendarTempClass
             effective_code = tc_code or temp_class
 
             if effective_code in ["HP", "HC", "BASE"]:
@@ -986,19 +988,18 @@ class OctopusFrenchApiClient:
                 }
 
                 if effective_code == "BASE":
-                    # Pour OctoTempo, Linky remonte aussi un registre BASE (registerId=1)
-                    # qui contient la consommation totale — ne pas écraser une détection
-                    # TEMPO déjà établie par les codes HPP/HPHI/etc.
                     if tariff_type != "TEMPO":
                         tariff_type = "BASE"
-                elif effective_code in ["HP", "HC"] and tariff_type not in ("BASE", "TEMPO"):
+                elif effective_code in ["HP", "HC"] and tariff_type not in (
+                    "BASE",
+                    "TEMPO",
+                ):
                     tariff_type = "HPHC"
 
                 if not period_start:
                     period_start = node.get("periodStartAt")
                     period_end = node.get("periodEndAt")
 
-            # ── OctoTempo : codes confirmés (HPP/HCP/HPHI/HCHI/HPE/HCE)
             elif effective_code in ("HPP", "HCP", "HPHI", "HCHI", "HPE", "HCE"):
                 tariff_type = "TEMPO"
                 key = self._TEMPORAL_CLASS_TO_KEY.get(effective_code)
@@ -1017,50 +1018,30 @@ class OctopusFrenchApiClient:
                     period_end = node.get("periodEndAt")
                 _LOGGER.debug("OctoTempo: code '%s' → clé '%s'", effective_code, key)
 
-            # ── OctoTempo : codes couleur BLEU/BLANC/ROUGE (ancienne convention ou calendarTempClass)
-            elif effective_code in ["BLEU", "BLANC", "ROUGE"] or (
-                effective_code
-                and any(c in effective_code for c in ["BLEU", "BLANC", "ROUGE"])
-            ):
-                tariff_type = "TEMPO"
-                # Extraire la couleur pure (BLEU, BLANC ou ROUGE)
-                color = next(
-                    (c for c in ["ROUGE", "BLANC", "BLEU"] if c in effective_code),
-                    effective_code,
-                )
-                # Distinguer aujourd'hui et demain via periodStartAt
-                node_date = node.get("periodStartAt", "")[:10]
-                today_str = datetime.now(UTC).date().isoformat()
-                tomorrow_str = (datetime.now(UTC).date() + timedelta(days=1)).isoformat()
+                color = self._REGISTER_CODE_TO_COLOR.get(effective_code)
+                if color:
+                    node_date = node.get("periodStartAt", "")[:10]
+                    color_key = (
+                        "tempo_color_tomorrow"
+                        if node_date == tomorrow_str
+                        else "tempo_color"
+                    )
+                    index_data.setdefault(color_key, color)
 
-                if node_date == tomorrow_str:
-                    index_data["tempo_color_tomorrow"] = color
-                    _LOGGER.debug(
-                        "OctoTempo: couleur demain '%s' détectée depuis '%s'",
-                        color, node_date,
-                    )
-                else:
-                    # Aujourd'hui (ou date absente/inconnue → on l'attribue à aujourd'hui)
-                    index_data["tempo_color"] = color
-                    index_data[f"tempo_{color.lower()}"] = {
-                        "consumption": node.get("consumption"),
-                        "index_start": node.get("indexStartValue"),
-                        "index_end": node.get("indexEndValue"),
-                        "status": node.get("statusProcessed"),
-                        "temporal_class_code": tc_code,
-                        "temporal_class_label": temporal_class.get("label"),
-                        "temporal_class_register_id": temporal_class.get("registerId"),
-                    }
-                    _LOGGER.debug(
-                        "OctoTempo: couleur aujourd'hui '%s' détectée depuis '%s'",
-                        color, node_date,
-                    )
+            elif effective_code in self._CALENDAR_COLOR_TO_COLOR:
+                tariff_type = "TEMPO"
+                color = self._CALENDAR_COLOR_TO_COLOR[effective_code]
+                node_date = node.get("periodStartAt", "")[:10]
+                color_key = (
+                    "tempo_color_tomorrow" if node_date == tomorrow_str else "tempo_color"
+                )
+                index_data.setdefault(color_key, color)
+
                 if not period_start:
                     period_start = node.get("periodStartAt")
                     period_end = node.get("periodEndAt")
 
             elif effective_code:
-                # Code inconnu — on le logue pour faciliter le diagnostic
                 _LOGGER.warning(
                     "Code temporalClass inconnu dans electricityReading: '%s' "
                     "(calendarTempClass='%s') — mettez à jour _TEMPORAL_CLASS_TO_KEY",

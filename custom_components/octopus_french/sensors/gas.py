@@ -145,7 +145,6 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
                 last_entry = last_stats[statistic_id][0]
                 cumulative_sum = float(last_entry.get("sum") or 0.0)
                 if not self._last_imported_date:
-                    # start is a float Unix timestamp — convert to UTC ISO string
                     last_start = last_entry.get("start")
                     if last_start is not None:
                         self._last_imported_date = datetime.fromtimestamp(

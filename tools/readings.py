@@ -28,7 +28,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from _client import OctopusClient, get_account_number, hr, print_json
 
-# ── Requêtes GraphQL ──────────────────────────────────────────────────────────
 
 FRAGMENT_INTERVAL_MEASUREMENT = """
 fragment IntervalMeasurement on IntervalMeasurementType {
@@ -104,7 +103,6 @@ query getAccountData($accountNumber: String!) {
 """
 
 
-# ── Logique de recherche de property_id ──────────────────────────────────────
 
 def find_property_id_for_prm(client: OctopusClient, account_number: str, prm: str) -> str | None:
     """Cherche le property_id associé à un PRM dans les données de compte."""
@@ -121,11 +119,9 @@ def find_property_id_for_prm(client: OctopusClient, account_number: str, prm: st
     return None
 
 
-# ── Affichage des relevés ─────────────────────────────────────────────────────
 
 def print_readings(readings: list[dict], prm: str) -> None:
     """Affiche un résumé lisible des relevés avec leurs labels."""
-    # Collecter tous les labels uniques rencontrés
     all_labels: set[str] = set()
     for r in readings:
         for stat in (r.get("metaData") or {}).get("statistics", []):
@@ -144,7 +140,6 @@ def print_readings(readings: list[dict], prm: str) -> None:
     else:
         print("    (aucun label trouvé)")
 
-    # Détection OctoTempo
     tempo_labels = {l for l in all_labels if "TEMPO" in l.upper()}
     if tempo_labels:
         print(f"\n🎨  Labels Tempo détectés : {', '.join(sorted(tempo_labels))}")
@@ -181,7 +176,6 @@ def print_readings(readings: list[dict], prm: str) -> None:
     print()
 
 
-# ── Point d'entrée ────────────────────────────────────────────────────────────
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -203,7 +197,6 @@ def main() -> None:
         print("❌  Numéro de compte requis (--account ou OCTOPUS_ACCOUNT dans .env)", file=sys.stderr)
         sys.exit(1)
 
-    # Trouver le property_id si non fourni
     property_id = args.property
     if not property_id:
         print(f"🔍  Recherche de la propriété pour le PRM {args.prm}...")
@@ -224,7 +217,6 @@ def main() -> None:
 
     print(f"📥  Récupération des relevés ({args.days} derniers jours)...")
 
-    # Pagination
     all_readings: list[dict] = []
     after: str | None = None
 

@@ -6,6 +6,7 @@ import logging
 from typing import Any
 
 from homeassistant.components.number import NumberEntity
+from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -65,6 +66,7 @@ class OctopusIntelligentTargetSocNumber(CoordinatorEntity, NumberEntity):
         self._attr_native_min_value = 0.0
         self._attr_native_max_value = 100.0
         self._attr_native_step = 5.0
+        self._attr_native_unit_of_measurement = PERCENTAGE
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
             via_device=(DOMAIN, coordinator.account_number),
