@@ -172,16 +172,6 @@ query getAccountData($accountNumber: String!, $activeAt: DateTime!) {
                   pricePerUnitWithTaxes
                   validFrom
                   validTo
-                  temporalClass {
-                    ... on ProviderTemporalClassType {
-                      code
-                      label
-                      registerId
-                    }
-                    ... on DistributorTemporalClassType {
-                      code
-                    }
-                  }
                   timeSlots {
                     startAt
                     endAt
@@ -396,11 +386,13 @@ class OctopusFrenchApiClient:
                 ) as response:
                     if response.status == 200:
                         return await response.json()
+                    body = (await response.text())[:500]
                     _LOGGER.warning(
-                        "GraphQL endpoint returned HTTP %s (attempt %s/%s)",
+                        "GraphQL endpoint returned HTTP %s (attempt %s/%s): %s",
                         response.status,
                         attempt + 1,
                         MAX_RETRY_ATTEMPTS,
+                        body,
                     )
                     if attempt < MAX_RETRY_ATTEMPTS - 1:
                         await asyncio.sleep(RETRY_DELAY * (attempt + 1))

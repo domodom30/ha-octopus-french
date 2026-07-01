@@ -1,3 +1,16 @@
+## [3.3.1] - 2026-07-01
+
+### 🐛 Correction — HTTP 400 sur la requête `getAccountData` (régression 3.3.0)
+
+Depuis la 3.3.0, la requête principale `getAccountData` renvoyait `HTTP 400` (rejet à la validation GraphQL) et bloquait toute la récupération de données.
+
+Cause : le bloc `temporalClass { … }` ajouté (issue #37) sur le nœud `consumptionRates` n'est pas un champ valide sur ce type — contrairement à `electricityReading` où il fonctionne.
+
+- Suppression du bloc `temporalClass` de la requête `getAccountData`. Le mapping des tarifs Tempo reste correct via le fallback par ordre de prix (déjà corrigé pour #37) ; le code de parsing est inchangé.
+- `_async_execute` journalise désormais le **corps** des réponses non‑200 (tronqué à 500 caractères) pour diagnostiquer plus vite les erreurs GraphQL.
+
+---
+
 ## [3.3.0] - 2026-07-01
 
 Cette version corrige deux problèmes liés aux statistiques long-terme électricité alimentant le tableau de bord Énergie (issues #45 et #46).
