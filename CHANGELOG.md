@@ -1,3 +1,37 @@
+## [3.3.0] - 2026-07-01
+
+Cette version corrige deux problèmes liés aux statistiques long-terme électricité alimentant le tableau de bord Énergie (issues #45 et #46).
+
+### 🐛 Correction — Statistiques long-terme figées jusqu'au redémarrage (issue #45)
+
+Les statistiques long-terme d'électricité (`octopus_french:<prm>_energy_*`, `_cost_*`) n'étaient importées **qu'une seule fois par session** puis figées : les relevés quotidiens publiés par Enedis avec 2-3 jours de retard n'étaient pris en compte qu'après un redémarrage de HA, un rechargement de l'intégration ou un changement de mois. Le tableau de bord Énergie restait bloqué sur le dernier relevé connu.
+
+Cause : `_handle_coordinator_update` ne déclenchait l'import que tant que `_statistics_imported` était `False`, flag positionné à `True` dès le premier import. Le fichier `gas.py` portait la condition inversée, fragile pour la même raison.
+
+- Suppression du verrou « one-shot » dans `electricity.py` et `gas.py` : l'import (déjà idempotent grâce à `get_last_statistics` + dédup par jour calendaire) tourne désormais à chaque cycle du coordinator.
+
+### 🐛 Correction — Consommation journalière doublée/quadruplée dans le tableau de bord Énergie (issue #46)
+
+Certains jours, la statistique externe `octopus_french:<prm>_energy_*` affichait une consommation doublée voire quadruplée, notamment après un « force refresh », et le doublement restait figé en permanence.
+
+Cause (≤ 3.2.7) : la déduplication comparait des **chaînes ISO avec des fuseaux différents** (`_last_imported_date` rendu en UTC vs `startAt` en heure locale). Autour de minuit, `"2026-06-16T00:00:00+02:00" <= "2026-06-15T22:00:00+00:00"` est `False` alors que les deux désignent le même instant : le jour n'était pas ignoré et était ré-ajouté à chaque fenêtre chevauchante (mois courant + 7 jours), gonflant le cumul.
+
+> Pour des barres corrompues plus anciennes que la fenêtre glissante (~37 jours), une purge ponctuelle via **Outils de développement → Statistiques** reste nécessaire ; le repeuplement se fait ensuite correctement.
+
+---
+
+## [3.2.7] - 2026-06-23
+
+### 🐛 Correction — Inversion des tarifs Tempo Hiver HP / Rouge HC (issue #37)
+
+Sur les comptes OctoTempo, les tarifs **Hiver HP** et **Rouge HC** étaient permutés (ex. Hiver HP affiché à `0,1575 €/kWh` au lieu de `0,1871`, et Rouge HC à `0,1871` au lieu de `0,1575`).
+
+Cause : la requête `consumptionRates` ne demandait pas le champ `temporalClass`, si bien que le mapping fiable par code (`HPHI`→`tempo_hiver_hp`, `HCP`→`tempo_rouge_hc`) n'était jamais emprunté.
+
+- Ajout du bloc `temporalClass { code label registerId }` à la requête `consumptionRates` dans `octopus_french.py`
+
+---
+
 ## [3.2.6] - 2026-06-22
 
 ### 🐛 Correction — Labels Effacement HPHC

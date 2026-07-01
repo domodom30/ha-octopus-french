@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 from typing import Any
 
@@ -13,6 +13,7 @@ from homeassistant.components.recorder.statistics import (
     StatisticMetaData,
     async_add_external_statistics,
     get_last_statistics,
+    statistics_during_period,
 )
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.helpers.entity import DeviceInfo
@@ -74,7 +75,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
 
         self._current_month: str | None = None
         self._last_imported_date: str | None = None
-        self._statistics_imported = False
+        self._import_in_progress = False
 
     async def async_added_to_hass(self) -> None:
         """When entity is added to hass."""
@@ -84,18 +85,32 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             self.hass.async_create_task(self._async_import_statistics())
 
     def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        if (
-            self.entity_id
-            and self._sensor_config.key.startswith(("energy_", "cost_"))
-            and not self._statistics_imported
-        ):
+        """Handle updated data from the coordinator.
+
+        Runs the (idempotent) statistics import on every update so that the daily
+        readings Enedis publishes with a 2-3 day lag are picked up without needing
+        an integration reload; get_last_statistics + the per-day dedup make replays
+        safe.
+        """
+        if self.entity_id and self._sensor_config.key.startswith(("energy_", "cost_")):
             self.hass.async_create_task(self._async_import_statistics())
 
         super()._handle_coordinator_update()
 
     async def _async_import_statistics(self) -> None:
         """Import statistics with correct dates from readings."""
+        # Overlapping coordinator updates could otherwise spawn concurrent imports
+        # that race on the non-atomic get_last_statistics/add pair and double-count.
+        if self._import_in_progress:
+            return
+        self._import_in_progress = True
+        try:
+            await self._async_do_import_statistics()
+        finally:
+            self._import_in_progress = False
+
+    async def _async_do_import_statistics(self) -> None:
+        """Perform the actual statistics import."""
         key = self._sensor_config.key
         readings = self.coordinator.data.get("electricity", {}).get("readings", [])
 
@@ -118,20 +133,6 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             return
 
         statistic_id = f"{DOMAIN}:{self._prm_id}_{key}"
-
-        current_month = self._get_current_month()
-        if (
-            self._statistics_imported
-            and self._last_imported_date
-            and current_month != self._current_month
-        ):
-            _LOGGER.info(
-                "New month detected (%s), forcing statistics re-import for %s",
-                current_month,
-                statistic_id,
-            )
-            self._statistics_imported = False
-            self._last_imported_date = None
 
         _LOGGER.debug(
             "Starting statistics import for entity_id: %s (statistic_id: %s)",
@@ -159,6 +160,8 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             _LOGGER.warning("Error sorting readings: %s", e)
             return
 
+        last_imported_day: datetime | None = None
+
         try:
             last_stats = await get_instance(self.hass).async_add_executor_job(
                 get_last_statistics, self.hass, 1, statistic_id, False, {"sum", "start"}
@@ -166,12 +169,11 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             if last_stats and statistic_id in last_stats and last_stats[statistic_id]:
                 last_entry = last_stats[statistic_id][0]
                 cumulative_sum = float(last_entry.get("sum") or 0.0)
-                if not self._last_imported_date:
-                    last_start = last_entry.get("start")
-                    if last_start is not None:
-                        self._last_imported_date = datetime.fromtimestamp(
-                            float(last_start), tz=dt_util.UTC
-                        ).isoformat()
+                last_start = last_entry.get("start")
+                if last_start is not None:
+                    last_imported_day = datetime.fromtimestamp(
+                        float(last_start), tz=dt_util.UTC
+                    ).astimezone(dt_util.DEFAULT_TIME_ZONE)
             else:
                 cumulative_sum = 0.0
         except (OSError, ValueError, TypeError):
@@ -181,7 +183,12 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             )
             cumulative_sum = 0.0
 
-        statistics = []
+        # Aggregate readings per local calendar day. The coordinator refetches an
+        # overlapping window, so the same day reappears on consecutive updates;
+        # keying by the normalized local day keeps the import idempotent and stops
+        # the cumulative sum from double-counting a day (which corrupts the daily
+        # value the Energy dashboard derives from consecutive sums).
+        daily_values: dict[datetime, float] = {}
 
         for reading in sorted_readings:
             reading_date = reading.get("startAt")
@@ -190,25 +197,11 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                 continue
 
             try:
-                date_obj = datetime.fromisoformat(reading_date)
-                date_local = date_obj.astimezone(dt_util.DEFAULT_TIME_ZONE)
-                date_normalized = date_local.replace(
-                    hour=0, minute=0, second=0, microsecond=0
+                day = (
+                    datetime.fromisoformat(reading_date)
+                    .astimezone(dt_util.DEFAULT_TIME_ZONE)
+                    .replace(hour=0, minute=0, second=0, microsecond=0)
                 )
-
-                if not statistics:
-                    _LOGGER.debug(
-                        "First reading - original: %s, normalized: %s",
-                        reading_date,
-                        date_normalized.isoformat(),
-                    )
-
-                if (
-                    self._last_imported_date
-                    and reading_date <= self._last_imported_date
-                ):
-                    continue
-
             except (ValueError, TypeError, AttributeError) as e:
                 _LOGGER.warning("Error parsing date %s: %s", reading_date, e)
                 continue
@@ -234,15 +227,43 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                             reading_value = float(value) * tariff_rate
 
             if reading_value > 0:
+                daily_values[day] = reading_value
+
+        days = sorted(daily_values)
+        statistics: list[StatisticData] = []
+
+        # When the fetched days form a contiguous run, rewrite them all with sums
+        # anchored to the point just before the window. async_add_external_statistics
+        # upserts by start, so this self-heals daily bars that an older release
+        # (<= 3.2.5) inflated by double-counting the overlapping refetch window.
+        # A gap in the window (transient partial fetch) means we cannot rewrite
+        # without corrupting untouched neighbours, so we fall back to append-only.
+        contiguous = bool(days) and len(days) == (days[-1] - days[0]).days + 1
+
+        if contiguous:
+            cumulative_sum = await self._async_get_anchor_sum(statistic_id, days[0])
+            for day in days:
+                reading_value = daily_values[day]
+                cumulative_sum += reading_value
+                statistics.append(
+                    StatisticData(start=day, state=reading_value, sum=cumulative_sum)
+                )
+                self._last_imported_date = day.isoformat()
+        else:
+            # Append only days strictly after the last imported one. Comparing
+            # normalized local days (not raw ISO strings whose UTC offsets differ)
+            # is what makes the overlap-safe dedup correct.
+            for day in days:
+                if last_imported_day is not None and day <= last_imported_day:
+                    continue
+
+                reading_value = daily_values[day]
                 cumulative_sum += reading_value
 
-                stat_data = StatisticData(
-                    start=date_normalized,
-                    state=reading_value,
-                    sum=cumulative_sum,
+                statistics.append(
+                    StatisticData(start=day, state=reading_value, sum=cumulative_sum)
                 )
-                statistics.append(stat_data)
-                self._last_imported_date = reading_date
+                self._last_imported_date = day.isoformat()
 
         if not statistics:
             _LOGGER.debug("No new statistics to import for %s", self.entity_id)
@@ -269,7 +290,6 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
         try:
             async_add_external_statistics(self.hass, metadata, statistics)
 
-            self._statistics_imported = True
             _LOGGER.info(
                 "Successfully imported %d statistics for %s (last date: %s)",
                 len(statistics),
@@ -278,6 +298,46 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             )
         except Exception:
             _LOGGER.exception("Failed to import statistics for %s", statistic_id)
+
+    async def _async_get_anchor_sum(
+        self, statistic_id: str, first_day: datetime
+    ) -> float:
+        """Return the cumulative sum of the last statistic strictly before first_day.
+
+        Anchors the rewrite of the rolling window to the correct base so daily bars
+        an older release double-counted self-heal. Returns 0.0 when nothing precedes
+        the window (or on error).
+        """
+        try:
+            rows = await get_instance(self.hass).async_add_executor_job(
+                statistics_during_period,
+                self.hass,
+                first_day - timedelta(days=40),
+                first_day,
+                {statistic_id},
+                "day",
+                None,
+                {"sum"},
+            )
+        except (OSError, ValueError, TypeError):
+            _LOGGER.debug("Could not fetch anchor sum for %s, using 0", statistic_id)
+            return 0.0
+
+        entries = rows.get(statistic_id) if rows else None
+        if not entries:
+            return 0.0
+
+        first_ts = first_day.timestamp()
+        anchor = 0.0
+        anchor_start: float | None = None
+        for row in entries:
+            row_start = row.get("start")
+            if row_start is None or float(row_start) >= first_ts:
+                continue
+            if anchor_start is None or float(row_start) > anchor_start:
+                anchor_start = float(row_start)
+                anchor = float(row.get("sum") or 0.0)
+        return anchor
 
     def _calculate_monthly_subscription(self) -> float:
         """Get the monthly subscription cost from agreements."""
@@ -402,6 +462,19 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                 return 0.0
 
         return round(total, 2)
+
+    @property
+    def last_reset(self) -> datetime | None:
+        """Expose the monthly reset for the current-month total sensors.
+
+        Their native_value restarts at 0 on the 1st; without last_reset the
+        TOTAL statistics engine records the drop as a negative change every
+        month. Surfacing the reset instant makes it treat it as a reset.
+        """
+        key = self._sensor_config.key
+        if key.startswith(("energy_", "cost_")) or key == "subscription":
+            return dt_util.start_of_local_day().replace(day=1)
+        return None
 
     @property
     def native_value(self) -> float | str | None:

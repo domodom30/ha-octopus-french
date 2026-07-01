@@ -172,6 +172,16 @@ query getAccountData($accountNumber: String!, $activeAt: DateTime!) {
                   pricePerUnitWithTaxes
                   validFrom
                   validTo
+                  temporalClass {
+                    ... on ProviderTemporalClassType {
+                      code
+                      label
+                      registerId
+                    }
+                    ... on DistributorTemporalClassType {
+                      code
+                    }
+                  }
                   timeSlots {
                     startAt
                     endAt
@@ -781,12 +791,16 @@ class OctopusFrenchApiClient:
 
         if len(consumption_rates) == 6:
             rates_asc = sorted(consumption_rates, key=lambda x: x["price_ttc"])
+            # La grille Tempo entrelace HC et HP : tous les HC sont moins chers
+            # que tous les HP (ete_hc < hiver_hc < rouge_hc < ete_hp < hiver_hp
+            # < rouge_hp). Grouper les couleurs (…hiver_hp, rouge_hc…) permutait
+            # Hiver HP et Rouge HC quand rouge_hc < hiver_hp (issue #37).
             tempo_keys_fallback = [
                 "tempo_ete_hc",
-                "tempo_ete_hp",
                 "tempo_hiver_hc",
-                "tempo_hiver_hp",
                 "tempo_rouge_hc",
+                "tempo_ete_hp",
+                "tempo_hiver_hp",
                 "tempo_rouge_hp",
             ]
             for key, rate in zip(tempo_keys_fallback, rates_asc, strict=True):

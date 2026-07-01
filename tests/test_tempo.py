@@ -156,19 +156,25 @@ class TestExtractTariffsTempo:
         """Créer un client API factice."""
         return OctopusFrenchApiClient.__new__(OctopusFrenchApiClient)
 
-    def _make_consumption_rates(self, prices: list[float]) -> dict:
-        """Construit une réponse consumptionRates avec les prix indiqués."""
-        edges = [
-            {
-                "node": {
-                    "pricePerUnit": str(int(p * 100)),
-                    "pricePerUnitWithTaxes": str(int(p * 100)),
-                    "currency": "EUR",
-                    "unitType": "kWh",
-                }
+    def _make_consumption_rates(
+        self, prices: list[float], codes: list[str] | None = None
+    ) -> dict:
+        """Construit une réponse consumptionRates avec les prix indiqués.
+
+        Si `codes` est fourni, chaque taux porte un temporalClass.code (mapping
+        fiable par code) ; sinon le fallback par ordre de prix est emprunté.
+        """
+        edges = []
+        for i, p in enumerate(prices):
+            node: dict = {
+                "pricePerUnit": str(p * 100),
+                "pricePerUnitWithTaxes": str(p * 100),
+                "currency": "EUR",
+                "unitType": "kWh",
             }
-            for p in prices
-        ]
+            if codes is not None:
+                node["temporalClass"] = {"code": codes[i]}
+            edges.append({"node": node})
         return {"standingRate": None, "consumptionRates": {"edges": edges}}
 
     def test_six_rates_assigns_tempo_keys(self) -> None:
@@ -185,8 +191,12 @@ class TestExtractTariffsTempo:
         assert "tempo_rouge_hc" in consumption
         assert "tempo_rouge_hp" in consumption
 
-    def test_six_rates_ordered_by_price_ascending(self) -> None:
-        """Les taux Tempo doivent être ordonnés du moins cher au plus cher."""
+    def test_six_rates_fallback_groups_hc_before_hp(self) -> None:
+        """Fallback par prix : tous les HC (moins chers) avant tous les HP.
+
+        La grille Tempo entrelace HC et HP — l'ordre croissant réel est
+        ete_hc < hiver_hc < rouge_hc < ete_hp < hiver_hp < rouge_hp.
+        """
         client = self._make_api_client()
         prices = [0.40, 0.12, 0.60, 0.10, 0.16, 0.14]
         energy_rate = self._make_consumption_rates(prices)
@@ -194,17 +204,42 @@ class TestExtractTariffsTempo:
         consumption = result["consumption"]
 
         ete_hc = consumption["tempo_ete_hc"]["price_ttc"]
-        ete_hp = consumption["tempo_ete_hp"]["price_ttc"]
         hiver_hc = consumption["tempo_hiver_hc"]["price_ttc"]
-        hiver_hp = consumption["tempo_hiver_hp"]["price_ttc"]
         rouge_hc = consumption["tempo_rouge_hc"]["price_ttc"]
+        ete_hp = consumption["tempo_ete_hp"]["price_ttc"]
+        hiver_hp = consumption["tempo_hiver_hp"]["price_ttc"]
         rouge_hp = consumption["tempo_rouge_hp"]["price_ttc"]
 
-        assert ete_hc <= ete_hp
-        assert ete_hp <= hiver_hc
-        assert hiver_hc <= hiver_hp
-        assert hiver_hp <= rouge_hc
-        assert rouge_hc <= rouge_hp
+        assert ete_hc <= hiver_hc <= rouge_hc <= ete_hp <= hiver_hp <= rouge_hp
+
+    def test_fallback_does_not_swap_hiver_hp_and_rouge_hc(self) -> None:
+        """Non-régression issue #37 : Rouge HC moins cher que Hiver HP.
+
+        Le fallback ne doit pas permuter ces deux taux quand rouge_hc < hiver_hp.
+        Grille réaliste (€/kWh TTC) : ete_hc < hiver_hc < rouge_hc < ete_hp <
+        hiver_hp < rouge_hp.
+        """
+        client = self._make_api_client()
+        prices = [0.1296, 0.1486, 0.1575, 0.1609, 0.1871, 0.7562]
+        energy_rate = self._make_consumption_rates(prices)
+        consumption = client._extract_tariffs(energy_rate)["consumption"]
+
+        assert consumption["tempo_hiver_hp"]["price_ttc"] == pytest.approx(0.1871)
+        assert consumption["tempo_rouge_hc"]["price_ttc"] == pytest.approx(0.1575)
+
+    def test_mapping_by_temporal_class_code_ignores_price_order(self) -> None:
+        """Avec temporalClass.code, l'affectation est déterministe (pas par prix)."""
+        client = self._make_api_client()
+        # Prix volontairement dans le désordre ; les codes font foi.
+        prices = [0.1871, 0.1575, 0.1296, 0.7562, 0.1486, 0.1609]
+        codes = ["HPHI", "HCP", "HCE", "HPP", "HCHI", "HPE"]
+        energy_rate = self._make_consumption_rates(prices, codes=codes)
+        consumption = client._extract_tariffs(energy_rate)["consumption"]
+
+        assert consumption["tempo_hiver_hp"]["price_ttc"] == pytest.approx(0.1871)
+        assert consumption["tempo_rouge_hc"]["price_ttc"] == pytest.approx(0.1575)
+        assert consumption["tempo_ete_hc"]["price_ttc"] == pytest.approx(0.1296)
+        assert consumption["tempo_rouge_hp"]["price_ttc"] == pytest.approx(0.7562)
 
     def test_two_rates_does_not_create_tempo_keys(self) -> None:
         """Avec 2 taux, aucune clé Tempo ne doit être créée (offre HP/HC classique)."""
