@@ -73,7 +73,15 @@ jobs:
         run: |
           VERSION="${{ steps.get_version.outputs.version }}"
           if [ -f CHANGELOG.md ]; then
-            awk "/^## \[$VERSION\]/,/^## \[/ {if (/^## \[$VERSION\]/) print; else if (/^## \[/) exit; else print}" CHANGELOG.md > release_notes.md
+            awk -v ver="$VERSION" '
+              index($0, "## [" ver "]") == 1 { inrange=1; print; next }
+              inrange && /^## \[/ { exit }
+              inrange { print }
+            ' CHANGELOG.md > release_notes.md
+            # retirer les lignes vides de fin puis un éventuel séparateur "---" final
+            sed -i -e :a -e '/^[[:space:]]*$/{$d;N;ba}' release_notes.md
+            sed -i -e '$ { /^---$/d }' release_notes.md
+            sed -i -e :a -e '/^[[:space:]]*$/{$d;N;ba}' release_notes.md
             if [ -s release_notes.md ]; then
               echo "notes<<EOF" >> $GITHUB_OUTPUT
               cat release_notes.md >> $GITHUB_OUTPUT
