@@ -1,0 +1,65 @@
+name: Demande de fonctionnalité
+description: Proposez une nouvelle fonctionnalité ou une amélioration
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci de proposer une amélioration pour l'intégration.
+
+        Avant de continuer, vérifiez que votre idée n'a pas déjà été proposée dans les [issues existantes](https://github.com/domodom30/ha-octopus-french/issues).
+
+  - type: dropdown
+    id: perimetre
+    attributes:
+      label: Périmètre concerné
+      description: Quelle partie de l'intégration votre demande concerne-t-elle ?
+      options:
+        - Électricité (Linky)
+        - Gaz (Gazpar)
+        - Recharge Intelligente (VE / Octopus Intelligent)
+        - Compte / Factures / Cagnotte
+        - Autre (préciser ci-dessous)
+    validations:
+      required: true
+
+  - type: textarea
+    id: probleme
+    attributes:
+      label: Problème / besoin
+      description: Décrivez le problème ou le besoin que cette fonctionnalité résoudrait.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solution souhaitée
+      description: Décrivez la fonctionnalité ou le comportement que vous aimeriez voir.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives envisagées
+      description: Décrivez les solutions ou contournements que vous avez déjà envisagés.
+    validations:
+      required: false
+
+  - type: textarea
+    id: contexte
+    attributes:
+      label: Contexte additionnel
+      description: Ajoutez tout autre élément utile (captures d'écran, liens vers l'API Octopus, exemples, etc.).
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: J'ai cherché dans les issues existantes
+          required: true

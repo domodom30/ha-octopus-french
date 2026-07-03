@@ -1,0 +1,137 @@
+name: Rapport de bug / Problème
+description: Signalez un bug ou un problème avec l'intégration
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci de remplir ce formulaire. Les informations demandées sont **obligatoires** pour une aide rapide et optimale.
+
+        Avant de continuer :
+        - 🔎 Vérifiez que votre problème n'a pas déjà été signalé dans les [issues existantes](https://github.com/domodom30/ha-octopus-french/issues).
+        - 🔒 **Masquez vos données personnelles** dans les logs et captures (adresse e-mail, numéro de compte, jetons/tokens d'authentification).
+
+  - type: input
+    id: ha_version
+    attributes:
+      label: Version de Home Assistant
+      description: Quelle version de Home Assistant utilisez-vous ? (ex. 2025.6.0)
+      placeholder: 2025.6.0
+    validations:
+      required: true
+
+  - type: input
+    id: integration_version
+    attributes:
+      label: Version de l'intégration ha-octopus-french
+      description: Quelle version de l'intégration utilisez-vous ? (visible dans HACS ou en bas de la page de l'intégration)
+      placeholder: v3.3.2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: perimetre
+    attributes:
+      label: Périmètre concerné
+      description: Quelle partie de l'intégration est concernée par le problème ?
+      options:
+        - Électricité (Linky)
+        - Gaz (Gazpar)
+        - Recharge Intelligente (VE / Octopus Intelligent)
+        - Compte / Factures / Cagnotte
+        - Autre (préciser ci-dessous)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: contrat_type
+    attributes:
+      label: Type de contrat Octopus
+      description: Quel est votre type de contrat ?
+      options:
+        - FLEX (ou équivalent)
+        - TEMPO / OCTOFLEX
+        - AGILE (ou équivalent)
+        - GO (ou équivalent)
+        - INTELLIGENT (ou équivalent)
+        - Autre (préciser ci-dessous)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Comportement observé
+      description: Décrivez clairement le problème rencontré.
+      placeholder:
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportement attendu
+      description: Décrivez ce que vous vous attendiez à voir se produire.
+      placeholder:
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Étapes pour reproduire
+      description: Listez les étapes permettant de reproduire le problème.
+      placeholder: |
+        1. Aller dans...
+        2. Cliquer sur...
+        3. Observer...
+    validations:
+      required: false
+
+  - type: textarea
+    id: entites
+    attributes:
+      label: Entités / capteurs concernés
+      description: Indiquez les entités ou capteurs impactés, si vous les connaissez.
+      placeholder: sensor.octopus_...
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Traces
+      description: |
+        Collez ici les logs pertinents. Pour activer les logs de debug, ajoutez ceci à votre `configuration.yaml` :
+
+        ```yaml
+        logger:
+          logs:
+            custom_components.octopus_french: debug
+        ```
+
+        Redémarrez Home Assistant (ou rechargez l'intégration), reproduisez le problème, puis récupérez les logs.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostic (optionnel)
+      description: Si possible, joignez le fichier de diagnostic de l'intégration (Paramètres → Appareils et services → Octopus Energy French → ⋮ → Télécharger le diagnostic). Pensez à masquer les données sensibles.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: J'ai vérifié que je suis sur la dernière version de l'intégration
+          required: true
+        - label: J'ai cherché dans les issues existantes
+          required: true
+        - label: J'ai masqué mes données personnelles (e-mail, numéro de compte, jetons)
+          required: true
