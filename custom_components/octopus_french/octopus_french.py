@@ -1048,9 +1048,13 @@ class OctopusFrenchApiClient:
                     period_end = node.get("periodEndAt")
 
             elif effective_code:
-                _LOGGER.warning(
-                    "Code temporalClass inconnu dans electricityReading: '%s' "
-                    "(calendarTempClass='%s') — mettez à jour _TEMPORAL_CLASS_TO_KEY",
+                # Valeur non standard renvoyée par l'API (ex. 'P1'/'P2', issue
+                # #48) : ne correspond à aucune classe tarifaire connue et n'est
+                # pas exploitable. Simple trace de debug, aucune action possible
+                # côté intégration.
+                _LOGGER.debug(
+                    "electricityReading: classe temporelle non standard ignorée "
+                    "(temporalClass.code='%s', calendarTempClass='%s')",
                     tc_code,
                     temp_class,
                 )

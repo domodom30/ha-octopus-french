@@ -1,3 +1,10 @@
+## [3.3.2] - 2026-07-03
+
+### 🐛 Correction — Avertissement pour des classes temporelles non standard (issue #48)
+
+Chez certains utilisateurs, l'API Octopus renvoie sur des `electricityReading` des valeurs de `calendarTempClass` non standard (ex. `'P1'` / `'P2'`) qui ne correspondent à **aucune classe tarifaire réelle** (un HP/HC normal renvoie `HP` / `HC`). Le journal se remplissait alors de messages `Code temporalClass inconnu … — mettez à jour _TEMPORAL_CLASS_TO_KEY`.
+
+---
 
 ## [3.3.1] - 2026-07-01
 
