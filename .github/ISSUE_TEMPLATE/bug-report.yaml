@@ -50,12 +50,11 @@ body:
       label: Type de contrat Octopus
       description: Quel est votre type de contrat ?
       options:
-        - FLEX (ou équivalent)
+        - BASE
+        - HP/HC
         - TEMPO / OCTOFLEX
-        - AGILE (ou équivalent)
-        - GO (ou équivalent)
-        - INTELLIGENT (ou équivalent)
-        - Autre (préciser ci-dessous)
+        - Autre...
+
     validations:
       required: true
 

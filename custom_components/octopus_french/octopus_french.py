@@ -783,10 +783,6 @@ class OctopusFrenchApiClient:
 
         if len(consumption_rates) == 6:
             rates_asc = sorted(consumption_rates, key=lambda x: x["price_ttc"])
-            # La grille Tempo entrelace HC et HP : tous les HC sont moins chers
-            # que tous les HP (ete_hc < hiver_hc < rouge_hc < ete_hp < hiver_hp
-            # < rouge_hp). Grouper les couleurs (…hiver_hp, rouge_hc…) permutait
-            # Hiver HP et Rouge HC quand rouge_hc < hiver_hp (issue #37).
             tempo_keys_fallback = [
                 "tempo_ete_hc",
                 "tempo_hiver_hc",
@@ -1039,7 +1035,9 @@ class OctopusFrenchApiClient:
                 color = self._CALENDAR_COLOR_TO_COLOR[effective_code]
                 node_date = node.get("periodStartAt", "")[:10]
                 color_key = (
-                    "tempo_color_tomorrow" if node_date == tomorrow_str else "tempo_color"
+                    "tempo_color_tomorrow"
+                    if node_date == tomorrow_str
+                    else "tempo_color"
                 )
                 index_data.setdefault(color_key, color)
 
@@ -1048,10 +1046,6 @@ class OctopusFrenchApiClient:
                     period_end = node.get("periodEndAt")
 
             elif effective_code:
-                # Valeur non standard renvoyée par l'API (ex. 'P1'/'P2', issue
-                # #48) : ne correspond à aucune classe tarifaire connue et n'est
-                # pas exploitable. Simple trace de debug, aucune action possible
-                # côté intégration.
                 _LOGGER.debug(
                     "electricityReading: classe temporelle non standard ignorée "
                     "(temporalClass.code='%s', calendarTempClass='%s')",

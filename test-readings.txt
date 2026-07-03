@@ -1,0 +1,333 @@
+🔍  Recherche de la propriété pour le PRM 12345678901234...
+    → Propriété trouvée : 123456
+📥  Récupération des relevés (7 derniers jours)...
+{
+  "readings": [
+    {
+      "__typename": "IntervalMeasurementType",
+      "value": "4.74400000000000000",
+      "startAt": "2026-06-16T00:00:00+02:00",
+      "metaData": {
+        "statistics": [
+          {
+            "costInclTax": {
+              "estimatedAmount": "40.42299",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HCE_0.0_37.0",
+            "value": "3.499"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "0",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HCHI_0.0_37.0",
+            "value": "0"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "0",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HCP_0.0_37.0",
+            "value": "0"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "17.32414",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
+            "value": "1.245"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "0",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HPHI_0.0_37.0",
+            "value": "0"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "0",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0",
+            "value": "0"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "56.01471",
+              "costCurrency": "EUR"
+            },
+            "label": "ABONNEMENT",
+            "value": null
+          }
+        ]
+      }
+    },
+    {
+      "__typename": "IntervalMeasurementType",
+      "value": "5.44600000000000000",
+      "startAt": "2026-06-17T00:00:00+02:00",
+      "metaData": {
+        "statistics": [
+          {
+            "costInclTax": {
+              "estimatedAmount": "44.75402",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HCE_0.0_37.0",
+            "value": "3.872"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "0",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HCHI_0.0_37.0",
+            "value": "0"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "0",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HCP_0.0_37.0",
+            "value": "0"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "23.09885",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
+            "value": "1.574"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "0",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HPHI_0.0_37.0",
+            "value": "0"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "0",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0",
+            "value": "0"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "56.01471",
+              "costCurrency": "EUR"
+            },
+            "label": "ABONNEMENT",
+            "value": null
+          }
+        ]
+      }
+    },
+    {
+      "__typename": "IntervalMeasurementType",
+      "value": "5.09600000000000000",
+      "startAt": "2026-06-18T00:00:00+02:00",
+      "metaData": {
+        "statistics": [
+          {
+            "costInclTax": {
+              "estimatedAmount": "44.75402",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HCE_0.0_37.0",
+            "value": "3.94"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "0",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HCHI_0.0_37.0",
+            "value": "0"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "0",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HCP_0.0_37.0",
+            "value": "0"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "17.32414",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
+            "value": "1.156"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "0",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HPHI_0.0_37.0",
+            "value": "0"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "0",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0",
+            "value": "0"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "56.01471",
+              "costCurrency": "EUR"
+            },
+            "label": "ABONNEMENT",
+            "value": null
+          }
+        ]
+      }
+    },
+    {
+      "__typename": "IntervalMeasurementType",
+      "value": "5.64700000000000000",
+      "startAt": "2026-06-19T00:00:00+02:00",
+      "metaData": {
+        "statistics": [
+          {
+            "costInclTax": {
+              "estimatedAmount": "46.1977",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HCE_0.0_37.0",
+            "value": "4.026"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "0",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HCHI_0.0_37.0",
+            "value": "0"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "0",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HCP_0.0_37.0",
+            "value": "0"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "23.09885",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
+            "value": "1.621"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "0",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HPHI_0.0_37.0",
+            "value": "0"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "0",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0",
+            "value": "0"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "56.01471",
+              "costCurrency": "EUR"
+            },
+            "label": "ABONNEMENT",
+            "value": null
+          }
+        ]
+      }
+    },
+    {
+      "__typename": "IntervalMeasurementType",
+      "value": "7.45800000000000000",
+      "startAt": "2026-06-20T00:00:00+02:00",
+      "metaData": {
+        "statistics": [
+          {
+            "costInclTax": {
+              "estimatedAmount": "70.74023",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HCE_0.0_37.0",
+            "value": "6.093"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "0",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HCHI_0.0_37.0",
+            "value": "0"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "0",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HCP_0.0_37.0",
+            "value": "0"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "20.21149",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
+            "value": "1.365"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "0",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HPHI_0.0_37.0",
+            "value": "0"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "0",
+              "costCurrency": "EUR"
+            },
+            "label": "CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0",
+            "value": "0"
+          },
+          {
+            "costInclTax": {
+              "estimatedAmount": "56.01471",
+              "costCurrency": "EUR"
+            },
+            "label": "ABONNEMENT",
+            "value": null
+          }
+        ]
+      }
+    }
+  ],
+  "count": 5
+}
