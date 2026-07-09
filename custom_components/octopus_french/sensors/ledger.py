@@ -1,7 +1,5 @@
 """Ledger sensor entity for Octopus Energy France."""
 
-from __future__ import annotations
-
 import logging
 from typing import Any
 
@@ -40,7 +38,9 @@ class OctopusLedgerSensor(CoordinatorEntity, SensorEntity):
         self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, account_number)})
 
         if sensor_config.suggested_display_precision is not None:
-            self._attr_suggested_display_precision = sensor_config.suggested_display_precision
+            self._attr_suggested_display_precision = (
+                sensor_config.suggested_display_precision
+            )
 
     @property
     def native_value(self) -> float | None:

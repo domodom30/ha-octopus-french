@@ -1,7 +1,5 @@
 """The Octopus French Energy integration."""
 
-from __future__ import annotations
-
 from contextlib import suppress
 from dataclasses import dataclass, field
 import logging
@@ -19,7 +17,7 @@ from homeassistant.helpers.typing import ConfigType
 from .const import DOMAIN, SERVICE_FORCE_UPDATE
 from .coordinator import OctopusFrenchDataUpdateCoordinator
 from .coordinator_intelligent import OctopusIntelligentDataUpdateCoordinator
-from .octopus_french import OctopusFrenchApiClient
+from .octopus_french import OctopusConnectionError, OctopusFrenchApiClient
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -92,7 +90,7 @@ async def async_setup_entry(
     await _async_fetch_initial_data(coordinator)
 
     intelligent_coordinator = await _async_setup_intelligent_coordinator(
-        hass, api_client, account_number
+        hass, api_client, account_number, entry
     )
 
     entry.runtime_data = OctopusFrenchRuntimeData(
@@ -120,6 +118,7 @@ async def _async_setup_intelligent_coordinator(
     hass: HomeAssistant,
     api_client: OctopusFrenchApiClient,
     account_number: str,
+    entry: OctopusFrenchConfigEntry,
 ) -> OctopusIntelligentDataUpdateCoordinator | None:
     """Set up the Intelligent coordinator, returns None if not available."""
     try:
@@ -127,6 +126,7 @@ async def _async_setup_intelligent_coordinator(
             hass=hass,
             api_client=api_client,
             account_number=account_number,
+            config_entry=entry,
         )
         await coordinator.async_config_entry_first_refresh()
         if not coordinator.data.get("devices"):
@@ -152,7 +152,7 @@ async def _async_get_account_number(
     api_client: OctopusFrenchApiClient, configured_account: str
 ) -> str:
     """Get and validate account number."""
-    with suppress(Exception):
+    with suppress(OctopusConnectionError, KeyError, IndexError, TypeError):
         accounts = await api_client.get_accounts()
         if not accounts:
             return configured_account or ""

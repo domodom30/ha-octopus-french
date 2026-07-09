@@ -2,6 +2,7 @@
 
 from unittest.mock import AsyncMock, MagicMock
 
+from homeassistant.exceptions import HomeAssistantError
 import pytest
 
 from custom_components.octopus_french.coordinator_intelligent import OctopusIntelligentDataUpdateCoordinator
@@ -77,7 +78,8 @@ async def test_bump_charge_switch_on_refused(bump_charge_switch, mock_coordinato
         ["BC_DEVICE_FULLY_CHARGED"],
     )
 
-    await bump_charge_switch.async_turn_on()
+    with pytest.raises(HomeAssistantError):
+        await bump_charge_switch.async_turn_on()
 
     mock_coordinator.intelligent_client.trigger_boost_charge.assert_called_once_with("abc-123")
     mock_coordinator.async_refresh_devices.assert_not_called()
@@ -91,7 +93,8 @@ async def test_bump_charge_switch_off_refused(bump_charge_switch, mock_coordinat
         ["BC_NO_ACTIVE_BOOST"],
     )
 
-    await bump_charge_switch.async_turn_off()
+    with pytest.raises(HomeAssistantError):
+        await bump_charge_switch.async_turn_off()
 
     mock_coordinator.intelligent_client.cancel_boost_charge.assert_called_once_with("abc-123")
     mock_coordinator.async_refresh_devices.assert_not_called()

@@ -1,7 +1,5 @@
 """Electricity sensor entities for Octopus Energy France."""
 
-from __future__ import annotations
-
 from datetime import datetime, timedelta
 import logging
 from typing import Any
@@ -26,6 +24,7 @@ from ..coordinator import OctopusFrenchDataUpdateCoordinator
 from ..utils import (
     find_contract_hc_slots,
     normalize_consumption_label,
+    normalize_provider_calendar,
     parse_off_peak_hours,
     parse_time_slots,
 )
@@ -34,15 +33,15 @@ from .descriptions import OctopusIndexSensorDescription
 _LOGGER = logging.getLogger(__name__)
 
 _COST_TO_CONSUMPTION_LABEL: dict[str, str] = {
-    "cost_base":            "BASE",
-    "cost_peak_hours":      "HEURES_PLEINES",
-    "cost_off_peak_hours":  "HEURES_CREUSES",
-    "cost_tempo_ete_hp":    "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
-    "cost_tempo_ete_hc":    "CONSUMPTION_OCTOFLEX_4_V4_HCE_0.0_37.0",
-    "cost_tempo_hiver_hp":  "CONSUMPTION_OCTOFLEX_4_V4_HPHI_0.0_37.0",
-    "cost_tempo_hiver_hc":  "CONSUMPTION_OCTOFLEX_4_V4_HCHI_0.0_37.0",
-    "cost_tempo_rouge_hp":  "CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0",
-    "cost_tempo_rouge_hc":  "CONSUMPTION_OCTOFLEX_4_V4_HCP_0.0_37.0",
+    "cost_base": "BASE",
+    "cost_peak_hours": "HEURES_PLEINES",
+    "cost_off_peak_hours": "HEURES_CREUSES",
+    "cost_tempo_ete_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
+    "cost_tempo_ete_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCE_0.0_37.0",
+    "cost_tempo_hiver_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPHI_0.0_37.0",
+    "cost_tempo_hiver_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCHI_0.0_37.0",
+    "cost_tempo_rouge_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0",
+    "cost_tempo_rouge_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCP_0.0_37.0",
 }
 
 
@@ -85,13 +84,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             self.hass.async_create_task(self._async_import_statistics())
 
     def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator.
-
-        Runs the (idempotent) statistics import on every update so that the daily
-        readings Enedis publishes with a 2-3 day lag are picked up without needing
-        an integration reload; get_last_statistics + the per-day dedup make replays
-        safe.
-        """
+        """Handle updated data from the coordinator."""
         if self.entity_id and self._sensor_config.key.startswith(("energy_", "cost_")):
             self.hass.async_create_task(self._async_import_statistics())
 
@@ -99,8 +92,6 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
 
     async def _async_import_statistics(self) -> None:
         """Import statistics with correct dates from readings."""
-        # Overlapping coordinator updates could otherwise spawn concurrent imports
-        # that race on the non-atomic get_last_statistics/add pair and double-count.
         if self._import_in_progress:
             return
         self._import_in_progress = True
@@ -144,8 +135,8 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             "energy_base": "BASE",
             "energy_peak_hours": "HEURES_PLEINES",
             "energy_off_peak_hours": "HEURES_CREUSES",
-            "energy_tempo_ete_hp":   "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
-            "energy_tempo_ete_hc":   "CONSUMPTION_OCTOFLEX_4_V4_HCE_0.0_37.0",
+            "energy_tempo_ete_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
+            "energy_tempo_ete_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCE_0.0_37.0",
             "energy_tempo_hiver_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPHI_0.0_37.0",
             "energy_tempo_hiver_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCHI_0.0_37.0",
             "energy_tempo_rouge_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0",
@@ -176,18 +167,13 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                     ).astimezone(dt_util.DEFAULT_TIME_ZONE)
             else:
                 cumulative_sum = 0.0
-        except (OSError, ValueError, TypeError):
+        except OSError, ValueError, TypeError:
             _LOGGER.debug(
                 "Could not fetch last statistics for %s, starting sum at 0",
                 statistic_id,
             )
             cumulative_sum = 0.0
 
-        # Aggregate readings per local calendar day. The coordinator refetches an
-        # overlapping window, so the same day reappears on consecutive updates;
-        # keying by the normalized local day keeps the import idempotent and stops
-        # the cumulative sum from double-counting a day (which corrupts the daily
-        # value the Energy dashboard derives from consecutive sums).
         daily_values: dict[datetime, float] = {}
 
         for reading in sorted_readings:
@@ -232,12 +218,6 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
         days = sorted(daily_values)
         statistics: list[StatisticData] = []
 
-        # When the fetched days form a contiguous run, rewrite them all with sums
-        # anchored to the point just before the window. async_add_external_statistics
-        # upserts by start, so this self-heals daily bars that an older release
-        # (<= 3.2.5) inflated by double-counting the overlapping refetch window.
-        # A gap in the window (transient partial fetch) means we cannot rewrite
-        # without corrupting untouched neighbours, so we fall back to append-only.
         contiguous = bool(days) and len(days) == (days[-1] - days[0]).days + 1
 
         if contiguous:
@@ -250,9 +230,6 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                 )
                 self._last_imported_date = day.isoformat()
         else:
-            # Append only days strictly after the last imported one. Comparing
-            # normalized local days (not raw ISO strings whose UTC offsets differ)
-            # is what makes the overlap-safe dedup correct.
             for day in days:
                 if last_imported_day is not None and day <= last_imported_day:
                     continue
@@ -302,12 +279,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
     async def _async_get_anchor_sum(
         self, statistic_id: str, first_day: datetime
     ) -> float:
-        """Return the cumulative sum of the last statistic strictly before first_day.
-
-        Anchors the rewrite of the rolling window to the correct base so daily bars
-        an older release double-counted self-heal. Returns 0.0 when nothing precedes
-        the window (or on error).
-        """
+        """Return the cumulative sum of the last statistic strictly before first_day."""
         try:
             rows = await get_instance(self.hass).async_add_executor_job(
                 statistics_during_period,
@@ -319,7 +291,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                 None,
                 {"sum"},
             )
-        except (OSError, ValueError, TypeError):
+        except OSError, ValueError, TypeError:
             _LOGGER.debug("Could not fetch anchor sum for %s, using 0", statistic_id)
             return 0.0
 
@@ -410,14 +382,13 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             "energy_base": "BASE",
             "energy_peak_hours": "HEURES_PLEINES",
             "energy_off_peak_hours": "HEURES_CREUSES",
-            "energy_tempo_ete_hp":   "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
-            "energy_tempo_ete_hc":   "CONSUMPTION_OCTOFLEX_4_V4_HCE_0.0_37.0",
+            "energy_tempo_ete_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
+            "energy_tempo_ete_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCE_0.0_37.0",
             "energy_tempo_hiver_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPHI_0.0_37.0",
             "energy_tempo_hiver_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCHI_0.0_37.0",
             "energy_tempo_rouge_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0",
             "energy_tempo_rouge_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCP_0.0_37.0",
         }
-
 
         for reading in sorted_readings:
             reading_date = reading.get("startAt")
@@ -465,12 +436,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
 
     @property
     def last_reset(self) -> datetime | None:
-        """Expose the monthly reset for the current-month total sensors.
-
-        Their native_value restarts at 0 on the 1st; without last_reset the
-        TOTAL statistics engine records the drop as a negative change every
-        month. Surfacing the reset instant makes it treat it as a reset.
-        """
+        """Expose the monthly reset for the current-month total sensors."""
         key = self._sensor_config.key
         if key.startswith(("energy_", "cost_")) or key == "subscription":
             return dt_util.start_of_local_day().replace(day=1)
@@ -617,8 +583,8 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
 
         if key.startswith("rate_"):
             _TEMPO_RATE_KEY_MAP: dict[str, str] = {
-                "rate_tempo_ete_hp":   "tempo_ete_hp",
-                "rate_tempo_ete_hc":   "tempo_ete_hc",
+                "rate_tempo_ete_hp": "tempo_ete_hp",
+                "rate_tempo_ete_hc": "tempo_ete_hc",
                 "rate_tempo_hiver_hp": "tempo_hiver_hp",
                 "rate_tempo_hiver_hc": "tempo_hiver_hc",
                 "rate_tempo_rouge_hp": "tempo_rouge_hp",
@@ -675,10 +641,10 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
         key = self._sensor_config.key
 
         _TEMPO_RATE_KEY_MAP: dict[str, str] = {
-            "rate_tempo_ete_hp":   "tempo_ete_hp",
-            "cost_tempo_ete_hp":   "tempo_ete_hp",
-            "rate_tempo_ete_hc":   "tempo_ete_hc",
-            "cost_tempo_ete_hc":   "tempo_ete_hc",
+            "rate_tempo_ete_hp": "tempo_ete_hp",
+            "cost_tempo_ete_hp": "tempo_ete_hp",
+            "rate_tempo_ete_hc": "tempo_ete_hc",
+            "cost_tempo_ete_hc": "tempo_ete_hc",
             "rate_tempo_hiver_hp": "tempo_hiver_hp",
             "cost_tempo_hiver_hp": "tempo_hiver_hp",
             "rate_tempo_hiver_hc": "tempo_hiver_hc",
@@ -735,15 +701,15 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
         value = meter.get("subscribedMaxPower")
         try:
             return float(value) if value is not None else None
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return None
 
     def _get_contract_type(self) -> str:
-        """Get a human-readable contract status."""
+        """Retourne la famille de tarif lisible (BASE/HPHC/TEMPO)."""
         meter = self._get_meter_data()
         if not meter:
             return "Inconnu"
-        return meter.get("providerCalendar", {}).get("id", "Inconnu")
+        return normalize_provider_calendar(meter)
 
 
 class OctopusLatestReadingSensor(CoordinatorEntity, SensorEntity):
@@ -770,7 +736,9 @@ class OctopusLatestReadingSensor(CoordinatorEntity, SensorEntity):
         self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, prm_id)})
 
         if sensor_config.suggested_display_precision is not None:
-            self._attr_suggested_display_precision = sensor_config.suggested_display_precision
+            self._attr_suggested_display_precision = (
+                sensor_config.suggested_display_precision
+            )
 
     @property
     def native_value(self) -> float | None:
@@ -818,9 +786,12 @@ class OctopusLatestReadingSensor(CoordinatorEntity, SensorEntity):
                     else None
                 )
             elif label in (
-                "TEMPO_ETE_HP", "TEMPO_ETE_HC",
-                "TEMPO_HIVER_HP", "TEMPO_HIVER_HC",
-                "TEMPO_ROUGE_HP", "TEMPO_ROUGE_HC",
+                "TEMPO_ETE_HP",
+                "TEMPO_ETE_HC",
+                "TEMPO_HIVER_HP",
+                "TEMPO_HIVER_HC",
+                "TEMPO_ROUGE_HP",
+                "TEMPO_ROUGE_HC",
             ):
                 attributes[label.lower()] = float(value) if value else None
 
@@ -851,8 +822,8 @@ class OctopusLatestReadingSensor(CoordinatorEntity, SensorEntity):
                     break
 
         _TEMPO_ATTR_TO_RATE_KEY: dict[str, str] = {
-            "tempo_ete_hp":   "tempo_ete_hp",
-            "tempo_ete_hc":   "tempo_ete_hc",
+            "tempo_ete_hp": "tempo_ete_hp",
+            "tempo_ete_hc": "tempo_ete_hc",
             "tempo_hiver_hp": "tempo_hiver_hp",
             "tempo_hiver_hc": "tempo_hiver_hc",
             "tempo_rouge_hp": "tempo_rouge_hp",
@@ -900,7 +871,9 @@ class OctopusElectricityIndexSensor(CoordinatorEntity, SensorEntity):
         self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, prm_id)})
 
         if sensor_config.suggested_display_precision is not None:
-            self._attr_suggested_display_precision = sensor_config.suggested_display_precision
+            self._attr_suggested_display_precision = (
+                sensor_config.suggested_display_precision
+            )
 
     @property
     def native_value(self) -> float | None:
@@ -944,12 +917,7 @@ class OctopusElectricityIndexSensor(CoordinatorEntity, SensorEntity):
 
 
 class OctopusTempoColorSensor(CoordinatorEntity, SensorEntity):
-    """Capteur indiquant la couleur Tempo (Bleu/Blanc/Rouge) d'aujourd'hui ou de demain.
-
-    `is_tomorrow=False` (défaut) → couleur du jour depuis `index["tempo_color"]`.
-    `is_tomorrow=True`           → couleur de demain depuis `index["tempo_color_tomorrow"]`
-                                   (disponible après ~11h quand RTE publie le calendrier).
-    """
+    """Capteur indiquant la couleur Tempo (Bleu/Blanc/Rouge) d'aujourd'hui ou de demain."""
 
     def __init__(
         self,
@@ -993,7 +961,9 @@ class OctopusTempoColorSensor(CoordinatorEntity, SensorEntity):
     @property
     def available(self) -> bool:
         """Return True only when coordinator data is fresh (and tomorrow's color is known)."""
-        if not (self.coordinator.last_update_success and self.coordinator.data is not None):
+        if not (
+            self.coordinator.last_update_success and self.coordinator.data is not None
+        ):
             return False
         if self._is_tomorrow:
             index_data = self.coordinator.data.get("electricity", {}).get("index") or {}
@@ -1002,13 +972,7 @@ class OctopusTempoColorSensor(CoordinatorEntity, SensorEntity):
 
 
 class OctopusTempoCurrentRateSensor(CoordinatorEntity, SensorEntity):
-    """Capteur dynamique : tarif OctoTempo actif en ce moment (€/kWh).
-
-    Combine la couleur du jour (BLEU/BLANC/ROUGE) et la période HC/HP courante
-    pour retourner le prix TTC applicable à l'instant présent.
-    Mis à jour chaque minute via async_track_time_change.
-    Sans schedule HC disponible, la période HP est assumée par défaut.
-    """
+    """Capteur dynamique : tarif OctoTempo actif en ce moment (€/kWh)."""
 
     def __init__(
         self,
@@ -1026,7 +990,9 @@ class OctopusTempoCurrentRateSensor(CoordinatorEntity, SensorEntity):
         self._attr_icon = sensor_config.icon
         self._attr_device_class = sensor_config.device_class
         self._attr_native_unit_of_measurement = sensor_config.native_unit_of_measurement
-        self._attr_suggested_display_precision = sensor_config.suggested_display_precision
+        self._attr_suggested_display_precision = (
+            sensor_config.suggested_display_precision
+        )
         self._attr_entity_category = sensor_config.entity_category
         self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, prm_id)})
 
@@ -1107,7 +1073,7 @@ class OctopusTempoCurrentRateSensor(CoordinatorEntity, SensorEntity):
             start_min = int(sh) * 60 + int(sm)
             end_min = int(eh) * 60 + int(em)
             cur_min = current_time.hour * 60 + current_time.minute
-        except (ValueError, IndexError):
+        except ValueError, IndexError:
             return False
 
         if end_min <= start_min:

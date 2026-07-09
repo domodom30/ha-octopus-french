@@ -1,33 +1,28 @@
 """Switches for Octopus Intelligent features."""
 
-from __future__ import annotations
-
-import logging
 from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from . import OctopusFrenchConfigEntry
 from .const import DOMAIN
 from .coordinator_intelligent import OctopusIntelligentDataUpdateCoordinator
-
-_LOGGER = logging.getLogger(__name__)
 
 PARALLEL_UPDATES = 0
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: Any,
+    config_entry: OctopusFrenchConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the switches."""
-    coordinator: OctopusIntelligentDataUpdateCoordinator = (
-        config_entry.runtime_data.intelligent_coordinator
-    )
+    coordinator = config_entry.runtime_data.intelligent_coordinator
 
     if coordinator is None:
         return
@@ -98,13 +93,12 @@ class OctopusIntelligentBumpChargeSwitch(CoordinatorEntity, SwitchEntity):
         )
         self.coordinator.data["boost_refusal_reasons"] = refusal_reasons
         if refusal_reasons and refusal_reasons != ["BC_BOOST_CHARGE_IN_PROGRESS"]:
-            _LOGGER.warning(
-                "Boost charge refused for device %s: %s",
-                self._device_id,
-                ", ".join(refusal_reasons),
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="boost_charge_refused",
+                translation_placeholders={"reasons": ", ".join(refusal_reasons)},
             )
-        else:
-            await self.coordinator.async_refresh_devices()
+        await self.coordinator.async_refresh_devices()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
@@ -112,11 +106,10 @@ class OctopusIntelligentBumpChargeSwitch(CoordinatorEntity, SwitchEntity):
             self._device_id
         )
         self.coordinator.data["boost_refusal_reasons"] = refusal_reasons
-        if not refusal_reasons:
-            await self.coordinator.async_refresh_devices()
-        else:
-            _LOGGER.warning(
-                "Cancel boost charge for device %s: %s",
-                self._device_id,
-                ", ".join(refusal_reasons),
+        if refusal_reasons:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="cancel_boost_charge_failed",
+                translation_placeholders={"reasons": ", ".join(refusal_reasons)},
             )
+        await self.coordinator.async_refresh_devices()

@@ -8,6 +8,20 @@
           "email": "Email",
           "password": "Mot de passe"
         }
+      },
+      "account": {
+        "title": "Sélectionner un compte",
+        "description": "Choisissez le compte Octopus Energy France à ajouter",
+        "data": {
+          "account_number": "Compte"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Ré-authentification",
+        "description": "Entrez à nouveau le mot de passe de votre compte Octopus Energy France",
+        "data": {
+          "password": "Mot de passe"
+        }
       }
     },
     "error": {
@@ -17,7 +31,8 @@
       "unknown": "Erreur inattendue"
     },
     "abort": {
-      "already_configured": "Ce compte est déjà configuré"
+      "already_configured": "Ce compte est déjà configuré",
+      "reauth_successful": "La ré-authentification a réussi"
     }
   },
   "reauth": {
@@ -794,6 +809,20 @@
     "force_update": {
       "name": "Forcer la mise à jour",
       "description": "Forcer une mise à jour immédiate des données depuis l'API Octopus Energy"
+    }
+  },
+  "exceptions": {
+    "set_target_soc_failed": {
+      "message": "Impossible de définir la charge cible pour l'appareil {device_id}."
+    },
+    "set_target_time_failed": {
+      "message": "Impossible de définir l'heure cible pour l'appareil {device_id}."
+    },
+    "boost_charge_refused": {
+      "message": "La charge boost a été refusée : {reasons}."
+    },
+    "cancel_boost_charge_failed": {
+      "message": "Impossible d'annuler la charge boost : {reasons}."
     }
   }
 }

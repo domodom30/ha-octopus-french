@@ -1,7 +1,5 @@
 """Sensor platform for Octopus Energy France."""
 
-from __future__ import annotations
-
 import json
 import logging
 from typing import Any
@@ -19,6 +17,7 @@ from .const import (
     TARIFF_TYPE_TEMPO,
     TEMPO_PRODUCT_CODE_KEYWORDS,
     TEMPO_STATISTICS_LABELS,
+    TEMPO_TEMPORAL_CLASS_CODES,
 )
 from .coordinator import OctopusFrenchDataUpdateCoordinator
 from .coordinator_intelligent import OctopusIntelligentDataUpdateCoordinator
@@ -176,11 +175,6 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-_TEMPO_TEMPORAL_CLASS_CODES: frozenset[str] = frozenset(
-    {"HPP", "HCP", "HPHI", "HCHI", "HPE", "HCE"}
-)
-
-
 def _detect_tariff_type_for_meter(data: dict, prm_id: str) -> str:
     """Détecte le type de tarif pour un compteur spécifique."""
     try:
@@ -189,7 +183,7 @@ def _detect_tariff_type_for_meter(data: dict, prm_id: str) -> str:
                 continue
             classes = meter.get("provider_temporal_classes") or []
             codes = {c.get("code") for c in classes if c.get("code")}
-            if codes & _TEMPO_TEMPORAL_CLASS_CODES:
+            if codes & TEMPO_TEMPORAL_CLASS_CODES:
                 return TARIFF_TYPE_TEMPO
             if len(codes) == 2:
                 return "HPHC"
@@ -221,7 +215,7 @@ def _detect_tariff_type_for_meter(data: dict, prm_id: str) -> str:
             return tariff_type
 
     except (KeyError, IndexError, TypeError) as e:
-        _LOGGER.error("Erreur détection tarif %s: %s", prm_id, e)
+        _LOGGER.debug("Erreur détection tarif %s: %s", prm_id, e)
     return "UNKNOWN"
 
 

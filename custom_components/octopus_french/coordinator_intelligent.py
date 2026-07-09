@@ -1,15 +1,16 @@
 """Data update coordinator for Octopus Intelligent features."""
 
-from __future__ import annotations
-
 from datetime import timedelta
 import logging
 from typing import TYPE_CHECKING, Any
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api.intelligent import OctopusIntelligentApiClient
+from .octopus_french import OctopusAuthError, OctopusConnectionError
 
 if TYPE_CHECKING:
     from .octopus_french import OctopusFrenchApiClient
@@ -31,6 +32,7 @@ class OctopusIntelligentDataUpdateCoordinator(DataUpdateCoordinator):
         hass: HomeAssistant,
         api_client: OctopusFrenchApiClient,
         account_number: str,
+        config_entry: ConfigEntry,
     ) -> None:
         """Initialize coordinator."""
         super().__init__(
@@ -38,6 +40,7 @@ class OctopusIntelligentDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER,
             name="Octopus Intelligent",
             update_interval=timedelta(minutes=1),
+            config_entry=config_entry,
         )
         self.intelligent_client = OctopusIntelligentApiClient(api_client)
         self.account_number = account_number
@@ -65,7 +68,7 @@ class OctopusIntelligentDataUpdateCoordinator(DataUpdateCoordinator):
             if self.data is not None:
                 self.data["devices"] = devices
                 self.async_set_updated_data(self.data)
-        except Exception as err:
+        except (OctopusAuthError, OctopusConnectionError, RuntimeError) as err:
             _LOGGER.error("Error refreshing device list: %s", err)
 
     async def _async_update_data(self) -> dict[str, Any]:
@@ -94,5 +97,9 @@ class OctopusIntelligentDataUpdateCoordinator(DataUpdateCoordinator):
                 "dispatches": dispatches,
                 "boost_refusal_reasons": [],
             }
-        except Exception as err:
-            raise UpdateFailed(f"Error communicating with Intelligent API: {err}") from err
+        except OctopusAuthError as err:
+            raise ConfigEntryAuthFailed(str(err)) from err
+        except (OctopusConnectionError, RuntimeError) as err:
+            raise UpdateFailed(
+                f"Error communicating with Intelligent API: {err}"
+            ) from err

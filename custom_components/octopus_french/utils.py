@@ -5,6 +5,12 @@ import logging
 import re
 from typing import Any
 
+from .const import (
+    TARIFF_TYPE_TEMPO,
+    TEMPO_PRODUCT_CODE_KEYWORDS,
+    TEMPO_TEMPORAL_CLASS_CODES,
+)
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -158,6 +164,34 @@ def normalize_consumption_label(label: str) -> str:
         if "_HC_" in label or label.endswith("_HC"):
             return "HEURES_CREUSES"
     return label
+
+
+def normalize_provider_calendar(meter: dict) -> str:
+    """Dérive la famille de tarif (BASE/HPHC/TEMPO) depuis le calendrier fournisseur.
+
+    Le sensor `contrat` exposait l'id brut du calendrier (ex. EFFACEMENT_HPHC_2) ;
+    on renvoie ici la famille lisible. L'id brut reste disponible dans l'attribut
+    `agreement` du sensor.
+    """
+    classes = meter.get("provider_temporal_classes") or []
+    codes = {c.get("code") for c in classes if c.get("code")}
+    if codes & TEMPO_TEMPORAL_CLASS_CODES:
+        return TARIFF_TYPE_TEMPO
+    if len(codes) >= 2:
+        return "HPHC"
+    if len(codes) == 1:
+        return "BASE"
+
+    # Repli : le meter n'expose pas de classes temporelles exploitables.
+    calendar_id = (meter.get("providerCalendar") or {}).get("id", "") or ""
+    upper = calendar_id.upper()
+    if any(kw in upper for kw in TEMPO_PRODUCT_CODE_KEYWORDS):
+        return TARIFF_TYPE_TEMPO
+    if "HPHC" in upper or "_HC" in upper:
+        return "HPHC"
+    if "BASE" in upper:
+        return "BASE"
+    return calendar_id  # inconnu → ne rien perdre
 
 
 def convert_sensor_date(date_string):

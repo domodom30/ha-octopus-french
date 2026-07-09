@@ -1,7 +1,5 @@
 """Config flow for OEFR Energy integration."""
 
-from __future__ import annotations
-
 import logging
 from typing import Any
 
@@ -10,11 +8,14 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
-from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import CONF_ACCOUNT_NUMBER, DOMAIN
-from .octopus_french import OctopusFrenchApiClient
+from .octopus_french import (
+    OctopusAuthError,
+    OctopusConnectionError,
+    OctopusFrenchApiClient,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,29 +56,21 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                     if not self.accounts:
                         errors["base"] = "no_accounts"
+                    elif len(self.accounts) == 1:
+                        return await self._async_create_account_entry(
+                            self.accounts[0]["number"]
+                        )
                     else:
-                        await self.async_set_unique_id(self.accounts[0]["number"])
-                        self._abort_if_unique_id_configured()
-
-                        if len(self.accounts) == 1:
-                            return self.async_create_entry(
-                                title=f"Octopus French Energy - {self.accounts[0]['number']}",
-                                data={
-                                    CONF_EMAIL: self.email,
-                                    CONF_PASSWORD: self.password,
-                                    CONF_ACCOUNT_NUMBER: self.accounts[0]["number"],
-                                },
-                            )
                         return await self.async_step_account()
 
-            except (ConnectionError, TimeoutError) as err:
-                _LOGGER.error("Connection error during authentication: %s", err)
-                errors["base"] = "cannot_connect"
-            except ValueError as err:
-                _LOGGER.error("Invalid data received: %s", err)
+            except OctopusAuthError:
                 errors["base"] = "invalid_auth"
-            except (KeyError, IndexError, TypeError, AttributeError) as err:
-                _LOGGER.error("Error parsing account data: %s", err)
+            except (OctopusConnectionError, ConnectionError, TimeoutError):
+                errors["base"] = "cannot_connect"
+            except ValueError:
+                errors["base"] = "invalid_auth"
+            except (KeyError, IndexError, TypeError, AttributeError):
+                _LOGGER.exception("Unexpected error while parsing account data")
                 errors["base"] = "unknown"
 
         return self.async_show_form(
@@ -91,6 +84,22 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    async def _async_create_account_entry(
+        self, account_number: str
+    ) -> ConfigFlowResult:
+        """Create the config entry for the selected account number."""
+        await self.async_set_unique_id(account_number)
+        self._abort_if_unique_id_configured()
+
+        return self.async_create_entry(
+            title=f"Octopus French Energy - {account_number}",
+            data={
+                CONF_EMAIL: self.email,
+                CONF_PASSWORD: self.password,
+                CONF_ACCOUNT_NUMBER: account_number,
+            },
+        )
+
     async def async_step_account(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -98,15 +107,8 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            account_number = user_input[CONF_ACCOUNT_NUMBER]
-
-            return self.async_create_entry(
-                title=f"Octopus French Energy - {account_number}",
-                data={
-                    CONF_EMAIL: self.email,
-                    CONF_PASSWORD: self.password,
-                    CONF_ACCOUNT_NUMBER: account_number,
-                },
+            return await self._async_create_account_entry(
+                user_input[CONF_ACCOUNT_NUMBER]
             )
 
         account_list = {
@@ -151,7 +153,9 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         reauth_entry,
                         data_updates={CONF_PASSWORD: user_input[CONF_PASSWORD]},
                     )
-            except (ConnectionError, TimeoutError):
+            except OctopusAuthError:
+                errors["base"] = "invalid_auth"
+            except (OctopusConnectionError, ConnectionError, TimeoutError):
                 errors["base"] = "cannot_connect"
 
         return self.async_show_form(

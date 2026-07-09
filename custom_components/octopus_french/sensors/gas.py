@@ -1,7 +1,5 @@
 """Gas sensor entity for Octopus Energy France."""
 
-from __future__ import annotations
-
 from datetime import datetime
 import logging
 from typing import Any
@@ -49,7 +47,9 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
         self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, pce_ref)})
 
         if sensor_config.suggested_display_precision is not None:
-            self._attr_suggested_display_precision = sensor_config.suggested_display_precision
+            self._attr_suggested_display_precision = (
+                sensor_config.suggested_display_precision
+            )
         self._attr_entity_category = sensor_config.entity_category
 
         self._current_month: str | None = None
@@ -69,12 +69,8 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
             self.hass.async_create_task(self._async_import_statistics())
 
     def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator.
+        """Handle updated data from the coordinator."""
 
-        Runs the (idempotent) statistics import on every update so newly published
-        readings are picked up without an integration reload; get_last_statistics
-        plus the per-day dedup make replays safe.
-        """
         key = self._sensor_config.key
         if self.entity_id and key in ("consumption", "cost"):
             self.hass.async_create_task(self._async_import_statistics())
@@ -83,8 +79,7 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
 
     async def _async_import_statistics(self) -> None:
         """Import statistics with correct dates from gas readings."""
-        # Overlapping coordinator updates could otherwise spawn concurrent imports
-        # that race on the non-atomic get_last_statistics/add pair and double-count.
+
         if self._import_in_progress:
             return
         self._import_in_progress = True
@@ -152,15 +147,13 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
                     ).astimezone(dt_util.DEFAULT_TIME_ZONE)
             else:
                 cumulative_sum = 0.0
-        except (OSError, ValueError, TypeError):
+        except OSError, ValueError, TypeError:
             _LOGGER.debug(
                 "Could not fetch last statistics for %s, starting sum at 0",
                 statistic_id,
             )
             cumulative_sum = 0.0
 
-        # Aggregate readings per local calendar day so the overlapping refetch
-        # window cannot double-count a period in the cumulative sum.
         daily_values: dict[datetime, float] = {}
 
         for reading in sorted_readings:
@@ -200,8 +193,6 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
             if reading_value > 0:
                 daily_values[day] = reading_value
 
-        # Append only days strictly after the last imported one, comparing
-        # normalized local days rather than raw ISO strings with mixed offsets.
         statistics = []
 
         for day in sorted(daily_values):
@@ -333,12 +324,8 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def last_reset(self) -> datetime | None:
-        """Expose the monthly reset for the current-month total sensors.
+        """Expose the monthly reset for the current-month total sensors."""
 
-        Their native_value restarts at 0 on the 1st; without last_reset the
-        TOTAL statistics engine records the drop as a negative change every
-        month. Surfacing the reset instant makes it treat it as a reset.
-        """
         key = self._sensor_config.key
         if key in ("consumption", "cost", "subscription"):
             return dt_util.start_of_local_day().replace(day=1)

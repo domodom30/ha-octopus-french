@@ -8,6 +8,20 @@
           "email": "Email",
           "password": "Password"
         }
+      },
+      "account": {
+        "title": "Select an account",
+        "description": "Choose the Octopus Energy France account to add",
+        "data": {
+          "account_number": "Account"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate",
+        "description": "Enter the password again for your Octopus Energy France account",
+        "data": {
+          "password": "Password"
+        }
       }
     },
     "error": {
@@ -17,7 +31,8 @@
       "unknown": "Unexpected error"
     },
     "abort": {
-      "already_configured": "This account is already configured"
+      "already_configured": "This account is already configured",
+      "reauth_successful": "Re-authentication was successful"
     }
   },
   "entity": {
@@ -779,6 +794,20 @@
     "force_update": {
       "name": "Force update",
       "description": "Force an immediate data refresh from the Octopus Energy API"
+    }
+  },
+  "exceptions": {
+    "set_target_soc_failed": {
+      "message": "Failed to set the target charge for device {device_id}."
+    },
+    "set_target_time_failed": {
+      "message": "Failed to set the target time for device {device_id}."
+    },
+    "boost_charge_refused": {
+      "message": "Boost charge was refused: {reasons}."
+    },
+    "cancel_boost_charge_failed": {
+      "message": "Failed to cancel boost charge: {reasons}."
     }
   }
 }

@@ -366,7 +366,7 @@ class OctopusFrenchApiClient:
         query: str,
         variables: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
-    ) -> dict[str, Any] | None:
+    ) -> dict[str, Any]:
         """Execute GraphQL query with retry logic."""
         payload = {"query": query, "variables": variables or {}}
         request_headers = {
@@ -400,7 +400,9 @@ class OctopusFrenchApiClient:
                 if attempt < MAX_RETRY_ATTEMPTS - 1:
                     await asyncio.sleep(RETRY_DELAY * (attempt + 1))
                     continue
-        return None
+        raise OctopusConnectionError(
+            "Unable to reach GraphQL endpoint after retries"
+        )
 
     async def authenticate(self) -> bool:
         """Authenticate with the API (thread-safe)."""
@@ -433,13 +435,13 @@ class OctopusFrenchApiClient:
                     if "errors" in result
                     else ["Invalid credentials"]
                 )
-                _LOGGER.error("Authentication failed: %s", ", ".join(error_messages))
+                _LOGGER.debug("Authentication failed: %s", ", ".join(error_messages))
                 return False
 
             self.token_manager.set_token(token)
             return True
 
-    async def _execute_with_auth(
+    async def execute_with_auth(
         self,
         query: str,
         variables: dict[str, Any] | None = None,
@@ -458,9 +460,6 @@ class OctopusFrenchApiClient:
             headers=headers,
         )
 
-        if not result:
-            raise RuntimeError("API returned empty response")
-
         if "errors" in result and retry_count < 1:
             error_messages = [
                 error.get("message", "").lower() for error in result["errors"]
@@ -475,7 +474,7 @@ class OctopusFrenchApiClient:
                 _LOGGER.warning("Token expired during request, re-authenticating...")
 
                 self.token_manager.clear()
-                return await self._execute_with_auth(
+                return await self.execute_with_auth(
                     query=query,
                     variables=variables,
                     retry_count=retry_count + 1,
@@ -485,14 +484,14 @@ class OctopusFrenchApiClient:
 
     async def get_accounts(self) -> list[dict[str, Any]]:
         """Get all accounts."""
-        result = await self._execute_with_auth(query=QUERY_GET_ACCOUNTS)
+        result = await self.execute_with_auth(query=QUERY_GET_ACCOUNTS)
         return result.get("data", {}).get("viewer", {}).get("accounts", [])
 
     async def get_account_data(self, account_number: str) -> dict[str, Any]:
         """Get detailed account data including ledgers and tariffs in a single query."""
         active_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         variables = {"accountNumber": account_number, "activeAt": active_at}
-        result = await self._execute_with_auth(
+        result = await self.execute_with_auth(
             query=QUERY_GET_ACCOUNT_DATA, variables=variables
         )
 
@@ -836,7 +835,7 @@ class OctopusFrenchApiClient:
                 "first": first,
                 "after": after,
             }
-            result = await self._execute_with_auth(query=query, variables=variables)
+            result = await self.execute_with_auth(query=query, variables=variables)
             measurements = (
                 result.get("data", {}).get("property", {}).get("measurements", {})
             )
@@ -873,7 +872,7 @@ class OctopusFrenchApiClient:
                 "first": first,
                 "after": after,
             }
-            result = await self._execute_with_auth(
+            result = await self.execute_with_auth(
                 query=QUERY_GET_GAS_READINGS, variables=variables
             )
             gas_reading = result.get("data", {}).get("gasReading", {})
@@ -901,7 +900,7 @@ class OctopusFrenchApiClient:
     async def get_payment_requests(self, ledger_number: str) -> dict[str, Any] | None:
         """Get the latest payment request for a ledger."""
         variables = {"ledgerNumber": ledger_number}
-        result = await self._execute_with_auth(QUERY_GET_BILLS, variables)
+        result = await self.execute_with_auth(QUERY_GET_BILLS, variables)
 
         if not result:
             return None
@@ -946,7 +945,7 @@ class OctopusFrenchApiClient:
     ) -> dict[str, Any] | None:
         """Get the electricity index with HP/HC breakdown or BASE rate."""
         variables = {"accountNumber": account_number, "prmId": prm_id}
-        result = await self._execute_with_auth(QUERY_GET_INDEX_ELECTRICITY, variables)
+        result = await self.execute_with_auth(QUERY_GET_INDEX_ELECTRICITY, variables)
 
         if not result:
             _LOGGER.warning("No electricity index data for PRM %s", prm_id)

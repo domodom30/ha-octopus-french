@@ -1,7 +1,5 @@
 """Data update coordinator for Octopus French Energy."""
 
-from __future__ import annotations
-
 import asyncio
 from datetime import timedelta
 import logging
@@ -14,7 +12,6 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .const import DEFAULT_SCAN_INTERVAL, PREVIOUS_MONTH_OVERLAP_DAYS
-
 from .octopus_french import OctopusAuthError, OctopusConnectionError
 
 if TYPE_CHECKING:
@@ -68,19 +65,18 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
         if not account_number:
             raise UpdateFailed("Missing account_number in API response")
 
-        account_data["supply_points"]["electricity"] = [
+        supply_points = account_data.setdefault("supply_points", {})
+        supply_points["electricity"] = [
             sp
-            for sp in account_data["supply_points"]["electricity"]
+            for sp in supply_points.get("electricity", [])
             if sp.get("distributorStatus") != "RESIL"
         ]
 
-        electricity_supply_points = account_data.get("supply_points", {}).get(
-            "electricity", []
-        )
+        electricity_supply_points = supply_points["electricity"]
         electricity_meter_id = (
             electricity_supply_points[0].get("prm") if electricity_supply_points else None
         )
-        gas_supply_points = account_data.get("supply_points", {}).get("gas", [])
+        gas_supply_points = supply_points.get("gas", [])
         gas_meter_id = gas_supply_points[0].get("prm") if gas_supply_points else None
 
         now = dt_util.now()
@@ -108,7 +104,7 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
                 index = await self.api_client.get_electricity_index(
                     account_number, electricity_meter_id
                 )
-            except Exception as err:
+            except OctopusConnectionError as err:
                 _LOGGER.warning("Failed to fetch electricity data: %s", err)
                 return [], None
             else:
@@ -128,7 +124,7 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
                     reading_quality="ACTUAL",
                     first=100,
                 )
-            except Exception as err:
+            except OctopusConnectionError as err:
                 _LOGGER.warning("Failed to fetch gas data: %s", err)
                 return []
 
@@ -137,7 +133,7 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
         async def fetch_payments() -> dict:
             try:
                 return await self.api_client.get_all_payment_requests(ledgers)
-            except Exception as err:
+            except OctopusConnectionError as err:
                 _LOGGER.warning("Failed to fetch payment requests: %s", err)
                 return {}
 

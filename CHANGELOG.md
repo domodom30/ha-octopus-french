@@ -1,3 +1,32 @@
+## [3.3.3] - 2026-07-09
+
+Cette version est une **mise en conformité aux standards Home Assistant** accompagnée de deux corrections côté utilisateur (comptes multiples et capteur de contrat).
+
+### 🐛 Correction — Comptes multiples : mauvais compte associé / second compte impossible
+
+Lors de l'ajout d'un compte quand le login Octopus en expose plusieurs, l'`unique_id` de l'intégration était toujours figé sur le **premier** compte de la liste, avant même le choix de l'utilisateur. Conséquences : l'entrée créée pour le compte B portait l'identifiant du compte A, et il devenait **impossible d'ajouter un second compte** (abandon « déjà configuré »).
+
+- L'`unique_id` est désormais fixé sur le compte **réellement sélectionné**, au moment de créer l'entrée (`config_flow.py`).
+
+### 🐛 Correction — Capteur « contrat » affichant `EFFACEMENT_HPHC_2`
+
+Sur certaines offres, le capteur de type de contrat affichait l'identifiant brut du calendrier fournisseur (ex. `EFFACEMENT_HPHC_2`) au lieu du type tarifaire normalisé.
+
+- Normalisation vers `BASE` / `HPHC` / `TEMPO` ; l'identifiant brut reste disponible dans l'attribut `agreement` (`utils.py`, `sensors/electricity.py`).
+
+### 🔧 Conformité Home Assistant
+
+- **Reauth** : le flux de ré-authentification se déclenche désormais correctement en cas de token invalide (mapping `ConfigEntryAuthFailed`), au lieu de laisser des capteurs vides.
+- **Erreurs de config flow** : identifiants erronés → `invalid_auth`, réseau indisponible → `cannot_connect` (plus de traceback dans les logs).
+- **Actions véhicule Intelligent** (SOC cible, heure, boost) : remontée d'erreur propre via `HomeAssistantError` avec messages traduits, au lieu d'échecs silencieux.
+- **Capteurs de tarif `€/kWh`** : retrait de la `device_class` monétaire invalide (supprime les avertissements HA sur l'unité).
+- **Requêtes GraphQL** : passage par des variables typées plutôt que de l'interpolation de chaînes.
+- Ajout du support **diagnostics** (téléchargement des diagnostics de l'entrée, données sensibles expurgées).
+- Traductions ajoutées pour les étapes `account` et `reauth_confirm`.
+- Journalisation alignée sur les conventions HA (les erreurs attendues ne polluent plus les logs en niveau `error`).
+
+---
+
 ## [3.3.2] - 2026-07-03
 
 ### 🐛 Correction — Avertissement pour des classes temporelles non standard (issue #48)

@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from custom_components.octopus_french.utils import normalize_consumption_label
+from custom_components.octopus_french.utils import (
+    normalize_consumption_label,
+    normalize_provider_calendar,
+)
 
 # Mapping clé capteur → label canonique, identique à celui de electricity.py.
 _CONSUMPTION_MAPPING = {
@@ -128,3 +131,45 @@ def test_multi_day_accumulation() -> None:
     hc_total = sum(_run_label_matching(d, "energy_off_peak_hours") for d in days)
     assert hp_total == pytest.approx(5.5)
     assert hc_total == pytest.approx(9.5)
+
+
+def _meter(
+    *, codes: list[str] | None = None, calendar_id: str | None = None
+) -> dict:
+    """Construit un meter minimal pour tester normalize_provider_calendar."""
+    meter: dict = {}
+    if codes is not None:
+        meter["provider_temporal_classes"] = [{"code": c} for c in codes]
+    if calendar_id is not None:
+        meter["providerCalendar"] = {"id": calendar_id}
+    return meter
+
+
+@pytest.mark.parametrize(
+    ("meter", "expected"),
+    [
+        # Classes temporelles : source privilégiée (cas réel EFFACEMENT_HPHC_2).
+        pytest.param(_meter(codes=["HP", "HC"]), "HPHC", id="classes_hphc"),
+        pytest.param(_meter(codes=["BASE"]), "BASE", id="classes_base"),
+        pytest.param(_meter(codes=["HPP", "HCP", "HPE"]), "TEMPO", id="classes_tempo"),
+        # Repli sur l'id brut quand aucune classe temporelle n'est exploitable.
+        pytest.param(
+            _meter(calendar_id="EFFACEMENT_HPHC_2"), "HPHC", id="fallback_effacement"
+        ),
+        pytest.param(_meter(calendar_id="BASE_1"), "BASE", id="fallback_base"),
+        pytest.param(
+            _meter(calendar_id="TEMPO_5_V4"), "TEMPO", id="fallback_tempo"
+        ),
+        # Id inconnu sans classes → renvoyé inchangé (aucune perte d'info).
+        pytest.param(
+            _meter(calendar_id="MYSTERY_CALENDAR"),
+            "MYSTERY_CALENDAR",
+            id="fallback_unknown",
+        ),
+        # Meter vide → chaîne vide.
+        pytest.param(_meter(), "", id="empty_meter"),
+    ],
+)
+def test_normalize_provider_calendar(meter: dict, expected: str) -> None:
+    """La famille de tarif est dérivée des classes temporelles, avec repli sur l'id."""
+    assert normalize_provider_calendar(meter) == expected

@@ -2,10 +2,10 @@
 
 from unittest.mock import AsyncMock, MagicMock
 
+from homeassistant.exceptions import HomeAssistantError
 import pytest
 
 from custom_components.octopus_french.api.intelligent import (
-    DAYS_OF_WEEK,
     OctopusIntelligentApiClient,
 )
 from custom_components.octopus_french.coordinator_intelligent import (
@@ -17,6 +17,18 @@ from custom_components.octopus_french.select import (
     TIME_OPTIONS,
 )
 
+# Les 7 jours sont écrits en littéral dans la mutation (enums GraphQL) ; on les
+# réutilise ici pour construire les réponses simulées.
+_DAYS_OF_WEEK = [
+    "MONDAY",
+    "TUESDAY",
+    "WEDNESDAY",
+    "THURSDAY",
+    "FRIDAY",
+    "SATURDAY",
+    "SUNDAY",
+]
+
 
 
 
@@ -24,7 +36,7 @@ from custom_components.octopus_french.select import (
 def mock_api_client():
     """Mock the main API client."""
     client = MagicMock()
-    client._execute_with_auth = AsyncMock()
+    client.execute_with_auth = AsyncMock()
     return client
 
 
@@ -37,14 +49,14 @@ def intelligent_client(mock_api_client):
 @pytest.mark.asyncio
 async def test_set_target_soc_success(intelligent_client, mock_api_client):
     """Test setting target SOC successfully."""
-    mock_api_client._execute_with_auth.return_value = {
+    mock_api_client.execute_with_auth.return_value = {
         "data": {
             "setDevicePreferences": {
                 "id": "abc-123",
                 "preferences": {
                     "schedules": [
                         {"dayOfWeek": day, "time": "07:30", "max": 80}
-                        for day in DAYS_OF_WEEK
+                        for day in _DAYS_OF_WEEK
                     ]
                 },
             }
@@ -54,19 +66,18 @@ async def test_set_target_soc_success(intelligent_client, mock_api_client):
     result = await intelligent_client.set_target_soc("abc-123", 80, "07:30")
 
     assert result is True
-    mock_api_client._execute_with_auth.assert_called_once()
-    call_args = mock_api_client._execute_with_auth.call_args[0][0]
-    assert "setDevicePreferences" in call_args
-    assert "MONDAY" in call_args
-    assert "SUNDAY" in call_args
-    assert '"07:30"' in call_args
-    assert "max: 80" in call_args
+    mock_api_client.execute_with_auth.assert_called_once()
+    query, variables = mock_api_client.execute_with_auth.call_args[0]
+    assert "setDevicePreferences" in query
+    assert "MONDAY" in query
+    assert "SUNDAY" in query
+    assert variables == {"deviceId": "abc-123", "time": "07:30", "max": 80}
 
 
 @pytest.mark.asyncio
 async def test_set_target_soc_error(intelligent_client, mock_api_client):
     """Test setting target SOC with API error."""
-    mock_api_client._execute_with_auth.return_value = {
+    mock_api_client.execute_with_auth.return_value = {
         "errors": [{"message": "Invalid input"}],
         "data": None,
     }
@@ -79,7 +90,7 @@ async def test_set_target_soc_error(intelligent_client, mock_api_client):
 @pytest.mark.asyncio
 async def test_set_target_soc_empty_response(intelligent_client, mock_api_client):
     """Test setting target SOC with empty response."""
-    mock_api_client._execute_with_auth.return_value = None
+    mock_api_client.execute_with_auth.return_value = None
 
     result = await intelligent_client.set_target_soc("abc-123", 80, "07:30")
 
@@ -89,14 +100,14 @@ async def test_set_target_soc_empty_response(intelligent_client, mock_api_client
 @pytest.mark.asyncio
 async def test_set_target_time_success(intelligent_client, mock_api_client):
     """Test setting target time successfully."""
-    mock_api_client._execute_with_auth.return_value = {
+    mock_api_client.execute_with_auth.return_value = {
         "data": {
             "setDevicePreferences": {
                 "id": "abc-123",
                 "preferences": {
                     "schedules": [
                         {"dayOfWeek": day, "time": "06:00", "max": 100}
-                        for day in DAYS_OF_WEEK
+                        for day in _DAYS_OF_WEEK
                     ]
                 },
             }
@@ -106,9 +117,9 @@ async def test_set_target_time_success(intelligent_client, mock_api_client):
     result = await intelligent_client.set_target_time("abc-123", "06:00", 100)
 
     assert result is True
-    call_args = mock_api_client._execute_with_auth.call_args[0][0]
-    assert '"06:00"' in call_args
-    assert "max: 100" in call_args
+    query, variables = mock_api_client.execute_with_auth.call_args[0]
+    assert "setDevicePreferences" in query
+    assert variables == {"deviceId": "abc-123", "time": "06:00", "max": 100}
 
 
 
@@ -190,7 +201,8 @@ async def test_target_soc_set_value_failure(target_soc_number, mock_coordinator)
     """Test setting target SOC value when API fails."""
     mock_coordinator.intelligent_client.set_target_soc.return_value = False
 
-    await target_soc_number.async_set_native_value(80)
+    with pytest.raises(HomeAssistantError):
+        await target_soc_number.async_set_native_value(80)
 
     mock_coordinator.intelligent_client.set_target_soc.assert_called_once()
     mock_coordinator.async_request_refresh.assert_not_called()
@@ -233,7 +245,8 @@ async def test_target_time_select_option_failure(target_time_select, mock_coordi
     """Test selecting a target time when API fails."""
     mock_coordinator.intelligent_client.set_target_time.return_value = False
 
-    await target_time_select.async_select_option("06:00")
+    with pytest.raises(HomeAssistantError):
+        await target_time_select.async_select_option("06:00")
 
     mock_coordinator.intelligent_client.set_target_time.assert_called_once()
     mock_coordinator.async_request_refresh.assert_not_called()

@@ -1,20 +1,15 @@
 """Select platform for Octopus Intelligent target charging time."""
 
-from __future__ import annotations
-
-import logging
-from typing import Any
-
 from homeassistant.components.select import SelectEntity
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from . import OctopusFrenchConfigEntry
 from .const import DOMAIN
 from .coordinator_intelligent import OctopusIntelligentDataUpdateCoordinator
-
-_LOGGER = logging.getLogger(__name__)
 
 PARALLEL_UPDATES = 0
 
@@ -23,13 +18,11 @@ TIME_OPTIONS = [f"{h:02d}:{m:02d}" for h in range(24) for m in (0, 30)]
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: Any,
+    config_entry: OctopusFrenchConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up select entities."""
-    coordinator: OctopusIntelligentDataUpdateCoordinator = (
-        config_entry.runtime_data.intelligent_coordinator
-    )
+    coordinator = config_entry.runtime_data.intelligent_coordinator
 
     if coordinator is None:
         return
@@ -86,7 +79,10 @@ class OctopusIntelligentTargetTimeSelect(CoordinatorEntity, SelectEntity):
         success = await self.coordinator.intelligent_client.set_target_time(
             self._device_id, option, current_soc
         )
-        if success:
-            await self.coordinator.async_request_refresh()
-        else:
-            _LOGGER.error("Failed to set target time for device %s", self._device_id)
+        if not success:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="set_target_time_failed",
+                translation_placeholders={"device_id": self._device_id},
+            )
+        await self.coordinator.async_request_refresh()

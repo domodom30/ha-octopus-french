@@ -346,7 +346,7 @@ class TestElectricityIndexTempo:
         client = OctopusFrenchApiClient.__new__(OctopusFrenchApiClient)
 
         with patch.object(
-            client, "_execute_with_auth", return_value=self._make_index_response("BLEU")
+            client, "execute_with_auth", return_value=self._make_index_response("BLEU")
         ):
             result = await client.get_electricity_index("ACC123", "PRM456")
 
@@ -362,7 +362,7 @@ class TestElectricityIndexTempo:
         client = OctopusFrenchApiClient.__new__(OctopusFrenchApiClient)
 
         with patch.object(
-            client, "_execute_with_auth", return_value=self._make_index_response("ROUGE")
+            client, "execute_with_auth", return_value=self._make_index_response("ROUGE")
         ):
             result = await client.get_electricity_index("ACC123", "PRM456")
 
@@ -378,7 +378,7 @@ class TestElectricityIndexTempo:
         client = OctopusFrenchApiClient.__new__(OctopusFrenchApiClient)
 
         with patch.object(
-            client, "_execute_with_auth", return_value=self._make_index_response("HP")
+            client, "execute_with_auth", return_value=self._make_index_response("HP")
         ):
             result = await client.get_electricity_index("ACC123", "PRM456")
 
@@ -420,7 +420,7 @@ class TestElectricityIndexTempo:
 
         with patch.object(
             client,
-            "_execute_with_auth",
+            "execute_with_auth",
             return_value=self._make_index_response_with_date("BLEU", today_str),
         ):
             result = await client.get_electricity_index("ACC123", "PRM456")
@@ -439,7 +439,7 @@ class TestElectricityIndexTempo:
 
         with patch.object(
             client,
-            "_execute_with_auth",
+            "execute_with_auth",
             return_value=self._make_index_response_with_date("ROUGE", tomorrow_str),
         ):
             result = await client.get_electricity_index("ACC123", "PRM456")

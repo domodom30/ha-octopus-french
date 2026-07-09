@@ -1,7 +1,5 @@
 """Sensor entity descriptions for Octopus Energy France."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 from homeassistant.components.sensor import (
@@ -100,7 +98,6 @@ ELECTRICITY_SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="rate_base",
         icon="mdi:cash",
-        device_class=SensorDeviceClass.MONETARY,
         native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -108,7 +105,6 @@ ELECTRICITY_SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="rate_peak_hours",
         icon="mdi:cash-plus",
-        device_class=SensorDeviceClass.MONETARY,
         native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -116,7 +112,6 @@ ELECTRICITY_SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="rate_off_peak_hours",
         icon="mdi:cash-minus",
-        device_class=SensorDeviceClass.MONETARY,
         native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -262,7 +257,6 @@ TEMPO_SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="rate_tempo_ete_hp",
         icon="mdi:cash-plus",
-        device_class=SensorDeviceClass.MONETARY,
         native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -270,7 +264,6 @@ TEMPO_SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="rate_tempo_ete_hc",
         icon="mdi:cash-minus",
-        device_class=SensorDeviceClass.MONETARY,
         native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -278,7 +271,6 @@ TEMPO_SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="rate_tempo_hiver_hp",
         icon="mdi:cash-plus",
-        device_class=SensorDeviceClass.MONETARY,
         native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -286,7 +278,6 @@ TEMPO_SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="rate_tempo_hiver_hc",
         icon="mdi:cash-minus",
-        device_class=SensorDeviceClass.MONETARY,
         native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -294,7 +285,6 @@ TEMPO_SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="rate_tempo_rouge_hp",
         icon="mdi:cash-plus",
-        device_class=SensorDeviceClass.MONETARY,
         native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -302,7 +292,6 @@ TEMPO_SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="rate_tempo_rouge_hc",
         icon="mdi:cash-minus",
-        device_class=SensorDeviceClass.MONETARY,
         native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -320,7 +309,6 @@ TEMPO_SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="tempo_current_rate",
         icon="mdi:currency-eur-off",
-        device_class=SensorDeviceClass.MONETARY,
         native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -361,7 +349,6 @@ GAS_SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="rate_base",
         icon="mdi:cash",
-        device_class=SensorDeviceClass.MONETARY,
         native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,

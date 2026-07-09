@@ -26,4 +26,8 @@ TEMPO_STATISTICS_LABELS: frozenset[str] = frozenset({
 
 TEMPO_PRODUCT_CODE_KEYWORDS: tuple[str, ...] = ("TEMPO", "OCTOFLEX")
 
+TEMPO_TEMPORAL_CLASS_CODES: frozenset[str] = frozenset(
+    {"HPP", "HCP", "HPHI", "HCHI", "HPE", "HCE"}
+)
+
 TEMPO_CALENDAR_COLORS: frozenset[str] = frozenset({"ETE", "HIVER", "ROUGE"})
