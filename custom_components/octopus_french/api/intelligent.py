@@ -104,7 +104,7 @@ class OctopusIntelligentApiClient:
                 extensions = error.get("extensions", {})
                 refusal_reasons.extend(extensions.get("boostChargeRefusalReasons", []))
 
-        data = response.get("data", {}).get("updateBoostCharge") if response else None
+        data = (response.get("data") or {}).get("updateBoostCharge") if response else None
         return data, refusal_reasons
 
     async def trigger_boost_charge(
@@ -124,7 +124,7 @@ class OctopusIntelligentApiClient:
         response = await self.api_client.execute_with_auth(
             QUERY_DEVICES, {"accountNumber": account_number}
         )
-        return response.get("data", {}).get("devices", []) if response else []
+        return (response.get("data") or {}).get("devices", []) if response else []
 
     async def get_vehicle_charging_preferences(
         self, account_number: str
@@ -134,7 +134,7 @@ class OctopusIntelligentApiClient:
             QUERY_VEHICLE_CHARGING_PREFERENCES, {"accountNumber": account_number}
         )
         return (
-            response.get("data", {}).get("vehicleChargingPreferences", {})
+            (response.get("data") or {}).get("vehicleChargingPreferences", {})
             if response
             else {}
         )
@@ -145,7 +145,7 @@ class OctopusIntelligentApiClient:
             QUERY_FLEX_PLANNED_DISPATCHES, {"deviceId": device_id}
         )
         return (
-            response.get("data", {}).get("flexPlannedDispatches", [])
+            (response.get("data") or {}).get("flexPlannedDispatches", [])
             if response
             else []
         )

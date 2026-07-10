@@ -404,6 +404,14 @@ class OctopusFrenchApiClient:
             "Unable to reach GraphQL endpoint after retries"
         )
 
+    @staticmethod
+    def _extract_error_messages(result: dict[str, Any]) -> list[str]:
+        """Extract human-readable error messages from a GraphQL response."""
+        return [
+            error.get("message") or "Unknown error"
+            for error in result.get("errors", [])
+        ]
+
     async def authenticate(self) -> bool:
         """Authenticate with the API (thread-safe)."""
         async with self._auth_lock:
@@ -430,12 +438,12 @@ class OctopusFrenchApiClient:
             )
 
             if not token:
-                error_messages = (
-                    [e.get("message", "Unknown") for e in result["errors"]]
-                    if "errors" in result
-                    else ["Invalid credentials"]
+                error_messages = self._extract_error_messages(result) or [
+                    "Invalid credentials"
+                ]
+                _LOGGER.warning(
+                    "Authentication failed: %s", ", ".join(error_messages)
                 )
-                _LOGGER.debug("Authentication failed: %s", ", ".join(error_messages))
                 return False
 
             self.token_manager.set_token(token)
@@ -460,17 +468,17 @@ class OctopusFrenchApiClient:
             headers=headers,
         )
 
-        if "errors" in result and retry_count < 1:
-            error_messages = [
-                error.get("message", "").lower() for error in result["errors"]
-            ]
+        if "errors" in result:
+            error_messages = self._extract_error_messages(result)
 
             auth_keywords = {"authentication", "unauthorized", "token", "expired"}
             is_auth_error = any(
-                keyword in msg for msg in error_messages for keyword in auth_keywords
+                keyword in msg.lower()
+                for msg in error_messages
+                for keyword in auth_keywords
             )
 
-            if is_auth_error:
+            if is_auth_error and retry_count < 1:
                 _LOGGER.warning("Token expired during request, re-authenticating...")
 
                 self.token_manager.clear()
@@ -480,12 +488,17 @@ class OctopusFrenchApiClient:
                     retry_count=retry_count + 1,
                 )
 
+            _LOGGER.warning(
+                "GraphQL query returned errors: %s", "; ".join(error_messages)
+            )
+
         return result
 
     async def get_accounts(self) -> list[dict[str, Any]]:
         """Get all accounts."""
         result = await self.execute_with_auth(query=QUERY_GET_ACCOUNTS)
-        return result.get("data", {}).get("viewer", {}).get("accounts", [])
+        data = result.get("data") or {}
+        return (data.get("viewer") or {}).get("accounts", [])
 
     async def get_account_data(self, account_number: str) -> dict[str, Any]:
         """Get detailed account data including ledgers and tariffs in a single query."""
@@ -495,7 +508,7 @@ class OctopusFrenchApiClient:
             query=QUERY_GET_ACCOUNT_DATA, variables=variables
         )
 
-        account = result.get("data", {}).get("account")
+        account = (result.get("data") or {}).get("account")
         if not account:
             return {}
 
@@ -837,7 +850,9 @@ class OctopusFrenchApiClient:
             }
             result = await self.execute_with_auth(query=query, variables=variables)
             measurements = (
-                result.get("data", {}).get("property", {}).get("measurements", {})
+                ((result.get("data") or {}).get("property") or {}).get(
+                    "measurements", {}
+                )
             )
             all_nodes.extend(edge["node"] for edge in measurements.get("edges", []))
             page_info = measurements.get("pageInfo", {})
@@ -875,7 +890,7 @@ class OctopusFrenchApiClient:
             result = await self.execute_with_auth(
                 query=QUERY_GET_GAS_READINGS, variables=variables
             )
-            gas_reading = result.get("data", {}).get("gasReading", {})
+            gas_reading = (result.get("data") or {}).get("gasReading", {})
 
             for edge in gas_reading.get("edges", []):
                 node = edge["node"]
@@ -906,7 +921,9 @@ class OctopusFrenchApiClient:
             return None
 
         payment_requests = (
-            result.get("data", {}).get("paymentRequests", {}).get("paymentRequest", {})
+            ((result.get("data") or {}).get("paymentRequests") or {}).get(
+                "paymentRequest", {}
+            )
         )
 
         edges = payment_requests.get("edges", [])
@@ -951,7 +968,9 @@ class OctopusFrenchApiClient:
             _LOGGER.warning("No electricity index data for PRM %s", prm_id)
             return None
 
-        edges = result.get("data", {}).get("electricityReading", {}).get("edges", [])
+        edges = (
+            (result.get("data") or {}).get("electricityReading") or {}
+        ).get("edges", [])
         if not edges:
             _LOGGER.warning("No electricity readings in response for PRM %s", prm_id)
             return None
