@@ -35,10 +35,25 @@ jobs:
           category: integration
           token: ${{ secrets.GITHUB_TOKEN }}
 
+  syntax:
+    name: Python syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⤵️ Check out code from GitHub
+        uses: actions/checkout@v7
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: 🧪 Compile all sources
+        run: python -m compileall -q custom_components/octopus_french
+
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [validate, hacs]
+    needs: [validate, hacs, syntax]
     permissions:
       contents: write
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
