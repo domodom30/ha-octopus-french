@@ -1,3 +1,30 @@
+## [3.3.4] - 2026-07-13
+
+Correctifs critiques révélés par le diagnostic des logs de l'issue #51 (« Invalid credentials & no attribute 'get' »).
+
+### 🔴 Correction bloquante — `SyntaxError` empêchant le chargement du module
+
+Le paquet utilisait la syntaxe d'exception Python 2 `except A, B:` (invalide en Python 3), présente depuis la 3.3.0 dans **3 fichiers** : `octopus_french.py`, `sensors/electricity.py` (4 occurrences) et `sensors/gas.py`. Sous le Python de Home Assistant, ces modules **ne compilaient pas** et l'intégration ne pouvait pas se charger.
+
+- Toutes les clauses corrigées en `except (A, B):`.
+- Ajout d'un job CI `Python syntax check` (`compileall` sous Python 3.13), en dépendance du job de release, pour bloquer toute release en cas d'erreur de syntaxe (hassfest ne compile pas les sources).
+
+### 🐛 Correction — `'NoneType' object has no attribute 'get'` sur réponses partielles
+
+Le correctif 3.3.3+ ne sécurisait que le `data` de premier niveau. Les accès imbriqués `X.get("clé", {}).get(...)` re-crashaient quand l'API renvoyait un sous-objet explicitement `null` (le défaut `{}` ne protège que si la clé est **absente**, pas si elle vaut `null`) : `supplyPoints`, `agreements`, `creditStorage`, `supplyPoint`, `product`, `consumptionRates`, `measurements`, `gasReading`, `paymentRequest`, `node`, `meterPoint`.
+
+- Remplacement systématique par `(X.get("clé") or {}).get(...)` dans `octopus_french.py` (extracteurs `_extract_ledgers`, `_extract_supply_points`, `_extract_agreements`, `_extract_tariffs` et méthodes de lecture élec/gaz/paiements).
+
+### 🔐 Robustesse authentification — refresh token & rate-limit Kraken
+
+Les logs montraient une boucle `Unauthorized` → re-login complet → `Too many requests` : chaque erreur déclenchait un login email/mot de passe, ce qui trippe le rate-limit dynamique de Kraken (code `KT-CT-1199`, plafond dégressif jusqu'à ~1 req/h). La [doc API](https://developer.octopus.energy/guides/graphql/api-basics/) recommande de rafraîchir le token via un `refreshToken`.
+
+- Le login demande désormais `token`, `refreshToken` et `refreshExpiresIn` ; le `token` (60 min) est rafraîchi via le `refreshToken` (7 j) **sans re-login complet**, le login email/mot de passe n'étant refait que si le refresh échoue ou expire (`TokenManager`, `authenticate()`).
+- `clear()` ne purge que le token d'accès (refresh réutilisable), `clear_all()` purge tout.
+- Détection du rate-limit `KT-CT-1199` → nouvelle exception `OctopusRateLimitError` (sous-classe d'`OctopusConnectionError`), mappée en `ConfigEntryNotReady` (retry temporisé) au lieu du trompeur `ConfigEntryAuthFailed` « invalid credentials ».
+
+---
+
 ## [3.3.3] - 2026-07-09
 
 Cette version est une **mise en conformité aux standards Home Assistant** accompagnée de deux corrections côté utilisateur (comptes multiples et capteur de contrat).

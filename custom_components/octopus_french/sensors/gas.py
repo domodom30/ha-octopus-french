@@ -147,7 +147,7 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
                     ).astimezone(dt_util.DEFAULT_TIME_ZONE)
             else:
                 cumulative_sum = 0.0
-        except OSError, ValueError, TypeError:
+        except (OSError, ValueError, TypeError):
             _LOGGER.debug(
                 "Could not fetch last statistics for %s, starting sum at 0",
                 statistic_id,

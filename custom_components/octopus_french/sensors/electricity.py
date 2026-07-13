@@ -167,7 +167,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                     ).astimezone(dt_util.DEFAULT_TIME_ZONE)
             else:
                 cumulative_sum = 0.0
-        except OSError, ValueError, TypeError:
+        except (OSError, ValueError, TypeError):
             _LOGGER.debug(
                 "Could not fetch last statistics for %s, starting sum at 0",
                 statistic_id,
@@ -291,7 +291,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                 None,
                 {"sum"},
             )
-        except OSError, ValueError, TypeError:
+        except (OSError, ValueError, TypeError):
             _LOGGER.debug("Could not fetch anchor sum for %s, using 0", statistic_id)
             return 0.0
 
@@ -701,7 +701,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
         value = meter.get("subscribedMaxPower")
         try:
             return float(value) if value is not None else None
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             return None
 
     def _get_contract_type(self) -> str:
@@ -1073,7 +1073,7 @@ class OctopusTempoCurrentRateSensor(CoordinatorEntity, SensorEntity):
             start_min = int(sh) * 60 + int(sm)
             end_min = int(eh) * 60 + int(em)
             cur_min = current_time.hour * 60 + current_time.minute
-        except ValueError, IndexError:
+        except (ValueError, IndexError):
             return False
 
         if end_min <= start_min:

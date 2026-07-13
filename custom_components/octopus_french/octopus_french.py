@@ -21,16 +21,23 @@ class OctopusConnectionError(Exception):
     """Raised when the API cannot be reached (network or server error)."""
 
 
+class OctopusRateLimitError(OctopusConnectionError):
+    """Raised when the API rate limit (KT-CT-1199) is hit; the caller should retry later."""
+
+
 GRAPHQL_ENDPOINT = "https://api.oefr-kraken.energy/v1/graphql/"
 
 TOKEN_EXPIRY_BUFFER = 60
 MAX_RETRY_ATTEMPTS = 3
 RETRY_DELAY = 1
+RATE_LIMIT_ERROR_CODE = "KT-CT-1199"
 
 MUTATION_LOGIN = """
 mutation obtainKrakenToken($input: ObtainJSONWebTokenInput!) {
     obtainKrakenToken(input: $input) {
         token
+        refreshToken
+        refreshExpiresIn
     }
 }
 """
@@ -308,11 +315,18 @@ class TokenManager:
         """Initialize the token manager."""
         self._token: str | None = None
         self._expiry: float | None = None
+        self._refresh_token: str | None = None
+        self._refresh_expiry: float | None = None
 
     @property
     def token(self) -> str | None:
         """Get the current token."""
         return self._token
+
+    @property
+    def refresh_token(self) -> str | None:
+        """Get the current refresh token."""
+        return self._refresh_token
 
     @property
     def is_valid(self) -> bool:
@@ -325,27 +339,58 @@ class TokenManager:
         return now < (self._expiry - TOKEN_EXPIRY_BUFFER)
 
     @property
+    def is_refresh_valid(self) -> bool:
+        """Check if the refresh token can still be used."""
+        if not self._refresh_token:
+            return False
+        if self._refresh_expiry is None:
+            return True
+
+        now = datetime.now(UTC).timestamp()
+
+        return now < (self._refresh_expiry - TOKEN_EXPIRY_BUFFER)
+
+    @property
     def expires_in(self) -> float:
         """Get seconds until token expiry."""
         if not self._expiry:
             return 0
         return max(0, self._expiry - datetime.now(UTC).timestamp())
 
-    def set_token(self, token: str) -> None:
-        """Set a new token and decode its expiry."""
+    def set_token(
+        self,
+        token: str,
+        refresh_token: str | None = None,
+        refresh_expires_in: float | None = None,
+    ) -> None:
+        """Set a new token (and optional refresh token) and decode expiries."""
         self._token = token
 
+        self._expiry = datetime.now(UTC).timestamp() + 3600
         with suppress(Exception):
             decoded = jwt.decode(token, options={"verify_signature": False})
             if exp := decoded.get("exp"):
                 self._expiry = float(exp)
-                return
-        self._expiry = datetime.now(UTC).timestamp() + 3600
+
+        if refresh_token:
+            self._refresh_token = refresh_token
+            self._refresh_expiry = (
+                datetime.now(UTC).timestamp() + float(refresh_expires_in)
+                if refresh_expires_in
+                else None
+            )
 
     def clear(self) -> None:
-        """Clear token and expiry."""
+        """Clear the access token (keeps the refresh token for reuse)."""
         self._token = None
         self._expiry = None
+
+    def clear_all(self) -> None:
+        """Clear both the access token and the refresh token."""
+        self._token = None
+        self._expiry = None
+        self._refresh_token = None
+        self._refresh_expiry = None
 
 
 class OctopusFrenchApiClient:
@@ -396,7 +441,7 @@ class OctopusFrenchApiClient:
                     )
                     if attempt < MAX_RETRY_ATTEMPTS - 1:
                         await asyncio.sleep(RETRY_DELAY * (attempt + 1))
-            except aiohttp.ClientError, TimeoutError:
+            except (aiohttp.ClientError, TimeoutError):
                 if attempt < MAX_RETRY_ATTEMPTS - 1:
                     await asyncio.sleep(RETRY_DELAY * (attempt + 1))
                     continue
@@ -412,42 +457,94 @@ class OctopusFrenchApiClient:
             for error in result.get("errors", [])
         ]
 
+    @staticmethod
+    def _is_rate_limited(result: dict[str, Any]) -> bool:
+        """Return True if the response signals the KT-CT-1199 rate limit."""
+        for error in result.get("errors", []):
+            extensions = error.get("extensions") or {}
+            if extensions.get("errorCode") == RATE_LIMIT_ERROR_CODE:
+                return True
+            if "too many requests" in (error.get("message") or "").lower():
+                return True
+        return False
+
+    async def _obtain_token(self, variables: dict[str, Any]) -> dict[str, Any]:
+        """Run the obtainKrakenToken mutation, surfacing rate limits explicitly."""
+        result = await self._async_execute(query=MUTATION_LOGIN, variables=variables)
+
+        if not result:
+            raise OctopusConnectionError("Failed to reach authentication server")
+
+        if self._is_rate_limited(result):
+            raise OctopusRateLimitError(
+                f"Rate limited by API ({RATE_LIMIT_ERROR_CODE}): "
+                + ", ".join(self._extract_error_messages(result))
+            )
+
+        return result
+
+    def _store_tokens(self, result: dict[str, Any]) -> bool:
+        """Persist token/refreshToken from a login response; return success."""
+        payload = (result.get("data") or {}).get("obtainKrakenToken") or {}
+        token = payload.get("token")
+        if not token:
+            return False
+
+        self.token_manager.set_token(
+            token,
+            refresh_token=payload.get("refreshToken"),
+            refresh_expires_in=payload.get("refreshExpiresIn"),
+        )
+        return True
+
+    async def _refresh_access_token(self) -> bool:
+        """Obtain a fresh access token via the refresh token (no full re-login)."""
+        try:
+            result = await self._obtain_token(
+                {"input": {"refreshToken": self.token_manager.refresh_token}}
+            )
+        except OctopusRateLimitError:
+            raise
+        except OctopusConnectionError:
+            return False
+
+        if self._store_tokens(result):
+            return True
+
+        _LOGGER.debug("Refresh token rejected, falling back to a full login")
+        self.token_manager.clear_all()
+        return False
+
+    async def _login_with_credentials(self) -> bool:
+        """Authenticate with email/password (full login)."""
+        result = await self._obtain_token(
+            {"input": {"email": self.email, "password": self.password}}
+        )
+
+        if self._store_tokens(result):
+            return True
+
+        error_messages = self._extract_error_messages(result) or ["Invalid credentials"]
+        _LOGGER.warning("Authentication failed: %s", ", ".join(error_messages))
+        return False
+
     async def authenticate(self) -> bool:
-        """Authenticate with the API (thread-safe)."""
+        """Authenticate with the API (thread-safe).
+
+        Prefers refreshing via the cached refresh token to avoid repeated full
+        logins, which quickly trip the Kraken dynamic rate limit (KT-CT-1199).
+        """
         async with self._auth_lock:
             if self.token_manager.is_valid:
                 return True
 
-            variables = {
-                "input": {
-                    "email": self.email,
-                    "password": self.password,
-                }
-            }
+            if (
+                self.token_manager.is_refresh_valid
+                and await self._refresh_access_token()
+            ):
+                return True
 
-            result = await self._async_execute(
-                query=MUTATION_LOGIN,
-                variables=variables,
-            )
-
-            if not result:
-                raise OctopusConnectionError("Failed to reach authentication server")
-
-            token = ((result.get("data") or {}).get("obtainKrakenToken") or {}).get(
-                "token"
-            )
-
-            if not token:
-                error_messages = self._extract_error_messages(result) or [
-                    "Invalid credentials"
-                ]
-                _LOGGER.warning(
-                    "Authentication failed: %s", ", ".join(error_messages)
-                )
-                return False
-
-            self.token_manager.set_token(token)
-            return True
+            return await self._login_with_credentials()
 
     async def execute_with_auth(
         self,
@@ -470,6 +567,12 @@ class OctopusFrenchApiClient:
 
         if "errors" in result:
             error_messages = self._extract_error_messages(result)
+
+            if self._is_rate_limited(result):
+                raise OctopusRateLimitError(
+                    f"Rate limited by API ({RATE_LIMIT_ERROR_CODE}): "
+                    + "; ".join(error_messages)
+                )
 
             auth_keywords = {"authentication", "unauthorized", "token", "expired"}
             is_auth_error = any(
@@ -539,10 +642,10 @@ class OctopusFrenchApiClient:
             if not isinstance(prop, dict):
                 continue
 
-            edges = prop.get("supplyPoints", {}).get("edges", [])
+            edges = (prop.get("supplyPoints") or {}).get("edges", [])
             for edge in edges:
-                node = edge.get("node", {})
-                meter_point = node.get("meterPoint", {})
+                node = edge.get("node") or {}
+                meter_point = node.get("meterPoint") or {}
 
                 if meter_point.get("distributorStatus") == "RESIL":
                     continue
@@ -582,7 +685,7 @@ class OctopusFrenchApiClient:
                     "number": ledger.get("number", ""),
                 }
 
-        ledger_data = account.get("creditStorage", {}).get("ledger", [])
+        ledger_data = (account.get("creditStorage") or {}).get("ledger", [])
         if not isinstance(ledger_data, list):
             ledger_data = [ledger_data]
 
@@ -610,10 +713,10 @@ class OctopusFrenchApiClient:
             if not isinstance(prop, dict):
                 continue
 
-            edges = prop.get("supplyPoints", {}).get("edges", [])
+            edges = (prop.get("supplyPoints") or {}).get("edges", [])
             for edge in edges:
-                node = edge.get("node", {})
-                meter_point = node.get("meterPoint", {})
+                node = edge.get("node") or {}
+                meter_point = node.get("meterPoint") or {}
 
                 meter_point["prm"] = node.get("externalIdentifier")
                 meter_point["supply_point_id"] = node.get("id")
@@ -641,10 +744,10 @@ class OctopusFrenchApiClient:
         """Extract agreements with tariffs from account data."""
         agreements = []
 
-        agreement_edges = account.get("agreements", {}).get("edges", [])
+        agreement_edges = (account.get("agreements") or {}).get("edges", [])
 
         for edge in agreement_edges:
-            agreement = edge.get("node", {})
+            agreement = edge.get("node") or {}
 
             tariffs = None
             if energy_rate := agreement.get("energySupplyRate"):
@@ -656,12 +759,12 @@ class OctopusFrenchApiClient:
                 "valid_to": agreement.get("validTo"),
                 "is_active": agreement.get("isActive", False),
                 "contract_number": agreement.get("supplyContractNumber"),
-                "supply_point_id": agreement.get("supplyPoint", {}).get("id"),
-                "prm": agreement.get("supplyPoint", {}).get("externalIdentifier"),
+                "supply_point_id": (agreement.get("supplyPoint") or {}).get("id"),
+                "prm": (agreement.get("supplyPoint") or {}).get("externalIdentifier"),
                 "product": {
-                    "code": agreement.get("product", {}).get("code"),
-                    "name": agreement.get("product", {}).get("fullName"),
-                    "display_name": agreement.get("product", {}).get("displayName"),
+                    "code": (agreement.get("product") or {}).get("code"),
+                    "name": (agreement.get("product") or {}).get("fullName"),
+                    "display_name": (agreement.get("product") or {}).get("displayName"),
                 },
                 "tariffs": tariffs,
                 "billing_frequency_months": agreement.get("billingFrequency"),
@@ -736,8 +839,8 @@ class OctopusFrenchApiClient:
                 _LOGGER.warning("Error parsing standing rate: %s", e)
 
         consumption_rates = []
-        for rate_edge in energy_rate.get("consumptionRates", {}).get("edges", []):
-            rate = rate_edge.get("node", {})
+        for rate_edge in (energy_rate.get("consumptionRates") or {}).get("edges", []):
+            rate = rate_edge.get("node") or {}
             try:
                 temporal_class = rate.get("temporalClass") or {}
                 time_slots = rate.get("timeSlots") or []
@@ -851,8 +954,9 @@ class OctopusFrenchApiClient:
             result = await self.execute_with_auth(query=query, variables=variables)
             measurements = (
                 ((result.get("data") or {}).get("property") or {}).get(
-                    "measurements", {}
+                    "measurements"
                 )
+                or {}
             )
             all_nodes.extend(edge["node"] for edge in measurements.get("edges", []))
             page_info = measurements.get("pageInfo", {})
@@ -890,7 +994,7 @@ class OctopusFrenchApiClient:
             result = await self.execute_with_auth(
                 query=QUERY_GET_GAS_READINGS, variables=variables
             )
-            gas_reading = (result.get("data") or {}).get("gasReading", {})
+            gas_reading = (result.get("data") or {}).get("gasReading") or {}
 
             for edge in gas_reading.get("edges", []):
                 node = edge["node"]
@@ -922,8 +1026,9 @@ class OctopusFrenchApiClient:
 
         payment_requests = (
             ((result.get("data") or {}).get("paymentRequests") or {}).get(
-                "paymentRequest", {}
+                "paymentRequest"
             )
+            or {}
         )
 
         edges = payment_requests.get("edges", [])

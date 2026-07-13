@@ -110,7 +110,14 @@ async def async_setup_entry(
 
 
 async def _async_authenticate(api_client: OctopusFrenchApiClient) -> None:
-    if not await api_client.authenticate():
+    try:
+        authenticated = await api_client.authenticate()
+    except OctopusConnectionError as err:
+        # Includes rate limiting (KT-CT-1199): temporary, let HA back off and retry
+        # instead of forcing a re-auth prompt.
+        raise ConfigEntryNotReady(f"Cannot connect to Octopus API: {err}") from err
+
+    if not authenticated:
         raise ConfigEntryAuthFailed("Authentication failed - invalid credentials")
 
 
