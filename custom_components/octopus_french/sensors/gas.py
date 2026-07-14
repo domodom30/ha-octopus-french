@@ -252,8 +252,8 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
 
         for agreement in agreements:
             if agreement.get("prm") == self._pce_ref and agreement.get("is_active"):
-                tariffs = agreement.get("tariffs", {})
-                subscription = tariffs.get("subscription", {})
+                tariffs = (agreement.get("tariffs") or {})
+                subscription = (tariffs.get("subscription") or {})
 
                 if subscription:
                     monthly_ttc = subscription.get("monthly_ttc_eur")
@@ -395,8 +395,8 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
             attributes: dict[str, Any] = {}
 
             if agreement_data:
-                tariffs = agreement_data.get("tariffs", {})
-                subscription = tariffs.get("subscription", {})
+                tariffs = (agreement_data.get("tariffs") or {})
+                subscription = (tariffs.get("subscription") or {})
 
                 attributes.update(
                     {
@@ -459,7 +459,7 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
 
             for agreement in agreements:
                 if agreement.get("prm") == self._pce_ref and agreement.get("is_active"):
-                    tariffs = agreement.get("tariffs", {})
+                    tariffs = (agreement.get("tariffs") or {})
                     consumption = tariffs.get("consumption", {})
                     base_rate = consumption.get("base")
 
@@ -484,7 +484,7 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
 
         for agreement in agreements:
             if agreement.get("prm") == self._pce_ref and agreement.get("is_active"):
-                tariffs = agreement.get("tariffs", {})
+                tariffs = (agreement.get("tariffs") or {})
                 consumption = tariffs.get("consumption", {})
 
                 base_rate = consumption.get("base")

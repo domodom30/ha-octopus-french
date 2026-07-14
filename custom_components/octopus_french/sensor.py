@@ -193,7 +193,7 @@ def _detect_tariff_type_for_meter(data: dict, prm_id: str) -> str:
         electricity_readings = data.get("electricity", {}).get("readings", [])
         if electricity_readings:
             latest_reading = electricity_readings[-1]
-            statistics = latest_reading.get("metaData", {}).get("statistics", [])
+            statistics = (latest_reading.get("metaData") or {}).get("statistics", [])
             if statistics:
                 labels = {stat.get("label", "") for stat in statistics}
                 if labels & TEMPO_STATISTICS_LABELS:
@@ -205,7 +205,7 @@ def _detect_tariff_type_for_meter(data: dict, prm_id: str) -> str:
 
         for agreement in data.get("agreements", []):
             if agreement.get("prm") == prm_id and agreement.get("is_active"):
-                code = agreement.get("product", {}).get("code", "").upper()
+                code = ((agreement.get("product") or {}).get("code") or "").upper()
                 if any(kw in code for kw in TEMPO_PRODUCT_CODE_KEYWORDS):
                     return TARIFF_TYPE_TEMPO
 

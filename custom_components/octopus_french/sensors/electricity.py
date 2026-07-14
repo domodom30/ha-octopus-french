@@ -192,7 +192,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                 _LOGGER.warning("Error parsing date %s: %s", reading_date, e)
                 continue
 
-            stat_list = reading.get("metaData", {}).get("statistics", [])
+            stat_list = (reading.get("metaData") or {}).get("statistics", [])
             reading_value = 0.0
 
             for stat in stat_list:
@@ -317,8 +317,8 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
 
         for agreement in agreements:
             if agreement.get("prm") == self._prm_id and agreement.get("is_active"):
-                tariffs = agreement.get("tariffs", {})
-                subscription = tariffs.get("subscription", {})
+                tariffs = (agreement.get("tariffs") or {})
+                subscription = (tariffs.get("subscription") or {})
 
                 if subscription:
                     monthly_ttc = subscription.get("monthly_ttc_eur")
@@ -344,7 +344,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             _LOGGER.warning("Error getting latest reading: %s", e)
             return 0.0
 
-        statistics = latest_reading.get("metaData", {}).get("statistics", [])
+        statistics = (latest_reading.get("metaData") or {}).get("statistics", [])
 
         for stat in statistics:
             if stat.get("label") == "ABONNEMENT":
@@ -407,7 +407,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                 _LOGGER.warning("Error parsing date %s: %s", reading_date, e)
                 continue
 
-            statistics = reading.get("metaData", {}).get("statistics", [])
+            statistics = (reading.get("metaData") or {}).get("statistics", [])
 
             for stat in statistics:
                 label = normalize_consumption_label(stat.get("label", ""))
@@ -486,7 +486,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             return {
                 "ledger_id": electricity_ledger.get("number"),
                 "prm_id": meter.get("id"),
-                "agreement": meter.get("providerCalendar", {}).get("id"),
+                "agreement": (meter.get("providerCalendar") or {}).get("id"),
                 "distributor_status": meter.get("distributorStatus"),
                 "meter_kind": meter.get("meterKind"),
                 "subscribed_max_power": f"{meter.get('subscribedMaxPower')} kVA",
@@ -509,8 +509,8 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             }
 
             if agreement_data:
-                tariffs = agreement_data.get("tariffs", {})
-                subscription = tariffs.get("subscription", {})
+                tariffs = (agreement_data.get("tariffs") or {})
+                subscription = (tariffs.get("subscription") or {})
 
                 attributes.update(
                     {
@@ -549,7 +549,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                         try:
                             date_obj = datetime.fromisoformat(reading_date)
                             if date_obj.strftime("%Y-%m") == self._current_month:
-                                statistics = reading.get("metaData", {}).get(
+                                statistics = (reading.get("metaData") or {}).get(
                                     "statistics", []
                                 )
                                 if any(
@@ -595,7 +595,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
 
             for agreement in agreements:
                 if agreement.get("prm") == self._prm_id and agreement.get("is_active"):
-                    tariffs = agreement.get("tariffs", {})
+                    tariffs = (agreement.get("tariffs") or {})
                     consumption = tariffs.get("consumption", {})
 
                     attributes: dict[str, Any] = {
@@ -659,7 +659,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
 
         for agreement in agreements:
             if agreement.get("prm") == self._prm_id and agreement.get("is_active"):
-                tariffs = agreement.get("tariffs", {})
+                tariffs = (agreement.get("tariffs") or {})
                 consumption = tariffs.get("consumption", {})
 
                 if key in ("rate_base", "cost_base"):
@@ -763,7 +763,7 @@ class OctopusLatestReadingSensor(CoordinatorEntity, SensorEntity):
             return {}
 
         reading = readings[-1]
-        statistics = reading.get("metaData", {}).get("statistics", [])
+        statistics = (reading.get("metaData") or {}).get("statistics", [])
 
         attributes = {"date_releve": reading.get("startAt")}
 
@@ -802,7 +802,7 @@ class OctopusLatestReadingSensor(CoordinatorEntity, SensorEntity):
             agreements = self.coordinator.data.get("agreements", [])
             for agreement in agreements:
                 if agreement.get("prm") == self._prm_id and agreement.get("is_active"):
-                    consumption = agreement.get("tariffs", {}).get("consumption", {})
+                    consumption = (agreement.get("tariffs") or {}).get("consumption", {})
                     if base_kwh is not None:
                         base_rate = consumption.get("base")
                         if base_rate:
@@ -833,7 +833,7 @@ class OctopusLatestReadingSensor(CoordinatorEntity, SensorEntity):
             agreements = self.coordinator.data.get("agreements", [])
             for agreement in agreements:
                 if agreement.get("prm") == self._prm_id and agreement.get("is_active"):
-                    consumption = agreement.get("tariffs", {}).get("consumption", {})
+                    consumption = (agreement.get("tariffs") or {}).get("consumption", {})
                     for attr_key, rate_key in _TEMPO_ATTR_TO_RATE_KEY.items():
                         kwh = attributes.get(attr_key)
                         if kwh is not None and (rate := consumption.get(rate_key)):
@@ -1021,7 +1021,7 @@ class OctopusTempoCurrentRateSensor(CoordinatorEntity, SensorEntity):
         agreements = self.coordinator.data.get("agreements", [])
         for agreement in agreements:
             if agreement.get("prm") == self._prm_id and agreement.get("is_active"):
-                consumption = agreement.get("tariffs", {}).get("consumption", {})
+                consumption = (agreement.get("tariffs") or {}).get("consumption", {})
                 rate = consumption.get(rate_key)
                 if rate:
                     return rate.get("price_ttc")

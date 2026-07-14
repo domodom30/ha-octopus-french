@@ -1,3 +1,27 @@
+## [3.3.4] - 2026-07-14
+
+Corrections des deux problèmes remontés dans l'issue #51 (« Invalid credentials & no attribute 'get' »).
+
+### 🔐 Correction — « Invalid credentials » alors que les identifiants sont bons
+
+À chaque erreur d'autorisation, l'intégration refaisait un **login e-mail/mot de passe complet**. Répétés, ces logins déclenchent le rate-limit dynamique de Kraken (`KT-CT-1199`), qui finit par refuser le login lui-même — l'intégration interprétait alors ce refus comme des identifiants invalides et demandait une ré-authentification, en pure perte.
+
+- Le token d'accès (60 min) est désormais renouvelé via le **refresh token** (7 j), sans renvoyer le mot de passe. Le login complet n'est refait que si le refresh échoue ou expire.
+- Le rate-limit est détecté et traité comme une erreur **temporaire** : Home Assistant patiente et réessaie, au lieu d'afficher « Authentication failed - invalid credentials ».
+
+### 🐛 Correction — `'NoneType' object has no attribute 'get'`
+
+L'API renvoie certains sous-objets explicitement à `null` sur les réponses partielles. Le défaut `.get("clé", {})` ne protège que si la clé est **absente**, pas si elle vaut `null` : le `.get()` suivant échouait alors et le rafraîchissement des données s'interrompait.
+
+- Accès sécurisés sur les objets remontés par l'API : `supplyPoints`, `agreements`, `creditStorage`, `supplyPoint`, `product`, `consumptionRates`, `measurements`, `metaData`, `gasReading`, `paymentRequest`, `providerCalendar`.
+- Corrige aussi deux plantages de la même famille : les tarifs d'un contrat sans grille tarifaire (`tariffs` à `null`), et la détection du type de contrat quand le code produit est absent.
+
+### 🧪 Tests
+
+- Couverture de l'authentification (refresh token, repli sur login complet, rate-limit) et des réponses partielles de l'API.
+
+---
+
 ## [3.3.3] - 2026-07-09
 
 Cette version est une **mise en conformité aux standards Home Assistant** accompagnée de deux corrections côté utilisateur (comptes multiples et capteur de contrat).
