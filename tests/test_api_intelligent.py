@@ -158,6 +158,61 @@ async def test_get_vehicle_charging_preferences(intelligent_client, mock_api_cli
 
 
 @pytest.mark.asyncio
+async def test_suspend_smart_control_success(intelligent_client, mock_api_client):
+    """Test suspending smart control."""
+    mock_api_client.execute_with_auth.return_value = {
+        "data": {
+            "updateDeviceSmartControl": {
+                "id": "abc-123",
+                "name": "Tesla Model 3",
+                "status": {"isSuspended": True},
+            }
+        }
+    }
+
+    result = await intelligent_client.suspend_smart_control("abc-123")
+
+    assert result is True
+    mock_api_client.execute_with_auth.assert_called_once()
+    _, variables = mock_api_client.execute_with_auth.call_args[0]
+    assert variables == {"deviceId": "abc-123", "action": "SUSPEND"}
+
+
+@pytest.mark.asyncio
+async def test_unsuspend_smart_control_success(intelligent_client, mock_api_client):
+    """Test restoring smart control."""
+    mock_api_client.execute_with_auth.return_value = {
+        "data": {
+            "updateDeviceSmartControl": {
+                "id": "abc-123",
+                "name": "Tesla Model 3",
+                "status": {"isSuspended": False},
+            }
+        }
+    }
+
+    result = await intelligent_client.unsuspend_smart_control("abc-123")
+
+    assert result is True
+    mock_api_client.execute_with_auth.assert_called_once()
+    _, variables = mock_api_client.execute_with_auth.call_args[0]
+    assert variables == {"deviceId": "abc-123", "action": "UNSUSPEND"}
+
+
+@pytest.mark.asyncio
+async def test_update_smart_control_error(intelligent_client, mock_api_client):
+    """Test smart control update failing."""
+    mock_api_client.execute_with_auth.return_value = {
+        "errors": [{"message": "Unauthorized."}],
+        "data": {"updateDeviceSmartControl": None},
+    }
+
+    result = await intelligent_client.suspend_smart_control("abc-123")
+
+    assert result is False
+
+
+@pytest.mark.asyncio
 async def test_get_flex_planned_dispatches(intelligent_client, mock_api_client):
     """Test getting planned dispatch windows."""
     mock_api_client.execute_with_auth.return_value = {

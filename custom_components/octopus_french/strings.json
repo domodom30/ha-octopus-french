@@ -777,6 +777,9 @@
             "name": "Refusal reasons"
           }
         }
+      },
+      "smart_control": {
+        "name": "Smart control"
       }
     },
     "number": {
@@ -808,6 +811,9 @@
     },
     "cancel_boost_charge_failed": {
       "message": "Failed to cancel boost charge: {reasons}."
+    },
+    "update_smart_control_failed": {
+      "message": "Failed to update smart control for device {device_id}."
     }
   }
 }
