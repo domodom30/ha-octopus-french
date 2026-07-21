@@ -103,7 +103,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
     async def _async_do_import_statistics(self) -> None:
         """Perform the actual statistics import."""
         key = self._sensor_config.key
-        readings = self.coordinator.data.get("electricity", {}).get("readings", [])
+        readings = self.coordinator.data.get("electricity_by_prm", {}).get(self._prm_id, {}).get("readings", [])
 
         if not readings:
             return
@@ -333,7 +333,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
 
     def _calculate_monthly_subscription_fallback(self) -> float:
         """Fallback: Calculate monthly subscription from daily readings."""
-        readings = self.coordinator.data.get("electricity", {}).get("readings", [])
+        readings = self.coordinator.data.get("electricity_by_prm", {}).get(self._prm_id, {}).get("readings", [])
 
         if not readings:
             return 0.0
@@ -362,7 +362,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
     def _calculate_monthly_total(self) -> float:
         """Calculate monthly total."""
         key = self._sensor_config.key
-        readings = self.coordinator.data.get("electricity", {}).get("readings", [])
+        readings = self.coordinator.data.get("electricity_by_prm", {}).get(self._prm_id, {}).get("readings", [])
 
         if not readings:
             return 0.0
@@ -538,7 +538,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                     )
                     attributes["next_payment_date"] = next_payment.get("date")
             else:
-                readings = self.coordinator.data.get("electricity", {}).get(
+                readings = self.coordinator.data.get("electricity_by_prm", {}).get(self._prm_id, {}).get(
                     "readings", []
                 )
                 days_with_subscription = 0
@@ -572,7 +572,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             return attributes
 
         if key.startswith(("energy_", "cost_")):
-            readings = self.coordinator.data.get("electricity", {}).get("readings", [])
+            readings = self.coordinator.data.get("electricity_by_prm", {}).get(self._prm_id, {}).get("readings", [])
 
             return {
                 "current_month": self._current_month,
@@ -743,7 +743,7 @@ class OctopusLatestReadingSensor(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self) -> float | None:
         """Return the latest reading value."""
-        electricity_data = self.coordinator.data.get("electricity", {})
+        electricity_data = self.coordinator.data.get("electricity_by_prm", {}).get(self._prm_id, {})
         readings = electricity_data.get("readings", [])
 
         if not readings:
@@ -756,7 +756,7 @@ class OctopusLatestReadingSensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return extra attributes for the latest reading."""
-        electricity_data = self.coordinator.data.get("electricity", {})
+        electricity_data = self.coordinator.data.get("electricity_by_prm", {}).get(self._prm_id, {})
         readings = electricity_data.get("readings", [])
 
         if not readings:
@@ -878,7 +878,7 @@ class OctopusElectricityIndexSensor(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self) -> float | None:
         """Return the index end value."""
-        index_data = self.coordinator.data.get("electricity", {}).get("index")
+        index_data = self.coordinator.data.get("electricity_by_prm", {}).get(self._prm_id, {}).get("index")
 
         if not index_data:
             return None
@@ -889,7 +889,7 @@ class OctopusElectricityIndexSensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return extra attributes."""
-        index_data = self.coordinator.data.get("electricity", {}).get("index")
+        index_data = self.coordinator.data.get("electricity_by_prm", {}).get(self._prm_id, {}).get("index")
 
         if not index_data:
             return {}
@@ -910,7 +910,7 @@ class OctopusElectricityIndexSensor(CoordinatorEntity, SensorEntity):
         """Return if entity is available."""
         if not super().available:
             return False
-        index_data = self.coordinator.data.get("electricity", {}).get("index")
+        index_data = self.coordinator.data.get("electricity_by_prm", {}).get(self._prm_id, {}).get("index")
         if not index_data:
             return False
         return self._index_type in index_data
@@ -941,7 +941,7 @@ class OctopusTempoColorSensor(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self) -> str | None:
         """Return the Tempo color from the electricity index."""
-        index_data = self.coordinator.data.get("electricity", {}).get("index")
+        index_data = self.coordinator.data.get("electricity_by_prm", {}).get(self._prm_id, {}).get("index")
         if not index_data:
             return None
         color_key = "tempo_color_tomorrow" if self._is_tomorrow else "tempo_color"
@@ -950,7 +950,7 @@ class OctopusTempoColorSensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return extra attributes."""
-        index_data = self.coordinator.data.get("electricity", {}).get("index") or {}
+        index_data = self.coordinator.data.get("electricity_by_prm", {}).get(self._prm_id, {}).get("index") or {}
         return {
             "prm_id": self._prm_id,
             "period_start": index_data.get("period_start"),
@@ -966,7 +966,7 @@ class OctopusTempoColorSensor(CoordinatorEntity, SensorEntity):
         ):
             return False
         if self._is_tomorrow:
-            index_data = self.coordinator.data.get("electricity", {}).get("index") or {}
+            index_data = self.coordinator.data.get("electricity_by_prm", {}).get(self._prm_id, {}).get("index") or {}
             return "tempo_color_tomorrow" in index_data
         return True
 
@@ -1010,7 +1010,7 @@ class OctopusTempoCurrentRateSensor(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self) -> float | None:
         """Return the active Tempo rate (€/kWh) for the current color and HC/HP period."""
-        index_data = self.coordinator.data.get("electricity", {}).get("index") or {}
+        index_data = self.coordinator.data.get("electricity_by_prm", {}).get(self._prm_id, {}).get("index") or {}
         color = index_data.get("tempo_color")
         if not color:
             return None
@@ -1030,7 +1030,7 @@ class OctopusTempoCurrentRateSensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return current color and period information."""
-        index_data = self.coordinator.data.get("electricity", {}).get("index") or {}
+        index_data = self.coordinator.data.get("electricity_by_prm", {}).get(self._prm_id, {}).get("index") or {}
         color = index_data.get("tempo_color")
         is_hc = self._is_currently_hc() if color else None
         return {

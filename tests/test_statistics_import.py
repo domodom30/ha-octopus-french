@@ -58,7 +58,9 @@ def _make_sensor(key: str, readings: list[dict]) -> OctopusElectricitySensor:
     sensor._last_imported_date = None
     sensor._import_in_progress = False
     sensor.hass = MagicMock()
-    sensor.coordinator = SimpleNamespace(data={"electricity": {"readings": readings}})
+    sensor.coordinator = SimpleNamespace(
+        data={"electricity_by_prm": {"PRM1": {"readings": readings}}}
+    )
     return sensor
 
 

@@ -63,11 +63,13 @@ class TestDetectTariffTypeTempo:
         """Construit un faux objet coordinator.data."""
         stats = [{"label": lbl, "value": "1.0"} for lbl in stat_labels]
         return {
-            "electricity": {
-                "readings": [
-                    {"startAt": "2026-05-01T00:00:00", "metaData": {"statistics": stats}}
-                ],
-                "index": None,
+            "electricity_by_prm": {
+                prm_id: {
+                    "readings": [
+                        {"startAt": "2026-05-01T00:00:00", "metaData": {"statistics": stats}}
+                    ],
+                    "index": None,
+                }
             },
             "agreements": [
                 {
@@ -123,24 +125,59 @@ class TestDetectTariffTypeTempo:
         assert result == TARIFF_TYPE_TEMPO
 
     def test_other_prm_not_detected_as_tempo(self) -> None:
-        """Le produit TEMPO d'un autre PRM ne doit pas affecter le PRM cible."""
-        data = self._make_data(
-            stat_labels=["BASE"],
-            prm_id="OTHER_PRM",
-            product_code="FR_TEMPO",
-        )
-        data["electricity"]["readings"][0]["metaData"]["statistics"] = [
-            {"label": "BASE", "value": "1.0"}
-        ]
+        """Le produit TEMPO d'un autre PRM ne doit pas affecter le PRM cible.
+
+        Regression test for issue #56: two electricity contracts on the same
+        account must not bleed readings/index/product-code into each other.
+        """
+        data = {
+            "electricity_by_prm": {
+                "TEST_PRM": {
+                    "readings": [
+                        {
+                            "startAt": "2026-05-01T00:00:00",
+                            "metaData": {"statistics": [{"label": "BASE", "value": "1.0"}]},
+                        }
+                    ],
+                    "index": None,
+                },
+                "OTHER_PRM": {
+                    "readings": [
+                        {
+                            "startAt": "2026-05-01T00:00:00",
+                            "metaData": {
+                                "statistics": [
+                                    {
+                                        "label": "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
+                                        "value": "1.0",
+                                    }
+                                ]
+                            },
+                        }
+                    ],
+                    "index": None,
+                },
+            },
+            "agreements": [
+                {
+                    "prm": "OTHER_PRM",
+                    "is_active": True,
+                    "product": {"code": "FR_TEMPO", "display_name": "Test"},
+                    "tariffs": {},
+                }
+            ],
+        }
         result = _detect_tariff_type_for_meter(data, "TEST_PRM")
         assert result == "BASE"
 
     def test_no_readings_fallback_to_index(self) -> None:
         """Sans readings, on utilise l'index électrique."""
         data = {
-            "electricity": {
-                "readings": [],
-                "index": {"tariff_type": TARIFF_TYPE_TEMPO, "tempo_color": "ETE"},
+            "electricity_by_prm": {
+                "TEST_PRM": {
+                    "readings": [],
+                    "index": {"tariff_type": TARIFF_TYPE_TEMPO, "tempo_color": "ETE"},
+                }
             },
             "agreements": [],
         }
@@ -465,8 +502,10 @@ class TestTempoCurrentRateSensor:
         coordinator = MagicMock()
         coordinator.last_update_success = True
         coordinator.data = {
-            "electricity": {
-                "index": {"tempo_color": tempo_color} if tempo_color else {},
+            "electricity_by_prm": {
+                prm_id: {
+                    "index": {"tempo_color": tempo_color} if tempo_color else {},
+                }
             },
             "agreements": [
                 {
@@ -593,11 +632,13 @@ class TestLatestReadingTempoAttributes:
                 }
             ]
         coordinator.data = {
-            "electricity": {
-                "readings": [
-                    {"startAt": "2026-06-13T00:00:00", "value": "15.0",
-                     "metaData": {"statistics": stats}}
-                ],
+            "electricity_by_prm": {
+                prm_id: {
+                    "readings": [
+                        {"startAt": "2026-06-13T00:00:00", "value": "15.0",
+                         "metaData": {"statistics": stats}}
+                    ],
+                }
             },
             "agreements": agreements,
         }

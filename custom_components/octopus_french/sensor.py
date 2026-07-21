@@ -128,7 +128,7 @@ async def async_setup_entry(
             OctopusLatestReadingSensor(coordinator, prm_id, LATEST_READING_SENSOR)
         )
 
-        index_data = coordinator.data.get("electricity", {}).get("index")
+        index_data = coordinator.data.get("electricity_by_prm", {}).get(prm_id, {}).get("index")
         if index_data:
             index_tariff_type = index_data.get("tariff_type")
 
@@ -190,7 +190,7 @@ def _detect_tariff_type_for_meter(data: dict, prm_id: str) -> str:
             if len(codes) == 1:
                 return "BASE"
 
-        electricity_readings = data.get("electricity", {}).get("readings", [])
+        electricity_readings = data.get("electricity_by_prm", {}).get(prm_id, {}).get("readings", [])
         if electricity_readings:
             latest_reading = electricity_readings[-1]
             statistics = (latest_reading.get("metaData") or {}).get("statistics", [])
@@ -209,7 +209,7 @@ def _detect_tariff_type_for_meter(data: dict, prm_id: str) -> str:
                 if any(kw in code for kw in TEMPO_PRODUCT_CODE_KEYWORDS):
                     return TARIFF_TYPE_TEMPO
 
-        index = data.get("electricity", {}).get("index") or {}
+        index = data.get("electricity_by_prm", {}).get(prm_id, {}).get("index") or {}
         tariff_type = index.get("tariff_type")
         if tariff_type in ("BASE", "HPHC", TARIFF_TYPE_TEMPO):
             return tariff_type

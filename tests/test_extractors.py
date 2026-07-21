@@ -135,7 +135,7 @@ def test_detect_tariff_type_with_null_product_code() -> None:
     # _extract_agreements always sets product.code, possibly to None, so the
     # `.get("code", "")` default never fired and None.upper() used to raise.
     data = {
-        "electricity": {"readings": []},
+        "electricity_by_prm": {"12345": {"readings": []}},
         "agreements": [
             {"prm": "12345", "is_active": True, "product": {"code": None}},
         ],
@@ -147,7 +147,7 @@ def test_detect_tariff_type_with_null_product_code() -> None:
 def test_detect_tariff_type_with_null_metadata() -> None:
     """A reading whose metaData is null leaves the tariff undetected."""
     data = {
-        "electricity": {"readings": [{"metaData": None}]},
+        "electricity_by_prm": {"12345": {"readings": [{"metaData": None}]}},
         "agreements": [],
     }
 
