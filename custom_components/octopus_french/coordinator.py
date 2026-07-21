@@ -1,5 +1,7 @@
 """Data update coordinator for Octopus French Energy."""
 
+from __future__ import annotations
+
 import asyncio
 from datetime import timedelta
 import logging

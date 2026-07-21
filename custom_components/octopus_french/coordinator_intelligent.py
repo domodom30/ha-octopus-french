@@ -1,5 +1,7 @@
 """Data update coordinator for Octopus Intelligent features."""
 
+from __future__ import annotations
+
 from datetime import timedelta
 import logging
 from typing import TYPE_CHECKING, Any
