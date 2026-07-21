@@ -1131,7 +1131,7 @@ class OctopusFrenchApiClient:
 
                 color = self._REGISTER_CODE_TO_COLOR.get(effective_code)
                 if color:
-                    node_date = node.get("periodStartAt", "")[:10]
+                    node_date = (node.get("periodStartAt") or "")[:10]
                     color_key = (
                         "tempo_color_tomorrow"
                         if node_date == tomorrow_str
@@ -1142,7 +1142,7 @@ class OctopusFrenchApiClient:
             elif effective_code in self._CALENDAR_COLOR_TO_COLOR:
                 tariff_type = "TEMPO"
                 color = self._CALENDAR_COLOR_TO_COLOR[effective_code]
-                node_date = node.get("periodStartAt", "")[:10]
+                node_date = (node.get("periodStartAt") or "")[:10]
                 color_key = (
                     "tempo_color_tomorrow"
                     if node_date == tomorrow_str

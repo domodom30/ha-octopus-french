@@ -371,6 +371,31 @@ class TestElectricityIndexTempo:
         assert result["tempo_color"] == "ROUGE"
 
     @pytest.mark.asyncio
+    async def test_null_period_start_at_does_not_crash(self) -> None:
+        """A node with periodStartAt=None must not raise TypeError.
+
+        Regression test for issue #57: provisional/not-yet-settled Tempo
+        index entries can come back with an explicit JSON null for
+        periodStartAt. node.get("periodStartAt", "") only substitutes the
+        default for a *missing* key, not an explicit None, so slicing it
+        raised "'NoneType' object is not subscriptable" and broke the
+        entire initial data fetch (ConfigEntryNotReady) for every OctoTempo
+        user hitting this on any given day.
+        """
+        from custom_components.octopus_french.octopus_french import OctopusFrenchApiClient
+
+        client = OctopusFrenchApiClient.__new__(OctopusFrenchApiClient)
+        response = self._make_index_response("ROUGE")
+        response["data"]["electricityReading"]["edges"][0]["node"]["periodStartAt"] = None
+
+        with patch.object(client, "execute_with_auth", return_value=response):
+            result = await client.get_electricity_index("ACC123", "PRM456")
+
+        assert result is not None
+        assert result["tariff_type"] == TARIFF_TYPE_TEMPO
+        assert result["tempo_color"] == "ROUGE"
+
+    @pytest.mark.asyncio
     async def test_hp_class_still_detected_as_hphc(self) -> None:
         """Une classe HP classique doit toujours être détectée comme HPHC."""
         from custom_components.octopus_french.octopus_french import OctopusFrenchApiClient
