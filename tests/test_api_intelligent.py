@@ -4,7 +4,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from custom_components.octopus_french.api.intelligent import OctopusIntelligentApiClient
+from custom_components.octopus_french.api.intelligent import (
+    MUTATION_SET_DEVICE_PREFERENCES,
+    OctopusIntelligentApiClient,
+)
 
 
 @pytest.fixture
@@ -208,6 +211,70 @@ async def test_update_smart_control_error(intelligent_client, mock_api_client):
     }
 
     result = await intelligent_client.suspend_smart_control("abc-123")
+
+    assert result is False
+
+
+def test_mutation_set_device_preferences_uses_correct_graphql_types():
+    """setDevicePreferences must declare deviceId/time/max as ID!/Time!/Decimal!.
+
+    Regression test for a bug where these were declared String!/String!/Int!,
+    which Kraken rejected with an HTTP 400 on every call.
+    """
+    assert "$deviceId: ID!" in MUTATION_SET_DEVICE_PREFERENCES
+    assert "$time: Time!" in MUTATION_SET_DEVICE_PREFERENCES
+    assert "$max: Decimal!" in MUTATION_SET_DEVICE_PREFERENCES
+
+
+@pytest.mark.asyncio
+async def test_set_target_soc_success(intelligent_client, mock_api_client):
+    """Test setting target state of charge."""
+    mock_api_client.execute_with_auth.return_value = {
+        "data": {
+            "setDevicePreferences": {
+                "id": "abc-123",
+                "preferences": {"schedules": []},
+            }
+        }
+    }
+
+    result = await intelligent_client.set_target_soc("abc-123", 100, "07:00")
+
+    assert result is True
+    mock_api_client.execute_with_auth.assert_called_once()
+    _, variables = mock_api_client.execute_with_auth.call_args[0]
+    assert variables == {"deviceId": "abc-123", "time": "07:00", "max": 100}
+
+
+@pytest.mark.asyncio
+async def test_set_target_time_success(intelligent_client, mock_api_client):
+    """Test setting target charging time."""
+    mock_api_client.execute_with_auth.return_value = {
+        "data": {
+            "setDevicePreferences": {
+                "id": "abc-123",
+                "preferences": {"schedules": []},
+            }
+        }
+    }
+
+    result = await intelligent_client.set_target_time("abc-123", "22:30", 80)
+
+    assert result is True
+    mock_api_client.execute_with_auth.assert_called_once()
+    _, variables = mock_api_client.execute_with_auth.call_args[0]
+    assert variables == {"deviceId": "abc-123", "time": "22:30", "max": 80}
+
+
+@pytest.mark.asyncio
+async def test_set_device_preferences_error(intelligent_client, mock_api_client):
+    """Test setDevicePreferences failing (e.g. the wrong-GraphQL-type 400 this guards against)."""
+    mock_api_client.execute_with_auth.return_value = {
+        "errors": [{"message": "Variable '$deviceId' of type 'String!' used in position expecting type 'ID!'."}],
+        "data": {"setDevicePreferences": None},
+    }
+
+    result = await intelligent_client.set_target_soc("abc-123", 100, "07:00")
 
     assert result is False
 
