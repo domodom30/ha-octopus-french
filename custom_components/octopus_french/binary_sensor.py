@@ -1,6 +1,6 @@
 """Binary sensors for OctopusFrench Energy integration."""
 
-from datetime import time
+from datetime import datetime, time
 from typing import Any
 
 from homeassistant.components.binary_sensor import (
@@ -8,14 +8,15 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
+from .coordinator import OctopusFrenchDataUpdateCoordinator
 from .utils import find_contract_hc_slots, parse_off_peak_hours, parse_time_slots
 
 PARALLEL_UPDATES = 0
@@ -41,7 +42,7 @@ async def async_setup_entry(
     electricity_points = supply_points.get("electricity", [])
 
     for meter in electricity_points:
-        prm_id = meter.get("id")
+        prm_id = meter.get("prm")
         if not prm_id:
             continue
 
@@ -60,8 +61,11 @@ async def async_setup_entry(
         async_add_entities(sensors)
 
 
-class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
-    """Binary sensor indicating if current time is in HC (Heures Creuses) period.
+class OctopusFrenchHcBinarySensor(
+    CoordinatorEntity[OctopusFrenchDataUpdateCoordinator], BinarySensorEntity
+):
+    """
+    Binary sensor indicating if current time is in HC (Heures Creuses) period.
 
     Priorité des sources d'horaires (ordre décroissant de fiabilité) :
       1. timeSlots du contrat actif (données structurées, API)
@@ -72,7 +76,9 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
     _attr_should_poll = False
     _attr_device_class = BinarySensorDeviceClass.RUNNING
 
-    def __init__(self, coordinator, prm_id: str) -> None:
+    def __init__(
+        self, coordinator: OctopusFrenchDataUpdateCoordinator, prm_id: str
+    ) -> None:
         """Initialize the HC binary sensor."""
         super().__init__(coordinator)
         self._prm_id = prm_id
@@ -81,6 +87,7 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, prm_id)},
         )
+        self._update_attrs()
 
     async def async_added_to_hass(self) -> None:
         """When entity is added to hass."""
@@ -89,13 +96,27 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
             async_track_time_change(self.hass, self._async_update_state, second=0)
         )
 
-    async def _async_update_state(self, now=None) -> None:
+    async def _async_update_state(self, now: datetime | None = None) -> None:
         """Update state based on current time."""
+        self._update_attrs()
         self.async_write_ha_state()
 
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Recompute derived attributes when coordinator data changes."""
+        self._update_attrs()
+        super()._handle_coordinator_update()
+
+    def _update_attrs(self) -> None:
+        """Refresh the cached attribute values from schedule and current time."""
+        is_on = self._compute_is_on()
+        self._attr_is_on = is_on
+        self._attr_icon = "mdi:clock-check" if is_on else "mdi:clock-outline"
+        self._attr_extra_state_attributes = self._compute_attributes()
 
     def _resolve_hc_schedule(self) -> dict[str, Any]:
-        """Return the best available HC schedule from coordinator data.
+        """
+        Return the best available HC schedule from coordinator data.
 
         Returns a dict with keys: ranges, total_hours, range_count, source, type.
         'source' is 'contract' or 'linky'.
@@ -109,7 +130,7 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
 
         supply_points = data.get("supply_points", {})
         for meter in supply_points.get("electricity", []):
-            if meter.get("id") == self._prm_id:
+            if meter.get("prm") == self._prm_id:
                 off_peak_label = meter.get("offPeakLabel")
                 if off_peak_label:
                     schedule = parse_off_peak_hours(off_peak_label)
@@ -117,12 +138,16 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
                     return schedule
                 break
 
-        return {"ranges": [], "total_hours": 0.0, "range_count": 0,
-                "source": "none", "type": None}
-
+        return {
+            "ranges": [],
+            "total_hours": 0.0,
+            "range_count": 0,
+            "source": "none",
+            "type": None,
+        }
 
     @property
-    def available(self) -> bool:
+    def available(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
         """Return True if entity is available."""
         return (
             self.coordinator.last_update_success
@@ -130,8 +155,7 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
             and self._resolve_hc_schedule()["range_count"] > 0
         )
 
-    @property
-    def is_on(self) -> bool:
+    def _compute_is_on(self) -> bool:
         """Return True if current time is within HC periods."""
         schedule = self._resolve_hc_schedule()
         if not schedule["ranges"]:
@@ -161,8 +185,7 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
             return cur_min >= start_min or cur_min <= end_min
         return start_min <= cur_min <= end_min
 
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
+    def _compute_attributes(self) -> dict[str, Any]:
         """Return HC schedule information."""
         schedule = self._resolve_hc_schedule()
         ranges = schedule["ranges"]
@@ -179,8 +202,3 @@ class OctopusFrenchHcBinarySensor(CoordinatorEntity, BinarySensorEntity):
             attributes[f"hc_range_{i}_duration_h"] = r["duration_hours"]
 
         return attributes
-
-    @property
-    def icon(self) -> str:
-        """Return dynamic icon based on state."""
-        return "mdi:clock-check" if self.is_on else "mdi:clock-outline"

@@ -1,23 +1,34 @@
 """The Octopus French Energy integration."""
 
+import logging
 from contextlib import suppress
 from dataclasses import dataclass, field
-import logging
 
 import voluptuous as vol
-
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import Platform, UnitOfApparentPower
-from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
-from homeassistant.helpers import config_validation as cv, device_registry as dr
+from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.exceptions import (
+    ConfigEntryAuthFailed,
+    ConfigEntryError,
+    ConfigEntryNotReady,
+)
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 
-from .const import DOMAIN, SERVICE_FORCE_UPDATE
+from .const import (
+    CONF_REFRESH_TOKEN,
+    CONF_REFRESH_TOKEN_EXPIRY,
+    DOMAIN,
+    SERVICE_FORCE_UPDATE,
+)
 from .coordinator import OctopusFrenchDataUpdateCoordinator
 from .coordinator_intelligent import OctopusIntelligentDataUpdateCoordinator
 from .octopus_french import OctopusConnectionError, OctopusFrenchApiClient
+from .statistics_import import OctopusStatisticsImporter
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -53,6 +64,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         for entry in hass.config_entries.async_entries(DOMAIN):
             if entry.state is ConfigEntryState.LOADED:
                 await entry.runtime_data.coordinator.async_request_refresh()
+                intelligent = entry.runtime_data.intelligent_coordinator
+                if intelligent is not None:
+                    await intelligent.async_request_refresh()
 
     hass.services.async_register(
         DOMAIN,
@@ -74,6 +88,28 @@ async def async_setup_entry(
         session=session,
     )
 
+    # Réutilise le refresh token persisté (valide 7 j) : évite un full login
+    # email/mot de passe à chaque redémarrage, qui alimente le rate-limit
+    # Kraken (KT-CT-1199).
+    api_client.token_manager.restore_refresh_token(
+        entry.data.get(CONF_REFRESH_TOKEN),
+        entry.data.get(CONF_REFRESH_TOKEN_EXPIRY),
+    )
+
+    @callback
+    def _persist_refresh_token(token: str | None, expiry: float | None) -> None:
+        data = {**entry.data}
+        if token:
+            data[CONF_REFRESH_TOKEN] = token
+            data[CONF_REFRESH_TOKEN_EXPIRY] = expiry
+        else:
+            data.pop(CONF_REFRESH_TOKEN, None)
+            data.pop(CONF_REFRESH_TOKEN_EXPIRY, None)
+        if data != dict(entry.data):
+            hass.config_entries.async_update_entry(entry, data=data)
+
+    api_client.on_token_update = _persist_refresh_token
+
     await _async_authenticate(api_client)
 
     account_number = await _async_get_account_number(
@@ -87,7 +123,17 @@ async def async_setup_entry(
         config_entry=entry,
     )
 
-    await _async_fetch_initial_data(coordinator)
+    # Ne pas envelopper : async_config_entry_first_refresh convertit déjà les
+    # UpdateFailed en ConfigEntryNotReady et doit laisser passer
+    # ConfigEntryAuthFailed pour déclencher le flow de réauthentification.
+    await coordinator.async_config_entry_first_refresh()
+
+    # Import de statistiques centralisé : une passe par cycle au lieu d'une
+    # tâche par entité energy_/cost_.
+    importer = OctopusStatisticsImporter(hass, coordinator)
+    coordinator.statistics_importer = importer
+    entry.async_on_unload(coordinator.async_add_listener(importer.schedule_import))
+    importer.schedule_import()
 
     intelligent_coordinator = await _async_setup_intelligent_coordinator(
         hass, api_client, account_number, entry
@@ -99,14 +145,37 @@ async def async_setup_entry(
         intelligent_coordinator=intelligent_coordinator,
     )
 
-    await _async_create_devices(hass, entry, coordinator)
+    await er.async_migrate_entries(
+        hass, entry.entry_id, _async_migrate_intelligent_unique_ids
+    )
+
+    await _async_create_devices(hass, entry, coordinator, account_number)
 
     if intelligent_coordinator is not None:
-        await _async_create_intelligent_devices(hass, entry, intelligent_coordinator)
+        await _async_create_intelligent_devices(
+            hass, entry, intelligent_coordinator, account_number
+        )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
+
+
+@callback
+def _async_migrate_intelligent_unique_ids(
+    entity_entry: er.RegistryEntry,
+) -> dict[str, str] | None:
+    """Prefix legacy Intelligent unique_ids with the domain for consistency.
+
+    Older versions registered Octopus Intelligent entities as ``{device_id}_...``
+    without the ``octopus_french_`` prefix used by every other entity. All
+    non-Intelligent unique_ids already start with ``f"{DOMAIN}_"``, so prefixing
+    the ones that don't targets exactly the legacy Intelligent entities and
+    preserves their history and customisations.
+    """
+    if not entity_entry.unique_id.startswith(f"{DOMAIN}_"):
+        return {"new_unique_id": f"{DOMAIN}_{entity_entry.unique_id}"}
+    return None
 
 
 async def _async_authenticate(api_client: OctopusFrenchApiClient) -> None:
@@ -140,19 +209,13 @@ async def _async_setup_intelligent_coordinator(
             _LOGGER.debug("No Intelligent devices found for account %s", account_number)
             return None
         return coordinator
+    except ConfigEntryAuthFailed:
+        # Une erreur d'authentification n'est jamais « Intelligent indisponible » :
+        # elle doit déclencher le flow de réauthentification.
+        raise
     except Exception as err:
         _LOGGER.debug("Octopus Intelligent not available for this account: %s", err)
         return None
-
-
-async def _async_fetch_initial_data(
-    coordinator: OctopusFrenchDataUpdateCoordinator,
-) -> None:
-    """Fetch initial data from the coordinator."""
-    try:
-        await coordinator.async_config_entry_first_refresh()
-    except Exception as err:
-        raise ConfigEntryNotReady(f"Initial data fetch failed: {err}") from err
 
 
 async def _async_get_account_number(
@@ -166,8 +229,16 @@ async def _async_get_account_number(
 
         account_numbers = [account["number"] for account in accounts]
 
-        if configured_account and configured_account in account_numbers:
-            return configured_account
+        if configured_account:
+            if configured_account in account_numbers:
+                return configured_account
+            # Ne jamais basculer silencieusement sur un autre compte : l'unique_id
+            # de l'entry est le numéro configuré, les entités garderaient donc son
+            # identité tout en exposant les données d'un autre compte.
+            raise ConfigEntryError(
+                f"Account {configured_account} is no longer available on this "
+                "Octopus Energy login"
+            )
 
         if account_numbers:
             return account_numbers[0]
@@ -179,10 +250,10 @@ async def _async_create_devices(
     hass: HomeAssistant,
     entry: ConfigEntry,
     coordinator: OctopusFrenchDataUpdateCoordinator,
+    account_number: str,
 ) -> None:
     """Create devices for all meters."""
     device_registry = dr.async_get(hass)
-    account_number = entry.data.get("account_number")
     supply_points = coordinator.data.get("supply_points", {})
 
     if account_number:
@@ -228,10 +299,10 @@ async def _async_create_intelligent_devices(
     hass: HomeAssistant,
     entry: ConfigEntry,
     coordinator: OctopusIntelligentDataUpdateCoordinator,
+    account_number: str,
 ) -> None:
     """Create vehicle devices for Octopus Intelligent."""
     device_registry = dr.async_get(hass)
-    account_number = entry.data.get("account_number")
 
     for device in coordinator.data.get("devices", []):
         device_id = device.get("id")

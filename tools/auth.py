@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Authentification à l'API Octopus Energy France.
+"""
+Authentification à l'API Octopus Energy France.
 
 Obtient un token JWT et le sauvegarde dans tools/.token pour être réutilisé
 par les autres scripts.
@@ -16,13 +17,13 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _client import (
-    OctopusClient,
     _TOKEN_FILE,
+    OctopusClient,
     decode_jwt_payload,
     hr,
     save_token,
@@ -30,14 +31,19 @@ from _client import (
 
 
 def main() -> None:
+    """Point d'entrée en ligne de commande du script."""
     parser = argparse.ArgumentParser(
         description="Authentification à l'API Octopus Energy France",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("--email", help="Email du compte Octopus (remplace OCTOPUS_EMAIL)")
+    parser.add_argument(
+        "--email", help="Email du compte Octopus (remplace OCTOPUS_EMAIL)"
+    )
     parser.add_argument("--password", help="Mot de passe (remplace OCTOPUS_PASSWORD)")
-    parser.add_argument("--show-token", action="store_true", help="Affiche le token complet")
+    parser.add_argument(
+        "--show-token", action="store_true", help="Affiche le token complet"
+    )
     args = parser.parse_args()
 
     client = OctopusClient(
@@ -60,12 +66,16 @@ def main() -> None:
     print(hr())
 
     if iat_ts:
-        issued = datetime.fromtimestamp(iat_ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        issued = datetime.fromtimestamp(iat_ts, tz=UTC).strftime(
+            "%Y-%m-%d %H:%M:%S UTC"
+        )
         print(f"   Émis le      : {issued}")
 
     if exp_ts:
-        expires = datetime.fromtimestamp(exp_ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-        now_ts = datetime.now(timezone.utc).timestamp()
+        expires = datetime.fromtimestamp(exp_ts, tz=UTC).strftime(
+            "%Y-%m-%d %H:%M:%S UTC"
+        )
+        now_ts = datetime.now(UTC).timestamp()
         remaining = int((exp_ts - now_ts) / 3600)
         print(f"   Expire le    : {expires}  ({remaining}h restantes)")
 

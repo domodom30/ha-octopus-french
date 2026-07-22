@@ -7,6 +7,10 @@
         "data": {
           "email": "Email",
           "password": "Password"
+        },
+        "data_description": {
+          "email": "The email address of your Octopus Energy France account",
+          "password": "The password of your Octopus Energy France account"
         }
       },
       "account": {
@@ -14,6 +18,9 @@
         "description": "Choose the Octopus Energy France account to add",
         "data": {
           "account_number": "Account"
+        },
+        "data_description": {
+          "account_number": "The Octopus Energy France account to link to this entry"
         }
       },
       "reauth_confirm": {
@@ -21,6 +28,9 @@
         "description": "Enter the password again for your Octopus Energy France account",
         "data": {
           "password": "Password"
+        },
+        "data_description": {
+          "password": "The current password of your Octopus Energy France account"
         }
       }
     },
@@ -38,7 +48,7 @@
   "entity": {
     "sensor": {
       "energy_base": {
-        "name": "Consumption / current month",
+        "name": "Consumption",
         "state_attributes": {
           "current_month": {
             "name": "Current month"
@@ -55,7 +65,7 @@
         }
       },
       "energy_peak_hours": {
-        "name": "Peak hours / current month",
+        "name": "Peak hours consumption",
         "state_attributes": {
           "current_month": {
             "name": "Current month"
@@ -72,7 +82,7 @@
         }
       },
       "energy_off_peak_hours": {
-        "name": "Off-peak hours / current month",
+        "name": "Off-peak hours consumption",
         "state_attributes": {
           "current_month": {
             "name": "Current month"
@@ -89,7 +99,7 @@
         }
       },
       "cost_base": {
-        "name": "Cost / current month",
+        "name": "Cost",
         "state_attributes": {
           "current_month": {
             "name": "Current month"
@@ -106,7 +116,7 @@
         }
       },
       "cost_peak_hours": {
-        "name": "Peak hours cost / current month",
+        "name": "Peak hours cost",
         "state_attributes": {
           "current_month": {
             "name": "Current month"
@@ -123,7 +133,7 @@
         }
       },
       "cost_off_peak_hours": {
-        "name": "Off-peak hours cost / current month",
+        "name": "Off-peak hours cost",
         "state_attributes": {
           "current_month": {
             "name": "Current month"
@@ -386,26 +396,66 @@
       "latest_reading": {
         "name": "Latest reading",
         "state_attributes": {
-          "date_releve": { "name": "Reading date" },
-          "heures_base": { "name": "Base hours" },
-          "heures_pleines_kwh": { "name": "Peak hours" },
-          "heures_creuses_kwh": { "name": "Off-peak hours" },
-          "cout_base_euro": { "name": "Base cost" },
-          "cout_heures_pleines_euro": { "name": "Peak hours cost" },
-          "cout_heures_creuses_euro": { "name": "Off-peak hours cost" },
-          "cout_abonnement_euro": { "name": "Subscription cost" },
-          "tempo_ete_hp": { "name": "Summer HP (kWh)" },
-          "tempo_ete_hc": { "name": "Summer HC (kWh)" },
-          "tempo_hiver_hp": { "name": "Winter HP (kWh)" },
-          "tempo_hiver_hc": { "name": "Winter HC (kWh)" },
-          "tempo_rouge_hp": { "name": "Red HP (kWh)" },
-          "tempo_rouge_hc": { "name": "Red HC (kWh)" },
-          "cout_tempo_ete_hp_euro": { "name": "Summer HP cost" },
-          "cout_tempo_ete_hc_euro": { "name": "Summer HC cost" },
-          "cout_tempo_hiver_hp_euro": { "name": "Winter HP cost" },
-          "cout_tempo_hiver_hc_euro": { "name": "Winter HC cost" },
-          "cout_tempo_rouge_hp_euro": { "name": "Red HP cost" },
-          "cout_tempo_rouge_hc_euro": { "name": "Red HC cost" }
+          "date_releve": {
+            "name": "Reading date"
+          },
+          "heures_base": {
+            "name": "Base hours"
+          },
+          "heures_pleines_kwh": {
+            "name": "Peak hours"
+          },
+          "heures_creuses_kwh": {
+            "name": "Off-peak hours"
+          },
+          "cout_base_euro": {
+            "name": "Base cost"
+          },
+          "cout_heures_pleines_euro": {
+            "name": "Peak hours cost"
+          },
+          "cout_heures_creuses_euro": {
+            "name": "Off-peak hours cost"
+          },
+          "cout_abonnement_euro": {
+            "name": "Subscription cost"
+          },
+          "tempo_ete_hp": {
+            "name": "Summer HP (kWh)"
+          },
+          "tempo_ete_hc": {
+            "name": "Summer HC (kWh)"
+          },
+          "tempo_hiver_hp": {
+            "name": "Winter HP (kWh)"
+          },
+          "tempo_hiver_hc": {
+            "name": "Winter HC (kWh)"
+          },
+          "tempo_rouge_hp": {
+            "name": "Red HP (kWh)"
+          },
+          "tempo_rouge_hc": {
+            "name": "Red HC (kWh)"
+          },
+          "cout_tempo_ete_hp_euro": {
+            "name": "Summer HP cost"
+          },
+          "cout_tempo_ete_hc_euro": {
+            "name": "Summer HC cost"
+          },
+          "cout_tempo_hiver_hp_euro": {
+            "name": "Winter HP cost"
+          },
+          "cout_tempo_hiver_hc_euro": {
+            "name": "Winter HC cost"
+          },
+          "cout_tempo_rouge_hp_euro": {
+            "name": "Red HP cost"
+          },
+          "cout_tempo_rouge_hc_euro": {
+            "name": "Red HC cost"
+          }
         }
       },
       "consumption": {
@@ -426,7 +476,7 @@
         }
       },
       "cost": {
-        "name": "Cost / current month",
+        "name": "Cost",
         "state_attributes": {
           "current_month": {
             "name": "Current month"
@@ -509,197 +559,375 @@
         "name": "Subscribed power"
       },
       "energy_tempo_ete_hp": {
-        "name": "Summer days HP / current month",
+        "name": "Summer HP consumption",
         "state_attributes": {
-          "current_month": { "name": "Current month" },
-          "readings_count": { "name": "Number of readings" },
-          "calculation_method": { "name": "Calculation method" },
-          "last_imported_date": { "name": "Last imported date" }
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          }
         }
       },
       "energy_tempo_ete_hc": {
-        "name": "Summer days HC / current month",
+        "name": "Summer HC consumption",
         "state_attributes": {
-          "current_month": { "name": "Current month" },
-          "readings_count": { "name": "Number of readings" },
-          "calculation_method": { "name": "Calculation method" },
-          "last_imported_date": { "name": "Last imported date" }
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          }
         }
       },
       "energy_tempo_hiver_hp": {
-        "name": "Winter days HP / current month",
+        "name": "Winter HP consumption",
         "state_attributes": {
-          "current_month": { "name": "Current month" },
-          "readings_count": { "name": "Number of readings" },
-          "calculation_method": { "name": "Calculation method" },
-          "last_imported_date": { "name": "Last imported date" }
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          }
         }
       },
       "energy_tempo_hiver_hc": {
-        "name": "Winter days HC / current month",
+        "name": "Winter HC consumption",
         "state_attributes": {
-          "current_month": { "name": "Current month" },
-          "readings_count": { "name": "Number of readings" },
-          "calculation_method": { "name": "Calculation method" },
-          "last_imported_date": { "name": "Last imported date" }
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          }
         }
       },
       "energy_tempo_rouge_hp": {
-        "name": "Red days HP / current month",
+        "name": "Red HP consumption",
         "state_attributes": {
-          "current_month": { "name": "Current month" },
-          "readings_count": { "name": "Number of readings" },
-          "calculation_method": { "name": "Calculation method" },
-          "last_imported_date": { "name": "Last imported date" }
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          }
         }
       },
       "energy_tempo_rouge_hc": {
-        "name": "Red days HC / current month",
+        "name": "Red HC consumption",
         "state_attributes": {
-          "current_month": { "name": "Current month" },
-          "readings_count": { "name": "Number of readings" },
-          "calculation_method": { "name": "Calculation method" },
-          "last_imported_date": { "name": "Last imported date" }
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          }
         }
       },
       "cost_tempo_ete_hp": {
-        "name": "Summer days HP cost / current month",
+        "name": "Summer HP cost",
         "state_attributes": {
-          "current_month": { "name": "Current month" },
-          "readings_count": { "name": "Number of readings" },
-          "calculation_method": { "name": "Calculation method" },
-          "last_imported_date": { "name": "Last imported date" }
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          }
         }
       },
       "cost_tempo_ete_hc": {
-        "name": "Summer days HC cost / current month",
+        "name": "Summer HC cost",
         "state_attributes": {
-          "current_month": { "name": "Current month" },
-          "readings_count": { "name": "Number of readings" },
-          "calculation_method": { "name": "Calculation method" },
-          "last_imported_date": { "name": "Last imported date" }
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          }
         }
       },
       "cost_tempo_hiver_hp": {
-        "name": "Winter days HP cost / current month",
+        "name": "Winter HP cost",
         "state_attributes": {
-          "current_month": { "name": "Current month" },
-          "readings_count": { "name": "Number of readings" },
-          "calculation_method": { "name": "Calculation method" },
-          "last_imported_date": { "name": "Last imported date" }
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          }
         }
       },
       "cost_tempo_hiver_hc": {
-        "name": "Winter days HC cost / current month",
+        "name": "Winter HC cost",
         "state_attributes": {
-          "current_month": { "name": "Current month" },
-          "readings_count": { "name": "Number of readings" },
-          "calculation_method": { "name": "Calculation method" },
-          "last_imported_date": { "name": "Last imported date" }
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          }
         }
       },
       "cost_tempo_rouge_hp": {
-        "name": "Red days HP cost / current month",
+        "name": "Red HP cost",
         "state_attributes": {
-          "current_month": { "name": "Current month" },
-          "readings_count": { "name": "Number of readings" },
-          "calculation_method": { "name": "Calculation method" },
-          "last_imported_date": { "name": "Last imported date" }
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          }
         }
       },
       "cost_tempo_rouge_hc": {
-        "name": "Red days HC cost / current month",
+        "name": "Red HC cost",
         "state_attributes": {
-          "current_month": { "name": "Current month" },
-          "readings_count": { "name": "Number of readings" },
-          "calculation_method": { "name": "Calculation method" },
-          "last_imported_date": { "name": "Last imported date" }
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          }
         }
       },
       "rate_tempo_ete_hp": {
         "name": "Summer HP rate",
         "state_attributes": {
-          "contract_number": { "name": "Contract number" },
-          "product_name": { "name": "Product name" },
-          "valid_from": { "name": "Valid from" },
-          "price_ht_eur_kwh": { "name": "Price (excl. tax)" },
-          "price_ttc_eur_kwh": { "name": "Price (incl. tax)" }
+          "contract_number": {
+            "name": "Contract number"
+          },
+          "product_name": {
+            "name": "Product name"
+          },
+          "valid_from": {
+            "name": "Valid from"
+          },
+          "price_ht_eur_kwh": {
+            "name": "Price (excl. tax)"
+          },
+          "price_ttc_eur_kwh": {
+            "name": "Price (incl. tax)"
+          }
         }
       },
       "rate_tempo_ete_hc": {
         "name": "Summer HC rate",
         "state_attributes": {
-          "contract_number": { "name": "Contract number" },
-          "product_name": { "name": "Product name" },
-          "valid_from": { "name": "Valid from" },
-          "price_ht_eur_kwh": { "name": "Price (excl. tax)" },
-          "price_ttc_eur_kwh": { "name": "Price (incl. tax)" }
+          "contract_number": {
+            "name": "Contract number"
+          },
+          "product_name": {
+            "name": "Product name"
+          },
+          "valid_from": {
+            "name": "Valid from"
+          },
+          "price_ht_eur_kwh": {
+            "name": "Price (excl. tax)"
+          },
+          "price_ttc_eur_kwh": {
+            "name": "Price (incl. tax)"
+          }
         }
       },
       "rate_tempo_hiver_hp": {
         "name": "Winter HP rate",
         "state_attributes": {
-          "contract_number": { "name": "Contract number" },
-          "product_name": { "name": "Product name" },
-          "valid_from": { "name": "Valid from" },
-          "price_ht_eur_kwh": { "name": "Price (excl. tax)" },
-          "price_ttc_eur_kwh": { "name": "Price (incl. tax)" }
+          "contract_number": {
+            "name": "Contract number"
+          },
+          "product_name": {
+            "name": "Product name"
+          },
+          "valid_from": {
+            "name": "Valid from"
+          },
+          "price_ht_eur_kwh": {
+            "name": "Price (excl. tax)"
+          },
+          "price_ttc_eur_kwh": {
+            "name": "Price (incl. tax)"
+          }
         }
       },
       "rate_tempo_hiver_hc": {
         "name": "Winter HC rate",
         "state_attributes": {
-          "contract_number": { "name": "Contract number" },
-          "product_name": { "name": "Product name" },
-          "valid_from": { "name": "Valid from" },
-          "price_ht_eur_kwh": { "name": "Price (excl. tax)" },
-          "price_ttc_eur_kwh": { "name": "Price (incl. tax)" }
+          "contract_number": {
+            "name": "Contract number"
+          },
+          "product_name": {
+            "name": "Product name"
+          },
+          "valid_from": {
+            "name": "Valid from"
+          },
+          "price_ht_eur_kwh": {
+            "name": "Price (excl. tax)"
+          },
+          "price_ttc_eur_kwh": {
+            "name": "Price (incl. tax)"
+          }
         }
       },
       "rate_tempo_rouge_hp": {
         "name": "Red HP rate",
         "state_attributes": {
-          "contract_number": { "name": "Contract number" },
-          "product_name": { "name": "Product name" },
-          "valid_from": { "name": "Valid from" },
-          "price_ht_eur_kwh": { "name": "Price (excl. tax)" },
-          "price_ttc_eur_kwh": { "name": "Price (incl. tax)" }
+          "contract_number": {
+            "name": "Contract number"
+          },
+          "product_name": {
+            "name": "Product name"
+          },
+          "valid_from": {
+            "name": "Valid from"
+          },
+          "price_ht_eur_kwh": {
+            "name": "Price (excl. tax)"
+          },
+          "price_ttc_eur_kwh": {
+            "name": "Price (incl. tax)"
+          }
         }
       },
       "rate_tempo_rouge_hc": {
         "name": "Red HC rate",
         "state_attributes": {
-          "contract_number": { "name": "Contract number" },
-          "product_name": { "name": "Product name" },
-          "valid_from": { "name": "Valid from" },
-          "price_ht_eur_kwh": { "name": "Price (excl. tax)" },
-          "price_ttc_eur_kwh": { "name": "Price (incl. tax)" }
+          "contract_number": {
+            "name": "Contract number"
+          },
+          "product_name": {
+            "name": "Product name"
+          },
+          "valid_from": {
+            "name": "Valid from"
+          },
+          "price_ht_eur_kwh": {
+            "name": "Price (excl. tax)"
+          },
+          "price_ttc_eur_kwh": {
+            "name": "Price (incl. tax)"
+          }
         }
       },
       "tempo_color_today": {
         "name": "Tempo color today",
         "state_attributes": {
-          "prm_id": { "name": "PRM reference" },
-          "period_start": { "name": "Period start" },
-          "period_end": { "name": "Period end" },
-          "tariff_type": { "name": "Tariff type" }
+          "prm_id": {
+            "name": "PRM reference"
+          },
+          "period_start": {
+            "name": "Period start"
+          },
+          "period_end": {
+            "name": "Period end"
+          },
+          "tariff_type": {
+            "name": "Tariff type"
+          }
         }
       },
       "tempo_color_tomorrow": {
         "name": "Tempo color tomorrow",
         "state_attributes": {
-          "prm_id": { "name": "PRM reference" },
-          "period_start": { "name": "Period start" },
-          "period_end": { "name": "Period end" },
-          "tariff_type": { "name": "Tariff type" }
+          "prm_id": {
+            "name": "PRM reference"
+          },
+          "period_start": {
+            "name": "Period start"
+          },
+          "period_end": {
+            "name": "Period end"
+          },
+          "tariff_type": {
+            "name": "Tariff type"
+          }
         }
       },
       "tempo_current_rate": {
         "name": "Current Tempo rate",
         "state_attributes": {
-          "tempo_color": { "name": "Tempo color" },
-          "period_type": { "name": "Period type (HP/HC)" },
-          "prm_id": { "name": "PRM reference" }
+          "tempo_color": {
+            "name": "Tempo color"
+          },
+          "period_type": {
+            "name": "Period type (HP/HC)"
+          },
+          "prm_id": {
+            "name": "PRM reference"
+          }
         }
       },
       "vehicle_status": {

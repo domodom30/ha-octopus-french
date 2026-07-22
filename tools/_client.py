@@ -1,4 +1,5 @@
-"""Client HTTP partagé pour les scripts d'exploration de l'API Octopus France.
+"""
+Client HTTP partagé pour les scripts d'exploration de l'API Octopus France.
 
 Utilisation interne — importé par les autres scripts du répertoire tools/.
 Seule dépendance externe : requests  (pip install requests)
@@ -10,13 +11,16 @@ import base64
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 try:
     import requests
 except ImportError:
-    print("❌  Module 'requests' manquant. Installez-le avec : pip install requests", file=sys.stderr)
+    print(
+        "❌  Module 'requests' manquant. Installez-le avec : pip install requests",
+        file=sys.stderr,
+    )
     sys.exit(1)
 
 
@@ -64,7 +68,6 @@ def get_account_number() -> str | None:
     return os.environ.get("OCTOPUS_ACCOUNT")
 
 
-
 def decode_jwt_payload(token: str) -> dict:
     """Décode le payload d'un JWT sans vérifier la signature."""
     try:
@@ -84,8 +87,7 @@ def token_is_expired(token: str, buffer_seconds: int = 60) -> bool:
     exp = payload.get("exp")
     if exp is None:
         return True
-    return datetime.now(timezone.utc).timestamp() + buffer_seconds > exp
-
+    return datetime.now(UTC).timestamp() + buffer_seconds > exp
 
 
 def save_token(token: str) -> None:
@@ -103,9 +105,9 @@ def load_cached_token() -> str | None:
     return token
 
 
-
 def graphql_request(token: str, query: str, variables: dict | None = None) -> dict:
-    """Exécute une requête GraphQL authentifiée.
+    """
+    Exécute une requête GraphQL authentifiée.
 
     Lève SystemExit en cas d'erreur HTTP ou GraphQL (sauf si l'appelant
     gère lui-même les erreurs).
@@ -142,8 +144,11 @@ def graphql_request(token: str, query: str, variables: dict | None = None) -> di
 
 
 def graphql_request_raw(token: str, query: str, variables: dict | None = None) -> dict:
-    """Comme graphql_request() mais retourne toujours la réponse complète
-    (y compris les errors[]) sans quitter."""
+    """
+    Comme graphql_request() mais retourne la réponse complète.
+
+    Inclut les errors[] et ne quitte jamais le programme.
+    """
     headers = {
         "Authorization": f"JWT {token}",
         "Content-Type": "application/json",
@@ -155,7 +160,6 @@ def graphql_request_raw(token: str, query: str, variables: dict | None = None) -
     resp = requests.post(API_URL, json=payload, headers=headers, timeout=30)
     resp.raise_for_status()
     return resp.json()
-
 
 
 class OctopusClient:
@@ -209,7 +213,10 @@ class OctopusClient:
             sys.exit(1)
 
         if resp.status_code != 200:
-            print(f"❌  HTTP {resp.status_code} lors de l'auth : {resp.text[:300]}", file=sys.stderr)
+            print(
+                f"❌  HTTP {resp.status_code} lors de l'auth : {resp.text[:300]}",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
         data = resp.json()
@@ -221,7 +228,9 @@ class OctopusClient:
 
         token = data.get("data", {}).get("obtainKrakenToken", {}).get("token")
         if not token:
-            print("❌  Token absent dans la réponse d'authentification.", file=sys.stderr)
+            print(
+                "❌  Token absent dans la réponse d'authentification.", file=sys.stderr
+            )
             sys.exit(1)
 
         return token
@@ -233,7 +242,6 @@ class OctopusClient:
     def query_raw(self, gql: str, variables: dict | None = None) -> dict:
         """Comme query() mais retourne la réponse brute complète."""
         return graphql_request_raw(self.ensure_token(), gql, variables)
-
 
 
 def print_json(obj: object) -> None:

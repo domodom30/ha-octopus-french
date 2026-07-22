@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Affiche les relevés de consommation avec les labels metaData.statistics.
+"""
+Affiche les relevés de consommation avec les labels metaData.statistics.
 
 Particulièrement utile pour investiguer OctoTempo :
 révèle les labels exacts présents dans les relevés
@@ -22,12 +23,11 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _client import OctopusClient, get_account_number, hr, print_json
-
 
 FRAGMENT_INTERVAL_MEASUREMENT = """
 fragment IntervalMeasurement on IntervalMeasurementType {
@@ -47,7 +47,9 @@ fragment IntervalMeasurement on IntervalMeasurementType {
 }
 """
 
-QUERY_GET_MEASUREMENTS = FRAGMENT_INTERVAL_MEASUREMENT + """
+QUERY_GET_MEASUREMENTS = (
+    FRAGMENT_INTERVAL_MEASUREMENT
+    + """
 query GetPropertyMeasurements(
   $propertyId: ID!
   $startAt: DateTime!
@@ -77,6 +79,7 @@ query GetPropertyMeasurements(
   }
 }
 """
+)
 
 QUERY_GET_ACCOUNT_FOR_PROPERTY = """
 query getAccountData($accountNumber: String!) {
@@ -103,8 +106,9 @@ query getAccountData($accountNumber: String!) {
 """
 
 
-
-def find_property_id_for_prm(client: OctopusClient, account_number: str, prm: str) -> str | None:
+def find_property_id_for_prm(
+    client: OctopusClient, account_number: str, prm: str
+) -> str | None:
     """Cherche le property_id associé à un PRM dans les données de compte."""
     data = client.query(
         QUERY_GET_ACCOUNT_FOR_PROPERTY,
@@ -119,7 +123,6 @@ def find_property_id_for_prm(client: OctopusClient, account_number: str, prm: st
     return None
 
 
-
 def print_readings(readings: list[dict], prm: str) -> None:
     """Affiche un résumé lisible des relevés avec leurs labels."""
     all_labels: set[str] = set()
@@ -132,7 +135,7 @@ def print_readings(readings: list[dict], prm: str) -> None:
     print(f"\n{'═' * 65}")
     print(f"  Relevés pour PRM : {prm}  ({len(readings)} jours)")
     print(f"{'═' * 65}")
-    print(f"\n📊  Labels présents dans metaData.statistics :")
+    print("\n📊  Labels présents dans metaData.statistics :")
     if all_labels:
         for lbl in sorted(all_labels):
             marker = "⚠️ " if "TEMPO" in lbl.upper() else "   "
@@ -140,7 +143,7 @@ def print_readings(readings: list[dict], prm: str) -> None:
     else:
         print("    (aucun label trouvé)")
 
-    tempo_labels = {l for l in all_labels if "TEMPO" in l.upper()}
+    tempo_labels = {label for label in all_labels if "TEMPO" in label.upper()}
     if tempo_labels:
         print(f"\n🎨  Labels Tempo détectés : {', '.join(sorted(tempo_labels))}")
         print("    → Ce compte semble avoir l'offre OctoTempo !")
@@ -169,32 +172,47 @@ def print_readings(readings: list[dict], prm: str) -> None:
             currency = cost_data.get("costCurrency", "EUR")
 
             val_str = f"{float(val):.3f} kWh" if val is not None else "—"
-            cost_str = f"  →  coût: {float(cost)/100:.4f} {currency}" if cost is not None else ""
+            cost_str = (
+                f"  →  coût: {float(cost) / 100:.4f} {currency}"
+                if cost is not None
+                else ""
+            )
             marker = "⚠️ " if "TEMPO" in lbl.upper() else "   "
             print(f"      {marker}{lbl:<30} {val_str}{cost_str}")
 
     print()
 
 
-
 def main() -> None:
+    """Point d'entrée en ligne de commande du script."""
     parser = argparse.ArgumentParser(
         description="Relevés de consommation avec labels metaData.statistics",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("--prm", required=True, help="Numéro PRM du compteur électricité")
+    parser.add_argument(
+        "--prm", required=True, help="Numéro PRM du compteur électricité"
+    )
     parser.add_argument("--account", help="Numéro de compte (ex: A-XXXX0000)")
-    parser.add_argument("--property", help="ID de la propriété (auto-détecté si absent)")
-    parser.add_argument("--days", type=int, default=30, help="Nombre de jours (défaut: 30)")
-    parser.add_argument("--raw", action="store_true", help="Affiche le JSON brut complet")
+    parser.add_argument(
+        "--property", help="ID de la propriété (auto-détecté si absent)"
+    )
+    parser.add_argument(
+        "--days", type=int, default=30, help="Nombre de jours (défaut: 30)"
+    )
+    parser.add_argument(
+        "--raw", action="store_true", help="Affiche le JSON brut complet"
+    )
     args = parser.parse_args()
 
     client = OctopusClient()
     account_number = args.account or get_account_number()
 
     if not account_number:
-        print("❌  Numéro de compte requis (--account ou OCTOPUS_ACCOUNT dans .env)", file=sys.stderr)
+        print(
+            "❌  Numéro de compte requis (--account ou OCTOPUS_ACCOUNT dans .env)",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     property_id = args.property
@@ -211,7 +229,7 @@ def main() -> None:
             sys.exit(1)
         print(f"    → Propriété trouvée : {property_id}")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     start_at = (now - timedelta(days=args.days)).isoformat()
     end_at = now.isoformat()
 
@@ -225,16 +243,14 @@ def main() -> None:
             "propertyId": property_id,
             "startAt": start_at,
             "endAt": end_at,
-            "utilityFilters": [{"electricityFilters": {"readingFrequencyType": "DAY_INTERVAL"}}],
+            "utilityFilters": [
+                {"electricityFilters": {"readingFrequencyType": "DAY_INTERVAL"}}
+            ],
             "first": 100,
             "after": after,
         }
         data = client.query(QUERY_GET_MEASUREMENTS, variables)
-        measurements = (
-            data.get("data", {})
-            .get("property", {})
-            .get("measurements", {})
-        )
+        measurements = data.get("data", {}).get("property", {}).get("measurements", {})
         for edge in measurements.get("edges", []):
             all_readings.append(edge["node"])
 
@@ -248,7 +264,9 @@ def main() -> None:
         return
 
     print_readings(all_readings, args.prm)
-    print(f"💡  Utilisez --raw pour le JSON complet | --days N pour changer la période\n")
+    print(
+        "💡  Utilisez --raw pour le JSON complet | --days N pour changer la période\n"
+    )
 
 
 if __name__ == "__main__":

@@ -1,3 +1,73 @@
+## [4.0.0] - 2026-07-22
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/A1V11ZZTPI)
+
+Version majeure : audit complet de l'intégration (fiabilité, authentification, statistiques). Aucune migration nécessaire — identifiants d'entités et de statistiques inchangés.
+
+### 🐛 Corrections
+
+- **OctoTempo** : les capteurs Contrat / Abonnement / Puissance souscrite étaient créés en double à chaque démarrage (collision d'`unique_id` dans les logs).
+- **Ré-authentification** : des identifiants invalides au chargement déclenchent désormais le flux de reauth, au lieu de réessayer indéfiniment.
+- **Comptes multiples** : si le compte configuré n'existe plus côté Octopus, le setup échoue explicitement au lieu de basculer en silence sur un autre compte.
+- **Couleur Tempo de demain** : calculée en date locale (plus de décalage possible en soirée).
+- Cohérence des identifiants de compteurs (PRM) entre toutes les plateformes ; le capteur HC et les attributs de contrat ne peuvent plus se retrouver orphelins.
+
+### 🔐 Authentification & rate-limit Kraken
+
+- Le **refresh token est conservé entre les redémarrages** de Home Assistant : plus de login e-mail/mot de passe complet à chaque restart, principale cause du rate-limit `KT-CT-1199`.
+- Polling Octopus Intelligent ramené de 1 à **5 minutes**, requêtes parallélisées.
+
+### 📊 Statistiques & coûts
+
+- **Import des statistiques centralisé** : une seule passe par cycle au lieu d'une tâche par capteur — moins de charge sur le recorder, comportement identique (idempotence, réparation des sommes corrompues).
+- **Coûts électricité** : utilisation des montants réels de l'API (`costInclTax`) — les coûts historiques restent exacts après un changement de tarif ; repli sur kWh × tarif si absent.
+
+### 🔧 Interne
+
+- `recorder` déclaré comme dépendance dans le manifest.
+- Retries HTTP limités aux erreurs transitoires (5xx/429) ; pagination API plafonnée.
+- `octopus_french.force_update` rafraîchit aussi les données Intelligent.
+- Traductions et `services.yaml` nettoyés.
+
+---
+
+## [3.4.0] - 2026-07-22
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/A1V11ZZTPI)
+
+### ✨ Conformité HA — Noms d'entités normalisés
+
+Les libellés des capteurs suivent désormais les conventions Home Assistant :
+
+- **Sentence case** : « Jours Été HP » → « Consommation été HP », « Tarif Rouge HP » → « Tarif rouge HP ».
+- **Suppression du suffixe non standard `/ mois en cours`** sur tous les capteurs concernés (la période reste disponible via les attributs).
+- **énergie / coût** : `energy_peak_hours` et `cost_peak_hours` affichaient le même libellé (« HP / mois en cours ») ; ils deviennent « Consommation HP » et « Coût HP ».
+- Abréviation « Conso » remplacée par « Consommation ».
+- `en.json` complété (clés `tempo_color_tomorrow` et `tempo_current_rate` manquantes).
+
+
+### 🔧 Uniformisation des `unique_id` Intelligent
+
+Les entités Octopus Intelligent (véhicule) utilisaient un `unique_id` sans `DOMAIN`. Elles sont désormais préfixées de manière cohérente, avec une **migration automatique du registre** : l'historique et les personnalisations des entités existantes sont conservés.
+
+---
+
+## [3.3.5] - 2026-07-22
+
+### 🐛 Correction — Conflit de dépendance
+
+Rétablissement de `PyJWT==2.10.1`.
+
+### 🐛 Correction — OctoTempo : plantage sur `periodStartAt: null` (issue #57)
+
+Une entrée d'index provisoire renvoyée avec `periodStartAt: null` provoquait `'NoneType' object is not subscriptable` et faisait échouer le fetch initial pour les utilisateurs OctoTempo.
+
+### 🐛 Correction — Comptes multi-Linky : données du mauvais contrat
+
+Un compte à 2+ points de livraison ne récupérait que le premier PRM ; toutes les entités lisaient le même bloc. Les relevés et l'index sont désormais récupérés et stockés **par PRM** (`electricity_by_prm`).
+
+---
+
 ## [3.3.4] - 2026-07-14
 
 Corrections des deux problèmes remontés dans l'issue #51 (« Invalid credentials & no attribute 'get' »).
@@ -8,17 +78,6 @@ Corrections des deux problèmes remontés dans l'issue #51 (« Invalid credentia
 
 - Le token d'accès (60 min) est désormais renouvelé via le **refresh token** (7 j), sans renvoyer le mot de passe. Le login complet n'est refait que si le refresh échoue ou expire.
 - Le rate-limit est détecté et traité comme une erreur **temporaire** : Home Assistant patiente et réessaie, au lieu d'afficher « Authentication failed - invalid credentials ».
-
-### 🐛 Correction — `'NoneType' object has no attribute 'get'`
-
-L'API renvoie certains sous-objets explicitement à `null` sur les réponses partielles. Le défaut `.get("clé", {})` ne protège que si la clé est **absente**, pas si elle vaut `null` : le `.get()` suivant échouait alors et le rafraîchissement des données s'interrompait.
-
-- Accès sécurisés sur les objets remontés par l'API : `supplyPoints`, `agreements`, `creditStorage`, `supplyPoint`, `product`, `consumptionRates`, `measurements`, `metaData`, `gasReading`, `paymentRequest`, `providerCalendar`.
-- Corrige aussi deux plantages de la même famille : les tarifs d'un contrat sans grille tarifaire (`tariffs` à `null`), et la détection du type de contrat quand le code produit est absent.
-
-### 🧪 Tests
-
-- Couverture de l'authentification (refresh token, repli sur login complet, rate-limit) et des réponses partielles de l'API.
 
 ---
 

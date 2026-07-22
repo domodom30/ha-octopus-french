@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Introspection du schéma GraphQL de l'API Octopus France.
+"""
+Introspection du schéma GraphQL de l'API Octopus France.
 
 Permet de découvrir les types et champs disponibles sans consulter
 la documentation — utile pour trouver de nouveaux champs liés à OctoTempo
@@ -24,8 +25,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from _client import OctopusClient, hr, print_json
-
+from _client import OctopusClient, print_json
 
 QUERY_INTROSPECT_FULL = """
 {
@@ -77,7 +77,7 @@ QUERY_INTROSPECT_FULL = """
 
 
 def _type_str(type_ref: dict | None) -> str:
-    """Formate une référence de type GraphQL en chaîne lisible."""
+    """Met en forme une référence de type GraphQL en chaîne lisible."""
     if not type_ref:
         return "?"
     name = type_ref.get("name")
@@ -97,11 +97,11 @@ def _is_builtin(name: str) -> bool:
     return name.startswith("__") if name else True
 
 
-
 def list_types(types: list[dict], kind_filter: str | None = None) -> None:
     """Affiche la liste des types disponibles."""
     user_types = [
-        t for t in types
+        t
+        for t in types
         if not _is_builtin(t.get("name", ""))
         and (not kind_filter or t.get("kind") == kind_filter)
     ]
@@ -129,7 +129,9 @@ def show_type(types: list[dict], type_name: str) -> None:
     found = next((t for t in types if t.get("name") == type_name), None)
     if not found:
         type_name_lower = type_name.lower()
-        candidates = [t for t in types if type_name_lower in (t.get("name") or "").lower()]
+        candidates = [
+            t for t in types if type_name_lower in (t.get("name") or "").lower()
+        ]
         if not candidates:
             print(f"❌  Type '{type_name}' non trouvé dans le schéma.", file=sys.stderr)
             sys.exit(1)
@@ -137,7 +139,7 @@ def show_type(types: list[dict], type_name: str) -> None:
             found = candidates[0]
             print(f"💡  Type proche trouvé : {found['name']}")
         else:
-            print(f"💡  Plusieurs types proches trouvés :")
+            print("💡  Plusieurs types proches trouvés :")
             for c in candidates[:10]:
                 print(f"    • {c['name']}")
             sys.exit(0)
@@ -173,8 +175,7 @@ def show_type(types: list[dict], type_name: str) -> None:
                 print(f"         {fdesc}")
             if args:
                 args_str = ", ".join(
-                    f"{a['name']}: {_type_str(a.get('type'))}"
-                    for a in args
+                    f"{a['name']}: {_type_str(a.get('type'))}" for a in args
                 )
                 print(f"         Args: ({args_str})")
 
@@ -223,7 +224,7 @@ def search_schema(types: list[dict], keyword: str) -> None:
         for ev in t.get("enumValues") or []:
             evname = ev.get("name") or ""
             if kw in evname.lower():
-                results.append((tname, evname, f"[ENUM value]"))
+                results.append((tname, evname, "[ENUM value]"))
 
     print(f"\n{'═' * 60}")
     print(f"  Recherche : « {keyword} »  —  {len(results)} résultat(s)")
@@ -246,17 +247,23 @@ def search_schema(types: list[dict], keyword: str) -> None:
     print()
 
 
-
 def main() -> None:
+    """Point d'entrée en ligne de commande du script."""
     parser = argparse.ArgumentParser(
         description="Introspection du schéma GraphQL Octopus France",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("--type", metavar="TYPE_NAME", help="Affiche les champs d'un type précis")
-    parser.add_argument("--search", metavar="MOT_CLE", help="Filtre types et champs par mot-clé")
+    parser.add_argument(
+        "--type", metavar="TYPE_NAME", help="Affiche les champs d'un type précis"
+    )
+    parser.add_argument(
+        "--search", metavar="MOT_CLE", help="Filtre types et champs par mot-clé"
+    )
     parser.add_argument("--kind", help="Filtre par kind (OBJECT, ENUM, INPUT_OBJECT…)")
-    parser.add_argument("--raw", action="store_true", help="Dump JSON brut du schéma complet")
+    parser.add_argument(
+        "--raw", action="store_true", help="Dump JSON brut du schéma complet"
+    )
     args = parser.parse_args()
 
     client = OctopusClient()
@@ -274,10 +281,10 @@ def main() -> None:
         search_schema(types, args.search)
     else:
         list_types(types, kind_filter=args.kind)
-        print(f"💡  Astuce :")
-        print(f"    python tools/schema.py --type  <NomDuType>   # détails d'un type")
-        print(f"    python tools/schema.py --search <motClé>     # recherche libre")
-        print(f"    python tools/schema.py --search tempo         # chercher Tempo\n")
+        print("💡  Astuce :")
+        print("    python tools/schema.py --type  <NomDuType>   # détails d'un type")
+        print("    python tools/schema.py --search <motClé>     # recherche libre")
+        print("    python tools/schema.py --search tempo         # chercher Tempo\n")
 
 
 if __name__ == "__main__":

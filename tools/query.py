@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Exécuteur de requête GraphQL libre.
+"""
+Exécuteur de requête GraphQL libre.
 
 Permet de tester n'importe quelle query ou mutation GraphQL directement
 depuis un fichier ou stdin, avec optionnellement des variables JSON.
@@ -37,17 +38,26 @@ from _client import OctopusClient, print_json
 
 
 def main() -> None:
+    """Point d'entrée en ligne de commande du script."""
     parser = argparse.ArgumentParser(
         description="Exécuteur de requête GraphQL libre",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
     source = parser.add_mutually_exclusive_group()
-    source.add_argument("--file", "-f", metavar="FICHIER.graphql", help="Fichier contenant la query GraphQL")
-    source.add_argument("--query", "-q", metavar="QUERY", help="Query GraphQL en ligne de commande")
+    source.add_argument(
+        "--file",
+        "-f",
+        metavar="FICHIER.graphql",
+        help="Fichier contenant la query GraphQL",
+    )
+    source.add_argument(
+        "--query", "-q", metavar="QUERY", help="Query GraphQL en ligne de commande"
+    )
 
     parser.add_argument(
-        "--vars", "-v",
+        "--vars",
+        "-v",
         metavar="JSON",
         help='Variables GraphQL en JSON (ex: \'{"accountNumber": "A-XXXX0000"}\')',
     )
@@ -79,8 +89,14 @@ def main() -> None:
     elif not sys.stdin.isatty():
         query_str = sys.stdin.read()
     else:
-        print("❌  Aucune query fournie. Utilisez --file, --query, ou stdin.", file=sys.stderr)
-        print("    Exemple : echo '{ viewer { accounts { number } } }' | python tools/query.py", file=sys.stderr)
+        print(
+            "❌  Aucune query fournie. Utilisez --file, --query, ou stdin.",
+            file=sys.stderr,
+        )
+        print(
+            "    Exemple : echo '{ viewer { accounts { number } } }' | python tools/query.py",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     query_str = query_str.strip()
@@ -98,7 +114,10 @@ def main() -> None:
     elif args.vars_file:
         vars_path = Path(args.vars_file)
         if not vars_path.exists():
-            print(f"❌  Fichier de variables non trouvé : {args.vars_file}", file=sys.stderr)
+            print(
+                f"❌  Fichier de variables non trouvé : {args.vars_file}",
+                file=sys.stderr,
+            )
             sys.exit(1)
         try:
             variables = json.loads(vars_path.read_text())
@@ -109,6 +128,7 @@ def main() -> None:
     if args.no_auth:
         import requests
         from _client import API_URL
+
         payload: dict = {"query": query_str}
         if variables:
             payload["variables"] = variables

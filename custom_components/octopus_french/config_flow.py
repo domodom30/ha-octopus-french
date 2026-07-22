@@ -4,13 +4,17 @@ import logging
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import CONF_ACCOUNT_NUMBER, DOMAIN
+from .const import (
+    CONF_ACCOUNT_NUMBER,
+    CONF_REFRESH_TOKEN,
+    CONF_REFRESH_TOKEN_EXPIRY,
+    DOMAIN,
+)
 from .octopus_french import (
     OctopusAuthError,
     OctopusConnectionError,
@@ -125,9 +129,7 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_reauth(
-        self, entry_data: dict[str, Any]
-    ) -> ConfigFlowResult:
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
         """Handle re-authentication."""
         return await self.async_step_reauth_confirm()
 
@@ -149,9 +151,17 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if not auth_success:
                     errors["base"] = "invalid_auth"
                 else:
+                    # Nouveau mot de passe : purge du refresh token persisté,
+                    # qui appartient à l'ancienne session.
+                    data = {
+                        **reauth_entry.data,
+                        CONF_PASSWORD: user_input[CONF_PASSWORD],
+                    }
+                    data.pop(CONF_REFRESH_TOKEN, None)
+                    data.pop(CONF_REFRESH_TOKEN_EXPIRY, None)
                     return self.async_update_reload_and_abort(
                         reauth_entry,
-                        data_updates={CONF_PASSWORD: user_input[CONF_PASSWORD]},
+                        data=data,
                     )
             except OctopusAuthError:
                 errors["base"] = "invalid_auth"

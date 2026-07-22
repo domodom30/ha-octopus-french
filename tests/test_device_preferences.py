@@ -2,8 +2,8 @@
 
 from unittest.mock import AsyncMock, MagicMock
 
-from homeassistant.exceptions import HomeAssistantError
 import pytest
+from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.octopus_french.api.intelligent import (
     OctopusIntelligentApiClient,
@@ -13,8 +13,8 @@ from custom_components.octopus_french.coordinator_intelligent import (
 )
 from custom_components.octopus_french.number import OctopusIntelligentTargetSocNumber
 from custom_components.octopus_french.select import (
-    OctopusIntelligentTargetTimeSelect,
     TIME_OPTIONS,
+    OctopusIntelligentTargetTimeSelect,
 )
 
 # Les 7 jours sont écrits en littéral dans la mutation (enums GraphQL) ; on les
@@ -28,8 +28,6 @@ _DAYS_OF_WEEK = [
     "SATURDAY",
     "SUNDAY",
 ]
-
-
 
 
 @pytest.fixture
@@ -122,8 +120,6 @@ async def test_set_target_time_success(intelligent_client, mock_api_client):
     assert variables == {"deviceId": "abc-123", "time": "06:00", "max": 100}
 
 
-
-
 @pytest.fixture
 def mock_coordinator():
     """Mock coordinator."""
@@ -208,8 +204,6 @@ async def test_target_soc_set_value_failure(target_soc_number, mock_coordinator)
     mock_coordinator.async_request_refresh.assert_not_called()
 
 
-
-
 def test_time_options_count():
     """Test that TIME_OPTIONS has 48 half-hour slots."""
     assert len(TIME_OPTIONS) == 48
@@ -226,6 +220,7 @@ def test_target_time_current_option(target_time_select):
 def test_target_time_current_option_none(target_time_select, mock_coordinator):
     """Test reading target time when not set."""
     mock_coordinator.data["preferences"]["weekdayTargetTime"] = None
+    target_time_select._update_attrs()
     assert target_time_select.current_option is None
 
 

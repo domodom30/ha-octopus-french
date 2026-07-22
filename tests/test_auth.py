@@ -8,7 +8,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import jwt
 import pytest
-
 from homeassistant.exceptions import ConfigEntryNotReady
 
 from custom_components.octopus_french import _async_authenticate
@@ -120,6 +119,69 @@ def test_clear_keeps_refresh_token_but_clear_all_drops_it() -> None:
 
     assert not manager.is_refresh_valid
     assert manager.refresh_token is None
+
+
+def test_restore_refresh_token_seeds_manager() -> None:
+    """Un refresh token persisté est restauré et directement utilisable."""
+    manager = TokenManager()
+    expiry = datetime.now(UTC).timestamp() + 3600
+
+    manager.restore_refresh_token("persisted-refresh", expiry)
+
+    assert manager.is_refresh_valid
+    assert manager.refresh_token == "persisted-refresh"
+    assert manager.refresh_expiry == expiry
+    # Pas d'access token pour autant : il faudra le rafraîchir.
+    assert not manager.is_valid
+
+
+def test_restore_refresh_token_ignores_empty_values() -> None:
+    """Un token ou un expiry manquant ne doit rien restaurer."""
+    manager = TokenManager()
+
+    manager.restore_refresh_token(None, 12345.0)
+    manager.restore_refresh_token("token", None)
+
+    assert manager.refresh_token is None
+    assert not manager.is_refresh_valid
+
+
+async def test_on_token_update_fired_on_login(
+    client: OctopusFrenchApiClient,
+) -> None:
+    """Chaque rotation du refresh token notifie le callback de persistance."""
+    updates: list[tuple[str | None, float | None]] = []
+    client.on_token_update = lambda token, expiry: updates.append((token, expiry))
+    client._async_execute.return_value = _login_response(
+        _make_jwt(), refresh_token="refresh-1"
+    )
+
+    assert await client.authenticate()
+
+    assert len(updates) == 1
+    token, expiry = updates[0]
+    assert token == "refresh-1"
+    assert expiry is not None and expiry > datetime.now(UTC).timestamp()
+
+
+async def test_on_token_update_purges_rejected_refresh_token(
+    client: OctopusFrenchApiClient,
+) -> None:
+    """Un refresh token rejeté est purgé (None) avant le nouveau token du login."""
+    updates: list[tuple[str | None, float | None]] = []
+    client.on_token_update = lambda token, expiry: updates.append((token, expiry))
+    client.token_manager.restore_refresh_token(
+        "stale-refresh", datetime.now(UTC).timestamp() + 3600
+    )
+    client._async_execute.side_effect = [
+        {"data": {"obtainKrakenToken": None}, "errors": [{"message": "Invalid token"}]},
+        _login_response(_make_jwt(), refresh_token="refresh-2"),
+    ]
+
+    assert await client.authenticate()
+
+    assert updates[0] == (None, None)
+    assert updates[1][0] == "refresh-2"
 
 
 async def test_authenticate_skips_network_when_token_is_valid(

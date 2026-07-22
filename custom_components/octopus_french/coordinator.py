@@ -1,8 +1,10 @@
 """Data update coordinator for Octopus French Energy."""
 
+from __future__ import annotations
+
 import asyncio
-from datetime import timedelta
 import logging
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -16,6 +18,7 @@ from .octopus_french import OctopusAuthError, OctopusConnectionError
 
 if TYPE_CHECKING:
     from .octopus_french import OctopusFrenchApiClient
+    from .statistics_import import OctopusStatisticsImporter
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,6 +43,8 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
         )
         self.api_client = api_client
         self.account_number = account_number
+        # Renseigné au setup ; les sensors y lisent last_imported_date.
+        self.statistics_importer: OctopusStatisticsImporter | None = None
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from API."""
@@ -73,42 +78,43 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
         ]
 
         electricity_supply_points = supply_points["electricity"]
-        electricity_meter_id = (
-            electricity_supply_points[0].get("prm") if electricity_supply_points else None
-        )
+        electricity_meter_ids = [
+            sp.get("prm") for sp in electricity_supply_points if sp.get("prm")
+        ]
         gas_supply_points = supply_points.get("gas", [])
         gas_meter_id = gas_supply_points[0].get("prm") if gas_supply_points else None
 
         now = dt_util.now()
         today_midnight = dt_util.start_of_local_day(now)
         first_of_month = today_midnight.replace(day=1)
-        electricity_start = (first_of_month - timedelta(days=PREVIOUS_MONTH_OVERLAP_DAYS)).isoformat()
+        electricity_start = (
+            first_of_month - timedelta(days=PREVIOUS_MONTH_OVERLAP_DAYS)
+        ).isoformat()
         date_end = now.isoformat()
         gas_start = (today_midnight - timedelta(days=365)).isoformat()
 
-        async def fetch_electricity() -> tuple[list, Any]:
-            if not electricity_meter_id:
-                return [], None
-
+        async def fetch_electricity_for_prm(prm_id: str) -> tuple[str, list, Any]:
             try:
                 readings = await self.api_client.get_energy_readings(
                     account_id,
                     electricity_start,
                     date_end,
-                    electricity_meter_id,
+                    prm_id,
                     utility_type="electricity",
                     reading_frequency="DAY_INTERVAL",
                     reading_quality="ACTUAL",
                     first=100,
                 )
                 index = await self.api_client.get_electricity_index(
-                    account_number, electricity_meter_id
+                    account_number, prm_id
                 )
             except OctopusConnectionError as err:
-                _LOGGER.warning("Failed to fetch electricity data: %s", err)
-                return [], None
+                _LOGGER.warning(
+                    "Failed to fetch electricity data for PRM %s: %s", prm_id, err
+                )
+                return prm_id, [], None
             else:
-                return readings, index
+                return prm_id, readings, index
 
         async def fetch_gas() -> list:
             if not gas_meter_id:
@@ -137,28 +143,17 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.warning("Failed to fetch payment requests: %s", err)
                 return {}
 
-        (
-            (electricity_readings, elec_index),
-            gas,
-            payment_requests,
-        ) = await asyncio.gather(fetch_electricity(), fetch_gas(), fetch_payments())
+        electricity_results, gas, payment_requests = await asyncio.gather(
+            asyncio.gather(
+                *(fetch_electricity_for_prm(prm) for prm in electricity_meter_ids)
+            ),
+            fetch_gas(),
+            fetch_payments(),
+        )
 
-        tariffs = None
-        agreements = account_data.get("agreements", [])
-        for agreement in agreements:
-            if agreement.get("prm") == electricity_meter_id and agreement.get("is_active"):
-                tariffs = agreement.get("tariffs")
-                break
-        if tariffs is None:
-            for agreement in agreements:
-                if agreement.get("is_active"):
-                    tariffs = agreement.get("tariffs")
-                    break
-
-        account_data["electricity"] = {
-            "readings": electricity_readings,
-            "index": elec_index,
-            "tariffs": tariffs,
+        account_data["electricity_by_prm"] = {
+            prm_id: {"readings": readings, "index": index}
+            for prm_id, readings, index in electricity_results
         }
         account_data["gas"] = gas
         account_data["payment_requests"] = payment_requests

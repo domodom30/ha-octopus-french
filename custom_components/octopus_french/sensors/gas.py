@@ -1,29 +1,25 @@
 """Gas sensor entity for Octopus Energy France."""
 
-from datetime import datetime
 import logging
+from datetime import datetime
 from typing import Any
 
-from homeassistant.components.recorder import get_instance
-from homeassistant.components.recorder.statistics import (
-    StatisticData,
-    StatisticMeanType,
-    StatisticMetaData,
-    async_add_external_statistics,
-    get_last_statistics,
-)
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.core import callback
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from ..const import DOMAIN, LEDGER_TYPE_GAS
 from ..coordinator import OctopusFrenchDataUpdateCoordinator
+from ..utils import get_tariff_rate_for_key
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class OctopusGasSensor(CoordinatorEntity, SensorEntity):
+class OctopusGasSensor(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+    CoordinatorEntity[OctopusFrenchDataUpdateCoordinator], SensorEntity
+):
     """Sensor for gas data."""
 
     def __init__(
@@ -53,198 +49,23 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
         self._attr_entity_category = sensor_config.entity_category
 
         self._current_month: str | None = None
-        self._last_imported_date: str | None = None
-        self._import_in_progress = False
+        self._update_attrs()
 
     def _get_current_month(self) -> str:
         """Get current month in YYYY-MM format."""
         return dt_util.now().strftime("%Y-%m")
 
-    async def async_added_to_hass(self) -> None:
-        """When entity is added to hass."""
-        await super().async_added_to_hass()
-
-        key = self._sensor_config.key
-        if key in ["consumption", "cost"] and self.entity_id:
-            self.hass.async_create_task(self._async_import_statistics())
-
+    @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-
-        key = self._sensor_config.key
-        if self.entity_id and key in ("consumption", "cost"):
-            self.hass.async_create_task(self._async_import_statistics())
-
+        self._update_attrs()
         super()._handle_coordinator_update()
 
-    async def _async_import_statistics(self) -> None:
-        """Import statistics with correct dates from gas readings."""
-
-        if self._import_in_progress:
-            return
-        self._import_in_progress = True
-        try:
-            await self._async_do_import_statistics()
-        finally:
-            self._import_in_progress = False
-
-    async def _async_do_import_statistics(self) -> None:
-        """Perform the actual statistics import."""
-        key = self._sensor_config.key
-
-        if key not in ["consumption", "cost"]:
-            return
-
-        readings = self.coordinator.data.get("gas", [])
-
-        if not readings:
-            return
-
-        if not self.entity_id:
-            _LOGGER.warning(
-                "entity_id not available for %s, skipping statistics import",
-                self._attr_unique_id,
-            )
-            return
-
-        if not self.entity_id.startswith("sensor."):
-            _LOGGER.error(
-                "Invalid entity_id format '%s' for sensor %s, cannot import statistics",
-                self.entity_id,
-                self._attr_unique_id,
-            )
-            return
-
-        statistic_id = f"{DOMAIN}:{self._pce_ref}_{key}"
-
-        _LOGGER.debug(
-            "Starting statistics import for entity_id: %s (statistic_id: %s)",
-            self.entity_id,
-            statistic_id,
-        )
-
-        try:
-            sorted_readings = sorted(
-                readings, key=lambda x: x.get("startAt", ""), reverse=False
-            )
-        except (TypeError, KeyError) as e:
-            _LOGGER.warning("Error sorting gas readings: %s", e)
-            return
-
-        last_imported_day: datetime | None = None
-
-        try:
-            last_stats = await get_instance(self.hass).async_add_executor_job(
-                get_last_statistics, self.hass, 1, statistic_id, False, {"sum", "start"}
-            )
-            if last_stats and statistic_id in last_stats and last_stats[statistic_id]:
-                last_entry = last_stats[statistic_id][0]
-                cumulative_sum = float(last_entry.get("sum") or 0.0)
-                last_start = last_entry.get("start")
-                if last_start is not None:
-                    last_imported_day = datetime.fromtimestamp(
-                        float(last_start), tz=dt_util.UTC
-                    ).astimezone(dt_util.DEFAULT_TIME_ZONE)
-            else:
-                cumulative_sum = 0.0
-        except OSError, ValueError, TypeError:
-            _LOGGER.debug(
-                "Could not fetch last statistics for %s, starting sum at 0",
-                statistic_id,
-            )
-            cumulative_sum = 0.0
-
-        daily_values: dict[datetime, float] = {}
-
-        for reading in sorted_readings:
-            reading_date = reading.get("startAt")
-
-            if not reading_date:
-                continue
-
-            try:
-                day = (
-                    datetime.fromisoformat(reading_date)
-                    .astimezone(dt_util.DEFAULT_TIME_ZONE)
-                    .replace(hour=0, minute=0, second=0, microsecond=0)
-                )
-            except (ValueError, TypeError, AttributeError) as e:
-                _LOGGER.warning("Error parsing gas date %s: %s", reading_date, e)
-                continue
-
-            consumption = float(reading.get("value", 0))
-
-            if consumption <= 0:
-                continue
-
-            if key == "cost":
-                tariff_rate = self._get_tariff_rate()
-                if tariff_rate:
-                    reading_value = consumption * tariff_rate
-                else:
-                    _LOGGER.warning(
-                        "No tariff rate found for gas meter %s, cost will be 0",
-                        self._pce_ref,
-                    )
-                    reading_value = 0.0
-            else:
-                reading_value = consumption
-
-            if reading_value > 0:
-                daily_values[day] = reading_value
-
-        statistics = []
-
-        for day in sorted(daily_values):
-            if last_imported_day is not None and day <= last_imported_day:
-                continue
-
-            reading_value = daily_values[day]
-            cumulative_sum += reading_value
-
-            statistics.append(
-                StatisticData(
-                    start=day,
-                    state=reading_value,
-                    sum=cumulative_sum,
-                )
-            )
-            self._last_imported_date = day.isoformat()
-
-        if not statistics:
-            _LOGGER.debug("No new statistics to import for %s", self.entity_id)
-            return
-
-        _LOGGER.debug(
-            "Preparing to import %d statistics for statistic_id: %s",
-            len(statistics),
-            statistic_id,
-        )
-
-        unit_class = "energy" if key == "consumption" else None
-        sensor_name = "Gas Consumption" if key == "consumption" else "Gas Cost"
-
-        metadata = StatisticMetaData(
-            mean_type=StatisticMeanType.NONE,
-            has_sum=True,
-            name=f"Octopus Energy {sensor_name} {self._pce_ref}",
-            source=DOMAIN,
-            statistic_id=statistic_id,
-            unit_class=unit_class,
-            unit_of_measurement=self._attr_native_unit_of_measurement,
-        )
-
-        try:
-            async_add_external_statistics(self.hass, metadata, statistics)
-
-            _LOGGER.info(
-                "Successfully imported %d statistics for %s (last date: %s)",
-                len(statistics),
-                statistic_id,
-                self._last_imported_date,
-            )
-        except Exception:
-            _LOGGER.exception("Failed to import statistics for %s", statistic_id)
+    def _update_attrs(self) -> None:
+        """Refresh the cached attribute values from coordinator data."""
+        self._attr_last_reset = self._compute_last_reset()
+        self._attr_native_value = self._compute_native_value()
+        self._attr_extra_state_attributes = self._compute_attributes()
 
     def _calculate_monthly_subscription(self) -> float:
         """Get the monthly subscription cost from agreements."""
@@ -252,8 +73,8 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
 
         for agreement in agreements:
             if agreement.get("prm") == self._pce_ref and agreement.get("is_active"):
-                tariffs = (agreement.get("tariffs") or {})
-                subscription = (tariffs.get("subscription") or {})
+                tariffs = agreement.get("tariffs") or {}
+                subscription = tariffs.get("subscription") or {}
 
                 if subscription:
                     monthly_ttc = subscription.get("monthly_ttc_eur")
@@ -322,17 +143,14 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
 
         return round(cost, 2)
 
-    @property
-    def last_reset(self) -> datetime | None:
+    def _compute_last_reset(self) -> datetime | None:
         """Expose the monthly reset for the current-month total sensors."""
-
         key = self._sensor_config.key
         if key in ("consumption", "cost", "subscription"):
             return dt_util.start_of_local_day().replace(day=1)
         return None
 
-    @property
-    def native_value(self) -> float | str | None:
+    def _compute_native_value(self) -> float | str | None:
         """Return the state of the sensor."""
         key = self._sensor_config.key
 
@@ -359,15 +177,14 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
 
         return None
 
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
+    def _compute_attributes(self) -> dict[str, Any]:
         """Return extra attributes."""
         key = self._sensor_config.key
 
         if key == "contract":
             supply_points = self.coordinator.data.get("supply_points", {})
             gas_points = supply_points.get("gas", [])
-            meter = next((m for m in gas_points if m.get("id") == self._pce_ref), None)
+            meter = next((m for m in gas_points if m.get("prm") == self._pce_ref), None)
 
             if not meter:
                 return {}
@@ -376,7 +193,7 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
 
             return {
                 "ledger_id": ledger.get("number"),
-                "pce_ref": meter.get("id"),
+                "pce_ref": meter.get("prm"),
                 "gas_nature": meter.get("gasNature"),
                 "annual_consumption": f"{meter.get('annualConsumption')} kWh",
                 "is_smart_meter": meter.get("isSmartMeter"),
@@ -395,8 +212,8 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
             attributes: dict[str, Any] = {}
 
             if agreement_data:
-                tariffs = (agreement_data.get("tariffs") or {})
-                subscription = (tariffs.get("subscription") or {})
+                tariffs = agreement_data.get("tariffs") or {}
+                subscription = tariffs.get("subscription") or {}
 
                 attributes.update(
                     {
@@ -439,7 +256,7 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
                 "current_month": self._current_month,
                 "readings_count": len(readings),
                 "calculation_method": "Cumulée / mois",
-                "last_imported_date": self._last_imported_date,
+                "last_imported_date": self._last_imported_date(),
             }
 
         if key == "cost":
@@ -450,7 +267,7 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
                 "current_month": self._current_month,
                 "readings_count": len(readings),
                 "calculation_method": "Cumulée / mois",
-                "last_imported_date": self._last_imported_date,
+                "last_imported_date": self._last_imported_date(),
                 "tariff_eur_kwh": tariff_rate,
             }
 
@@ -459,7 +276,7 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
 
             for agreement in agreements:
                 if agreement.get("prm") == self._pce_ref and agreement.get("is_active"):
-                    tariffs = (agreement.get("tariffs") or {})
+                    tariffs = agreement.get("tariffs") or {}
                     consumption = tariffs.get("consumption", {})
                     base_rate = consumption.get("base")
 
@@ -478,27 +295,25 @@ class OctopusGasSensor(CoordinatorEntity, SensorEntity):
 
         return {}
 
+    def _last_imported_date(self) -> str | None:
+        """Dernière date importée dans les statistiques pour ce sensor."""
+        importer = getattr(self.coordinator, "statistics_importer", None)
+        if importer is None:
+            return None
+        statistic_id = f"{DOMAIN}:{self._pce_ref}_{self._sensor_config.key}"
+        return importer.last_imported.get(statistic_id)
+
     def _get_tariff_rate(self) -> float | None:
         """Get the tariff rate from agreements."""
-        agreements = self.coordinator.data.get("agreements", [])
-
-        for agreement in agreements:
-            if agreement.get("prm") == self._pce_ref and agreement.get("is_active"):
-                tariffs = (agreement.get("tariffs") or {})
-                consumption = tariffs.get("consumption", {})
-
-                base_rate = consumption.get("base")
-                if base_rate:
-                    return base_rate.get("price_ttc")
-
-        _LOGGER.debug("No tariff rate found in agreements for PCE %s", self._pce_ref)
-        return None
+        return get_tariff_rate_for_key(
+            self.coordinator.data, self._pce_ref, "rate_base"
+        )
 
     def _get_contract_status(self) -> str:
         """Get a human-readable contract status."""
         supply_points = self.coordinator.data.get("supply_points", {})
         gas_points = supply_points.get("gas", [])
-        meter = next((m for m in gas_points if m.get("id") == self._pce_ref), None)
+        meter = next((m for m in gas_points if m.get("prm") == self._pce_ref), None)
 
         if not meter:
             return "Inconnu"

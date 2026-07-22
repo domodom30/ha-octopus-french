@@ -61,10 +61,10 @@ Cette intégration ajoute le support complet de cette fonctionnalité dans Home 
 
 ### ⚙️ Fonctionnalités avancées
 
-- **Intervalle de mise à jour configurable** (5 à 1440 minutes, défaut : 60 min)
+- **Mise à jour automatique** toutes les 60 minutes (5 minutes pour les données Intelligent)
 - **Service de mise à jour forcée** pour rafraîchir immédiatement
 - **Compatible avec le tableau de bord Énergie** de Home Assistant
-- **Gestion automatique de l'authentification** avec rafraîchissement des tokens
+- **Gestion automatique de l'authentification** : rafraîchissement des tokens, conservés entre les redémarrages
 - **Exclusion automatique** des compteurs résiliés
 
 ---
@@ -104,17 +104,9 @@ Cette intégration ajoute le support complet de cette fonctionnalité dans Home 
    - **Mot de passe**
 5. Cliquez sur **Soumettre**
 
-### Options
+### Fréquence de rafraîchissement
 
-Après l'installation, vous pouvez configurer :
-
-- **Intervalle de mise à jour** : Fréquence de rafraîchissement (par défaut : 60 minutes, plage : 5-1440)
-
-Pour accéder aux options :
-
-1. Allez dans **Paramètres** → **Appareils et services**
-2. Trouvez **Octopus Energy France**
-3. Cliquez sur **Configurer**
+Les données sont rafraîchies automatiquement toutes les **60 minutes** (5 minutes pour Octopus Intelligent). Le service `octopus_french.force_update` permet un rafraîchissement immédiat.
 
 ---
 
@@ -143,56 +135,56 @@ Pour accéder aux options :
 
 **Pour les contrats BASE :**
 
-| Entité                | Type    | Classe   | State Class      | Description                              |
-| --------------------- | ------- | -------- | ---------------- | ---------------------------------------- |
-| Conso / mois en cours | Capteur | Energy   | Total Increasing | Consommation BASE (kWh) du mois en cours |
-| Coût / mois en cours  | Capteur | Monetary | Total            | Coût BASE (€) du mois en cours           |
-| Abonnement            | Capteur | Monetary | Total            | Coût mensuel de l'abonnement             |
-| Contrat               | Capteur | -        | -                | Type de contrat et informations          |
+| Entité       | Type    | Classe   | State Class | Description                              |
+| ------------ | ------- | -------- | ----------- | ---------------------------------------- |
+| Consommation | Capteur | Energy   | Total       | Consommation BASE (kWh) du mois en cours |
+| Coût         | Capteur | Monetary | Total       | Coût BASE (€) du mois en cours           |
+| Abonnement   | Capteur | Monetary | Total       | Coût mensuel de l'abonnement             |
+| Contrat      | Capteur | -        | -           | Type de contrat et informations          |
 
 **Pour les contrats HPHC (Heures Pleines / Heures Creuses) :**
 
-| Entité             | Type    | Classe   | State Class      | Description                       |
-| ------------------ | ------- | -------- | ---------------- | --------------------------------- |
-| HP / mois en cours | Capteur | Energy   | Total Increasing | Consommation heures pleines (kWh) |
-| HC / mois en cours | Capteur | Energy   | Total Increasing | Consommation heures creuses (kWh) |
-| HP / mois en cours | Capteur | Monetary | Total            | Coût heures pleines (€)           |
-| HC / mois en cours | Capteur | Monetary | Total            | Coût heures creuses (€)           |
-| Abonnement         | Capteur | Monetary | Total            | Coût mensuel de l'abonnement      |
-| Contrat            | Capteur | -        | -                | Type de contrat et informations   |
+| Entité          | Type    | Classe   | State Class | Description                       |
+| --------------- | ------- | -------- | ----------- | --------------------------------- |
+| Consommation HP | Capteur | Energy   | Total       | Consommation heures pleines (kWh) |
+| Consommation HC | Capteur | Energy   | Total       | Consommation heures creuses (kWh) |
+| Coût HP         | Capteur | Monetary | Total       | Coût heures pleines (€)           |
+| Coût HC         | Capteur | Monetary | Total       | Coût heures creuses (€)           |
+| Abonnement      | Capteur | Monetary | Total       | Coût mensuel de l'abonnement      |
+| Contrat         | Capteur | -        | -           | Type de contrat et informations   |
 
 **Pour les contrats OctoTempo :**
 
-| Entité                  | Type    | Classe   | State Class | Description                                  |
-| ----------------------- | ------- | -------- | ----------- | -------------------------------------------- |
-| Été HP / mois en cours  | Capteur | Energy   | Total       | Consommation jours Été Heures Pleines (kWh)  |
-| Été HC / mois en cours  | Capteur | Energy   | Total       | Consommation jours Été Heures Creuses (kWh)  |
-| Hiver HP / mois en cours| Capteur | Energy   | Total       | Consommation jours Hiver Heures Pleines (kWh)|
-| Hiver HC / mois en cours| Capteur | Energy   | Total       | Consommation jours Hiver Heures Creuses (kWh)|
-| Rouge HP / mois en cours| Capteur | Energy   | Total       | Consommation jours Rouge Heures Pleines (kWh)|
-| Rouge HC / mois en cours| Capteur | Energy   | Total       | Consommation jours Rouge Heures Creuses (kWh)|
-| Coût Été HP             | Capteur | Monetary | Total       | Coût jours Été HP (€)                        |
-| Coût Été HC             | Capteur | Monetary | Total       | Coût jours Été HC (€)                        |
-| Coût Hiver HP           | Capteur | Monetary | Total       | Coût jours Hiver HP (€)                      |
-| Coût Hiver HC           | Capteur | Monetary | Total       | Coût jours Hiver HC (€)                      |
-| Coût Rouge HP           | Capteur | Monetary | Total       | Coût jours Rouge HP (€)                      |
-| Coût Rouge HC           | Capteur | Monetary | Total       | Coût jours Rouge HC (€)                      |
-| Abonnement              | Capteur | Monetary | Total       | Coût mensuel de l'abonnement                 |
-| Contrat                 | Capteur | -        | -           | Type de contrat et informations              |
+| Entité                | Type    | Classe   | State Class | Description                                  |
+| --------------------- | ------- | -------- | ----------- | -------------------------------------------- |
+| Consommation été HP   | Capteur | Energy   | Total       | Consommation jours Été Heures Pleines (kWh)  |
+| Consommation été HC   | Capteur | Energy   | Total       | Consommation jours Été Heures Creuses (kWh)  |
+| Consommation hiver HP | Capteur | Energy   | Total       | Consommation jours Hiver Heures Pleines (kWh)|
+| Consommation hiver HC | Capteur | Energy   | Total       | Consommation jours Hiver Heures Creuses (kWh)|
+| Consommation rouge HP | Capteur | Energy   | Total       | Consommation jours Rouge Heures Pleines (kWh)|
+| Consommation rouge HC | Capteur | Energy   | Total       | Consommation jours Rouge Heures Creuses (kWh)|
+| Coût été HP           | Capteur | Monetary | Total       | Coût jours Été HP (€)                        |
+| Coût été HC           | Capteur | Monetary | Total       | Coût jours Été HC (€)                        |
+| Coût hiver HP         | Capteur | Monetary | Total       | Coût jours Hiver HP (€)                      |
+| Coût hiver HC         | Capteur | Monetary | Total       | Coût jours Hiver HC (€)                      |
+| Coût rouge HP         | Capteur | Monetary | Total       | Coût jours Rouge HP (€)                      |
+| Coût rouge HC         | Capteur | Monetary | Total       | Coût jours Rouge HC (€)                      |
+| Abonnement            | Capteur | Monetary | Total       | Coût mensuel de l'abonnement                 |
+| Contrat               | Capteur | -        | -           | Type de contrat et informations              |
 
 **Capteurs de diagnostic OctoTempo :**
 
-| Entité                   | Type    | Classe   | Description                                                                              |
-| ------------------------ | ------- | -------- | ---------------------------------------------------------------------------------------- |
-| Tarif Été HP             | Capteur | Monetary | Tarif Été Heures Pleines (€/kWh)                                                         |
-| Tarif Été HC             | Capteur | Monetary | Tarif Été Heures Creuses (€/kWh)                                                         |
-| Tarif Hiver HP           | Capteur | Monetary | Tarif Hiver Heures Pleines (€/kWh)                                                       |
-| Tarif Hiver HC           | Capteur | Monetary | Tarif Hiver Heures Creuses (€/kWh)                                                       |
-| Tarif Rouge HP           | Capteur | Monetary | Tarif Rouge Heures Pleines (€/kWh)                                                       |
-| Tarif Rouge HC           | Capteur | Monetary | Tarif Rouge Heures Creuses (€/kWh)                                                       |
-| Couleur Tempo aujourd'hui| Capteur | -        | Couleur du jour (ETE / HIVER / ROUGE)                                                    |
-| Couleur Tempo demain     | Capteur | -        | Couleur de demain — disponible après ~11h (annonce RTE) ; `unavailable` avant l'annonce  |
-| Tarif Tempo en cours     | Capteur | Monetary | €/kWh actif à l'instant (couleur du jour × HC/HP), mis à jour chaque minute             |
+| Entité                   | Type    | Classe | Description                                                                              |
+| ------------------------ | ------- | ------ | ---------------------------------------------------------------------------------------- |
+| Tarif été HP             | Capteur | -      | Tarif Été Heures Pleines (€/kWh)                                                         |
+| Tarif été HC             | Capteur | -      | Tarif Été Heures Creuses (€/kWh)                                                         |
+| Tarif hiver HP           | Capteur | -      | Tarif Hiver Heures Pleines (€/kWh)                                                       |
+| Tarif hiver HC           | Capteur | -      | Tarif Hiver Heures Creuses (€/kWh)                                                       |
+| Tarif rouge HP           | Capteur | -      | Tarif Rouge Heures Pleines (€/kWh)                                                       |
+| Tarif rouge HC           | Capteur | -      | Tarif Rouge Heures Creuses (€/kWh)                                                       |
+| Couleur Tempo aujourd'hui| Capteur | -      | Couleur du jour (ETE / HIVER / ROUGE)                                                    |
+| Couleur Tempo demain     | Capteur | -      | Couleur de demain — disponible après ~11h (annonce RTE) ; `unavailable` avant l'annonce  |
+| Tarif Tempo en cours     | Capteur | -      | €/kWh actif à l'instant (couleur du jour × HC/HP), mis à jour chaque minute              |
 
 ---
 
@@ -231,12 +223,12 @@ Pour accéder aux options :
 - `OFF` : Période heures pleines en cours
 
 **Attributs :**
-- `off_peak_type` : Type de période (HC_HC par exemple)
-- `off_peak_total_hours` : Nombre total d'heures creuses par jour
-- `off_peak_range_count` : Nombre de plages horaires
-- `off_peak_range_X_start` : Heure de début de la plage X (format HH:MM)
-- `off_peak_range_X_end` : Heure de fin de la plage X
-- `off_peak_range_X_duration` : Durée de la plage X (heures)
+- `hc_source` : Source des horaires (`contract` = timeSlots du contrat, `linky` = label du compteur)
+- `hc_type` : Type de période (HC par exemple)
+- `total_hc_hours` : Nombre total d'heures creuses par jour
+- `hc_schedule_available` : Horaires HC disponibles (true/false)
+- `hc_range_X` : Plage horaire X (format `HH:MM - HH:MM`)
+- `hc_range_X_duration_h` : Durée de la plage X (heures)
 
 **Exemple d'utilisation :**
 ```yaml
@@ -321,10 +313,13 @@ Pour accéder aux options :
 
 ### 🔥 Appareil Compteur Gaz (Gazpar)
 
-| Entité       | Type    | Classe | State Class      | Description                         |
-| ------------ | ------- | ------ | ---------------- | ----------------------------------- |
-| Consommation | Capteur | Energy | Total Increasing | Consommation mensuelle de gaz (kWh) |
-| Contrat      | Capteur | -      | -                | Type de contrat et informations     |
+| Entité       | Type    | Classe   | State Class | Description                          |
+| ------------ | ------- | -------- | ----------- | ------------------------------------ |
+| Consommation | Capteur | Energy   | Total       | Consommation mensuelle de gaz (kWh)  |
+| Coût         | Capteur | Monetary | Total       | Coût mensuel du gaz (€)              |
+| Abonnement   | Capteur | Monetary | Total       | Coût mensuel de l'abonnement gaz     |
+| Tarif        | Capteur | -        | -           | Prix du kWh gaz (€/kWh, diagnostic)  |
+| Contrat      | Capteur | -        | -           | Type de contrat et informations      |
 
 **Attributs du contrat gaz :**
 
@@ -440,12 +435,13 @@ automation:
 
 Cette intégration est **entièrement compatible** avec le tableau de bord Énergie de Home Assistant et importe automatiquement l'historique des consommations.
 
-### ✨ Nouveauté : Import automatique des statistiques
+### ✨ Import automatique des statistiques
 
 L'intégration importe automatiquement l'historique de vos consommations et coûts dans Home Assistant :
 
 - **Import complet** lors de la première installation
 - **Mise à jour incrémentale** lors des rafraîchissements suivants
+- **Coûts basés sur les montants réels de l'API** (exacts même après un changement de tarif)
 - **Compatible** avec le tableau de bord Énergie
 
 ### Instructions de configuration
@@ -796,6 +792,16 @@ automation:
 
 ---
 
+## 🗑️ Désinstallation
+
+1. Allez dans **Paramètres** → **Appareils et services**
+2. Trouvez **Octopus Energy France**, ouvrez le menu (⋮) de l'entrée et choisissez **Supprimer**
+3. Si installée via HACS : ouvrez **HACS**, recherchez l'intégration, menu (⋮) → **Supprimer**, puis redémarrez Home Assistant
+
+> **Note** : les statistiques long-terme importées (identifiants `octopus_french:*`) restent dans la base du recorder après la désinstallation. Pour les purger, allez dans **Outils de développement** → **Statistiques** et cliquez sur **Corriger** (ou l'icône de suppression) en face des entrées `octopus_french` orphelines.
+
+---
+
 ## 🔧 Dépannage
 
 ### Les entités n'apparaissent pas
@@ -807,7 +813,6 @@ automation:
 
 ### Les données ne se mettent pas à jour
 
-- ✅ Vérifiez l'intervalle de mise à jour dans les options de l'intégration
 - ✅ Utilisez le service `octopus_french.force_update` pour forcer le rafraîchissement
 - ✅ Vérifiez la connectivité API dans les logs Home Assistant
 - ✅ Consultez l'état de l'API Octopus Energy sur leur site
@@ -826,7 +831,6 @@ automation:
 ### Les statistiques n'apparaissent pas dans le tableau de bord Énergie
 
 - ✅ Patientez quelques minutes après l'installation (import en cours)
-- ✅ Vérifiez que les entités ont bien `state_class: total_increasing`
 - ✅ Consultez les logs pour d'éventuelles erreurs d'import
 - ✅ Forcez une mise à jour avec le service `force_update`
 
@@ -842,7 +846,7 @@ automation:
 
 ### Fréquence de mise à jour
 
-- **Données de consommation** : Selon l'intervalle configuré (défaut : 60 min)
+- **Données de consommation** : Toutes les 60 minutes (Intelligent : 5 minutes)
 - **Relevés Linky** : Disponibles avec ~24h de décalage
 - **Index des compteurs** : Mis à jour quotidiennement
 - **Factures** : Mises à jour en temps réel

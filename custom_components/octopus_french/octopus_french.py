@@ -1,14 +1,16 @@
 """API client for OctopusFrench Energy."""
 
 import asyncio
-from contextlib import suppress
-from datetime import UTC, datetime, timedelta
 import logging
 import re
-from typing import Any
+from collections.abc import Callable
+from contextlib import suppress
+from datetime import UTC, datetime, timedelta
+from typing import Any, ClassVar
 
 import aiohttp
 import jwt
+from homeassistant.util import dt as dt_util
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,6 +32,8 @@ GRAPHQL_ENDPOINT = "https://api.oefr-kraken.energy/v1/graphql/"
 TOKEN_EXPIRY_BUFFER = 60
 MAX_RETRY_ATTEMPTS = 3
 RETRY_DELAY = 1
+# Garde-fou : un endCursor qui ne progresse pas ne doit pas bloquer l'event loop.
+MAX_PAGINATION_PAGES = 50
 RATE_LIMIT_ERROR_CODE = "KT-CT-1199"
 # Kraken refresh tokens last 7 days; used when the API omits refreshExpiresIn.
 DEFAULT_REFRESH_EXPIRY = 7 * 24 * 3600
@@ -331,6 +335,20 @@ class TokenManager:
         return self._refresh_token
 
     @property
+    def refresh_expiry(self) -> float | None:
+        """Get the refresh token expiry as a Unix timestamp."""
+        return self._refresh_expiry
+
+    def restore_refresh_token(
+        self, refresh_token: str | None, refresh_expiry: float | None
+    ) -> None:
+        """Seed a previously persisted refresh token (no access token yet)."""
+        if not refresh_token or not refresh_expiry:
+            return
+        self._refresh_token = refresh_token
+        self._refresh_expiry = float(refresh_expiry)
+
+    @property
     def is_valid(self) -> bool:
         """Check if token is valid with buffer."""
         if not self._token or not self._expiry:
@@ -402,6 +420,9 @@ class OctopusFrenchApiClient:
         self._session = session
         self.token_manager = TokenManager()
         self._auth_lock = asyncio.Lock()
+        # Notifié à chaque rotation du refresh token (None = token invalidé),
+        # pour que l'appelant puisse le persister entre les redémarrages.
+        self.on_token_update: Callable[[str | None, float | None], None] | None = None
 
     async def _async_execute(
         self,
@@ -436,9 +457,14 @@ class OctopusFrenchApiClient:
                         MAX_RETRY_ATTEMPTS,
                         body,
                     )
+                    # Les 4xx (hors 429) ne se résoudront pas en réessayant.
+                    if 400 <= response.status < 500 and response.status != 429:
+                        raise OctopusConnectionError(
+                            f"GraphQL endpoint returned HTTP {response.status}"
+                        )
                     if attempt < MAX_RETRY_ATTEMPTS - 1:
                         await asyncio.sleep(RETRY_DELAY * (attempt + 1))
-            except aiohttp.ClientError, TimeoutError:
+            except (aiohttp.ClientError, TimeoutError):
                 if attempt < MAX_RETRY_ATTEMPTS - 1:
                     await asyncio.sleep(RETRY_DELAY * (attempt + 1))
                     continue
@@ -494,6 +520,10 @@ class OctopusFrenchApiClient:
             refresh_token=payload.get("refreshToken"),
             refresh_expires_in=payload.get("refreshExpiresIn"),
         )
+        if self.on_token_update is not None and payload.get("refreshToken"):
+            self.on_token_update(
+                self.token_manager.refresh_token, self.token_manager.refresh_expiry
+            )
         return True
 
     async def _refresh_access_token(self) -> bool:
@@ -507,6 +537,8 @@ class OctopusFrenchApiClient:
 
         _LOGGER.debug("Refresh token rejected, falling back to a full login")
         self.token_manager.clear_all()
+        if self.on_token_update is not None:
+            self.on_token_update(None, None)
         return False
 
     async def _login_with_credentials(self) -> bool:
@@ -546,9 +578,8 @@ class OctopusFrenchApiClient:
         retry_count: int = 0,
     ) -> dict[str, Any]:
         """Execute GraphQL query with automatic authentication."""
-        if not self.token_manager.is_valid:
-            if not await self.authenticate():
-                raise OctopusAuthError("Authentication failed: invalid credentials")
+        if not self.token_manager.is_valid and not await self.authenticate():
+            raise OctopusAuthError("Authentication failed: invalid credentials")
 
         headers = {"Authorization": f"JWT {self.token_manager.token}"}
         result = await self._async_execute(
@@ -684,13 +715,16 @@ class OctopusFrenchApiClient:
             ledger_data = [ledger_data]
 
         for ledger in ledger_data:
-            if ledger and (ledger_type := ledger.get("ledgerType")):
-                if ledger_type not in ledgers:
-                    ledgers[ledger_type] = {
-                        "balance": ledger.get("currentBalance", 0),
-                        "name": ledger.get("name", ""),
-                        "number": ledger.get("number", ""),
-                    }
+            if (
+                ledger
+                and (ledger_type := ledger.get("ledgerType"))
+                and ledger_type not in ledgers
+            ):
+                ledgers[ledger_type] = {
+                    "balance": ledger.get("currentBalance", 0),
+                    "name": ledger.get("name", ""),
+                    "number": ledger.get("number", ""),
+                }
 
         return ledgers
 
@@ -775,7 +809,7 @@ class OctopusFrenchApiClient:
 
         return agreements
 
-    _TEMPORAL_CLASS_TO_KEY: dict[str, str] = {
+    _TEMPORAL_CLASS_TO_KEY: ClassVar[dict[str, str]] = {
         "HP": "heures_pleines",
         "HC": "heures_creuses",
         "BASE": "base",
@@ -793,7 +827,7 @@ class OctopusFrenchApiClient:
         "ROUGE_HC": "tempo_rouge_hc",
     }
 
-    _REGISTER_CODE_TO_COLOR: dict[str, str] = {
+    _REGISTER_CODE_TO_COLOR: ClassVar[dict[str, str]] = {
         "HPP": "ROUGE",
         "HCP": "ROUGE",
         "HPHI": "HIVER",
@@ -802,7 +836,7 @@ class OctopusFrenchApiClient:
         "HCE": "ETE",
     }
 
-    _CALENDAR_COLOR_TO_COLOR: dict[str, str] = {
+    _CALENDAR_COLOR_TO_COLOR: ClassVar[dict[str, str]] = {
         "BLEU": "ETE",
         "BLANC": "HIVER",
         "ROUGE": "ROUGE",
@@ -936,7 +970,7 @@ class OctopusFrenchApiClient:
         all_nodes: list[dict[str, Any]] = []
         after: str | None = None
 
-        while True:
+        for _ in range(MAX_PAGINATION_PAGES):
             variables = {
                 "propertyId": property_id,
                 "startAt": start_at,
@@ -954,6 +988,12 @@ class OctopusFrenchApiClient:
             if not page_info.get("hasNextPage"):
                 break
             after = page_info.get("endCursor")
+        else:
+            _LOGGER.warning(
+                "Measurement pagination stopped after %s pages for supply point %s",
+                MAX_PAGINATION_PAGES,
+                market_supply_point_id,
+            )
 
         return all_nodes
 
@@ -972,7 +1012,7 @@ class OctopusFrenchApiClient:
         all_nodes: list[dict[str, Any]] = []
         after: str | None = None
 
-        while True:
+        for _ in range(MAX_PAGINATION_PAGES):
             variables = {
                 "accountNumber": account_number,
                 "pceRef": pce_ref,
@@ -1003,6 +1043,12 @@ class OctopusFrenchApiClient:
             if not page_info.get("hasNextPage"):
                 break
             after = page_info.get("endCursor")
+        else:
+            _LOGGER.warning(
+                "Gas reading pagination stopped after %s pages for PCE %s",
+                MAX_PAGINATION_PAGES,
+                pce_ref,
+            )
 
         return all_nodes
 
@@ -1024,19 +1070,13 @@ class OctopusFrenchApiClient:
     async def get_all_payment_requests(
         self, ledgers: dict[str, dict[str, Any]]
     ) -> dict[str, dict[str, Any]]:
-        """Get payment requests for all ledgers."""
-        payment_requests = {}
+        """Get payment requests for all ledgers, fetched in parallel."""
 
-        for ledger_type, ledger_info in ledgers.items():
-            ledger_number = ledger_info.get("number")
-
-            if not ledger_number:
-                continue
-
+        async def fetch(
+            ledger_type: str, ledger_number: str
+        ) -> tuple[str, dict[str, Any] | None]:
             try:
-                payment_request = await self.get_payment_requests(ledger_number)
-                if payment_request:
-                    payment_requests[ledger_type] = payment_request
+                return ledger_type, await self.get_payment_requests(ledger_number)
             except (KeyError, ValueError) as err:
                 _LOGGER.warning(
                     "Failed to fetch payment request for ledger %s (%s): %s",
@@ -1044,9 +1084,20 @@ class OctopusFrenchApiClient:
                     ledger_number,
                     err,
                 )
-                continue
+                return ledger_type, None
 
-        return payment_requests
+        results = await asyncio.gather(
+            *(
+                fetch(ledger_type, ledger_number)
+                for ledger_type, ledger_info in ledgers.items()
+                if (ledger_number := ledger_info.get("number"))
+            )
+        )
+        return {
+            ledger_type: payment_request
+            for ledger_type, payment_request in results
+            if payment_request
+        }
 
     async def get_electricity_index(
         self, account_number: str, prm_id: str
@@ -1070,7 +1121,9 @@ class OctopusFrenchApiClient:
         period_start = None
         period_end = None
         tariff_type = None
-        tomorrow_str = (datetime.now(UTC).date() + timedelta(days=1)).isoformat()
+        # Date locale HA : entre 22h/23h UTC et minuit UTC, la date UTC est encore
+        # « aujourd'hui » alors que la France est déjà demain.
+        tomorrow_str = (dt_util.now().date() + timedelta(days=1)).isoformat()
 
         for edge in edges:
             node = edge.get("node") or {}
@@ -1131,7 +1184,7 @@ class OctopusFrenchApiClient:
 
                 color = self._REGISTER_CODE_TO_COLOR.get(effective_code)
                 if color:
-                    node_date = node.get("periodStartAt", "")[:10]
+                    node_date = (node.get("periodStartAt") or "")[:10]
                     color_key = (
                         "tempo_color_tomorrow"
                         if node_date == tomorrow_str
@@ -1142,7 +1195,7 @@ class OctopusFrenchApiClient:
             elif effective_code in self._CALENDAR_COLOR_TO_COLOR:
                 tariff_type = "TEMPO"
                 color = self._CALENDAR_COLOR_TO_COLOR[effective_code]
-                node_date = node.get("periodStartAt", "")[:10]
+                node_date = (node.get("periodStartAt") or "")[:10]
                 color_key = (
                     "tempo_color_tomorrow"
                     if node_date == tomorrow_str

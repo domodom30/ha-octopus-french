@@ -11,6 +11,7 @@ from .const import CONF_ACCOUNT_NUMBER
 TO_REDACT = {
     "email",
     "password",
+    "refresh_token",
     "account_id",
     "account_number",
     "number",
