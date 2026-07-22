@@ -7,7 +7,7 @@ name = "ha-octopus-french"
 version = "4.0.0"
 description = "Octopus French custom integration for Home Assistant"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 license = { text = "MIT" }
 authors = [
     { name = "Domodom30" }
@@ -18,6 +18,8 @@ authors = [
 ###############################################################################
 
 [tool.ruff]
+# Runtime = Python 3.14, mais on garde py313 comme cible de syntaxe pour ne pas
+# adopter la syntaxe PEP 758 (`except A, B:` sans parenthèses), peu lisible.
 target-version = "py313"
 line-length = 88
 
@@ -46,7 +48,7 @@ quote-style = "double"
 ###############################################################################
 
 [tool.pyright]
-pythonVersion = "3.13"
+pythonVersion = "3.14"
 # basic : le code livré passe proprement (imports/appels/attributs/types restent des erreurs).
 # strict ajoutait ~700 remontées "type inconnu" sans valeur ici (HA partiellement typé + mocks).
 typeCheckingMode = "basic"
