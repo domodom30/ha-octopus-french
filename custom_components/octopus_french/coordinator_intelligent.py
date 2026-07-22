@@ -1,8 +1,11 @@
 """Data update coordinator for Octopus Intelligent features."""
 
-from datetime import timedelta
+from __future__ import annotations
+
+import asyncio
 import logging
-from typing import TYPE_CHECKING, Any
+from datetime import timedelta
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -10,6 +13,7 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api.intelligent import OctopusIntelligentApiClient
+from .const import INTELLIGENT_SCAN_INTERVAL
 from .octopus_french import OctopusAuthError, OctopusConnectionError
 
 if TYPE_CHECKING:
@@ -21,7 +25,7 @@ _LOGGER = logging.getLogger(__name__)
 class OctopusIntelligentDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching data from the Intelligent API."""
 
-    ACTIVE_CHARGING_STATES = {
+    ACTIVE_CHARGING_STATES: ClassVar[set[str]] = {
         "BOOSTING",
         "SMART_CONTROL_IN_PROGRESS",
         "TEST_CHARGE_IN_PROGRESS",
@@ -39,7 +43,7 @@ class OctopusIntelligentDataUpdateCoordinator(DataUpdateCoordinator):
             hass,
             _LOGGER,
             name="Octopus Intelligent",
-            update_interval=timedelta(minutes=1),
+            update_interval=timedelta(minutes=INTELLIGENT_SCAN_INTERVAL),
             config_entry=config_entry,
         )
         self.intelligent_client = OctopusIntelligentApiClient(api_client)
@@ -80,16 +84,23 @@ class OctopusIntelligentDataUpdateCoordinator(DataUpdateCoordinator):
             dispatches: dict[str, list[dict[str, Any]]] = {}
 
             if devices:
-                preferences = await self.intelligent_client.get_vehicle_charging_preferences(
-                    self.account_number
+                device_ids = [
+                    device_id for device in devices if (device_id := device.get("id"))
+                ]
+                preferences, dispatch_lists = await asyncio.gather(
+                    self.intelligent_client.get_vehicle_charging_preferences(
+                        self.account_number
+                    ),
+                    asyncio.gather(
+                        *(
+                            self.intelligent_client.get_flex_planned_dispatches(
+                                device_id
+                            )
+                            for device_id in device_ids
+                        )
+                    ),
                 )
-                for device in devices:
-                    device_id = device.get("id")
-                    if not device_id:
-                        continue
-                    dispatches[device_id] = (
-                        await self.intelligent_client.get_flex_planned_dispatches(device_id)
-                    )
+                dispatches = dict(zip(device_ids, dispatch_lists, strict=True))
 
             return {
                 "devices": devices,

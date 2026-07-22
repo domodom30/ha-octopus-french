@@ -1,16 +1,25 @@
 """Test configuration for Octopus French Energy."""
 
-import os
-import sys
-
 import pytest
 
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if ROOT_DIR not in sys.path:
-    sys.path.insert(0, ROOT_DIR)
+
+@pytest.fixture
+def _recorder_before_hass(request: pytest.FixtureRequest) -> None:
+    """Instancie la base du recorder avant ``hass`` quand ``recorder_mock`` est utilisé.
+
+    ``recorder_db_url`` (pytest-homeassistant-custom-component) exige d'être créée
+    avant la fixture ``hass`` ; or ``auto_enable_custom_integrations`` (autouse)
+    crée ``hass`` en premier. On force donc l'ordre ici.
+    """
+    if "recorder_mock" in request.fixturenames:
+        request.getfixturevalue("recorder_db_url")
 
 
 @pytest.fixture(autouse=True)
-def enable_custom_integrations():
-    """Enable custom integrations defined in the test dir."""
+def auto_enable_custom_integrations(_recorder_before_hass, enable_custom_integrations):
+    """Rend l'intégration custom chargeable dans tous les tests.
+
+    Dépend de la fixture ``enable_custom_integrations`` fournie par
+    ``pytest-homeassistant-custom-component`` — on ne la redéfinit pas (sinon on la masque).
+    """
     yield

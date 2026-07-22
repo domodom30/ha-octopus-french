@@ -1,9 +1,9 @@
 """Select platform for Octopus Intelligent target charging time."""
 
 from homeassistant.components.select import SelectEntity
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -41,7 +41,9 @@ async def async_setup_entry(
         async_add_entities(entities)
 
 
-class OctopusIntelligentTargetTimeSelect(CoordinatorEntity, SelectEntity):
+class OctopusIntelligentTargetTimeSelect(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+    CoordinatorEntity[OctopusIntelligentDataUpdateCoordinator], SelectEntity
+):
     """Select entity for target charging time (30-minute intervals)."""
 
     def __init__(
@@ -53,7 +55,7 @@ class OctopusIntelligentTargetTimeSelect(CoordinatorEntity, SelectEntity):
         """Initialize the select entity."""
         super().__init__(coordinator)
         self._device_id = device_id
-        self._attr_unique_id = f"{device_id}_target_time"
+        self._attr_unique_id = f"{DOMAIN}_{device_id}_target_time"
         self._attr_has_entity_name = True
         self._attr_translation_key = "target_time"
         self._attr_icon = "mdi:clock-outline"
@@ -64,12 +66,18 @@ class OctopusIntelligentTargetTimeSelect(CoordinatorEntity, SelectEntity):
             name=device_name,
             model=device_name,
         )
+        self._update_attrs()
 
-    @property
-    def current_option(self) -> str | None:
-        """Return the current target time."""
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Recompute derived attributes when coordinator data changes."""
+        self._update_attrs()
+        super()._handle_coordinator_update()
+
+    def _update_attrs(self) -> None:
+        """Refresh the cached attribute values from coordinator data."""
         preferences = self.coordinator.data.get("preferences", {})
-        return preferences.get("weekdayTargetTime")
+        self._attr_current_option = preferences.get("weekdayTargetTime")
 
     async def async_select_option(self, option: str) -> None:
         """Set the target time."""

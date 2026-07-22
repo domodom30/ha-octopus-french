@@ -1,0 +1,107 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ha-octopus-french"
+version = "4.0.0"
+description = "Octopus French custom integration for Home Assistant"
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+authors = [
+    { name = "Domodom30" }
+]
+
+###############################################################################
+# Ruff
+###############################################################################
+
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "W",
+    "I",
+    "UP",
+    "B",
+    "SIM",
+    "C4",
+    "RUF",
+]
+
+ignore = [
+    "E501",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+
+###############################################################################
+# Pyright
+###############################################################################
+
+[tool.pyright]
+pythonVersion = "3.13"
+# basic : le code livré passe proprement (imports/appels/attributs/types restent des erreurs).
+# strict ajoutait ~700 remontées "type inconnu" sans valeur ici (HA partiellement typé + mocks).
+typeCheckingMode = "basic"
+
+# Home Assistant est installé en editable (PEP 660) dans le devcontainer HA core ;
+# pyright ne suit pas l'import-hook, d'où extraPaths vers la source. Sans effet ailleurs
+# (chemin inexistant ignoré) : en CI et chez les contributeurs, HA est un wheel classique
+# résolu nativement via site-packages.
+extraPaths = ["/usr/src/homeassistant"]
+
+# On type-check le code livré, pas les tests (saturés de Mock/AsyncMock et de TypedDict
+# NotRequired de HA, qui génèrent des faux positifs sans intérêt).
+include = [
+    "custom_components",
+]
+
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+]
+
+reportMissingTypeStubs = false
+reportUnknownMemberType = false
+
+###############################################################################
+# pytest
+###############################################################################
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+
+testpaths = [
+    "tests",
+]
+
+asyncio_mode = "auto"
+
+pythonpath = [
+    "."
+]
+
+addopts = [
+    "-ra",
+]
+
+###############################################################################
+# Coverage
+###############################################################################
+
+[tool.coverage.run]
+source = [
+    "custom_components",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

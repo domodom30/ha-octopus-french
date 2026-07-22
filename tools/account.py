@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Affiche les données du compte Octopus : compteurs, accords, tarifs.
+"""
+Affiche les données du compte Octopus : compteurs, accords, tarifs.
 
 Particulièrement utile pour :
 - Trouver les numéros PRM (compteurs électricité) et PCE (gaz)
@@ -19,12 +20,11 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _client import OctopusClient, get_account_number, hr, print_json
-
 
 QUERY_GET_ACCOUNTS = """
 {
@@ -144,16 +144,16 @@ query getAccountData($accountNumber: String!, $activeAt: DateTime!) {
 """
 
 
-
-def _fmt_price(price_unit: str | None, with_taxes: str | None, unit_type: str | None) -> str:
+def _fmt_price(
+    price_unit: str | None, with_taxes: str | None, unit_type: str | None
+) -> str:
     ht = float(price_unit or 0) / 100
     ttc = float(with_taxes or 0) / 100
     return f"{ttc:.4f} €/{unit_type or '?'} TTC  (HT: {ht:.4f})"
 
 
 def print_account_summary(account: dict) -> None:
-    now_iso = datetime.now(timezone.utc).isoformat()
-
+    """Affiche un résumé lisible d'un compte et de ses points de livraison."""
     print(f"\n{'═' * 60}")
     print(f"  Compte : {account.get('number', '?')}")
     print(f"{'═' * 60}")
@@ -166,10 +166,6 @@ def print_account_summary(account: dict) -> None:
             node = edge.get("node", {})
             mp = node.get("meterPoint", {})
             prm = node.get("externalIdentifier", "?")
-            typename = mp.get("__typename") or (
-                "ElectricityMeterPoint" if "meterKind" in mp else
-                "GasMeterPoint" if "gasNature" in mp else "?"
-            )
 
             if "meterKind" in mp or "subscribedMaxPower" in mp:
                 status = mp.get("distributorStatus", "?")
@@ -180,16 +176,26 @@ def print_account_summary(account: dict) -> None:
                 temporal_classes = provider_cal.get("temporalClasses") or []
                 print(f"\n  ⚡  Électricité  PRM: {prm}")
                 print(f"      Statut: {status} / Alimentation: {powered}")
-                print(f"      Puissance souscrite: {mp.get('subscribedMaxPower', '?')} kVA")
+                print(
+                    f"      Puissance souscrite: {mp.get('subscribedMaxPower', '?')} kVA"
+                )
                 print(f"      Calendrier fournisseur: {calendar_id}")
                 print(f"      Horaires HC (offPeakLabel): {off_peak}")
                 print(f"      Compteur communicant: {mp.get('isSmartMeter', '?')}")
                 print(f"      Télé-opérable: {mp.get('isTeleoperable', '?')}")
                 if temporal_classes:
-                    print(f"      Classes temporelles du calendrier ({len(temporal_classes)}) :")
+                    print(
+                        f"      Classes temporelles du calendrier ({len(temporal_classes)}) :"
+                    )
                     for tc in temporal_classes:
-                        reg = f"  [registerId={tc.get('registerId')}]" if tc.get("registerId") else ""
-                        print(f"        • code={tc.get('code', '?')!r:<20} label={tc.get('label', '?')!r}{reg}")
+                        reg = (
+                            f"  [registerId={tc.get('registerId')}]"
+                            if tc.get("registerId")
+                            else ""
+                        )
+                        print(
+                            f"        • code={tc.get('code', '?')!r:<20} label={tc.get('label', '?')!r}{reg}"
+                        )
                     if len(temporal_classes) == 6:
                         print("        ⚠️  6 classes détectées → contrat OctoTempo !")
 
@@ -216,12 +222,16 @@ def print_account_summary(account: dict) -> None:
             print(f"      au           : {ag.get('validTo', '(en cours)')}")
             print(f"      product.code : {product.get('code', '?')}")
             print(f"      Nom produit  : {product.get('displayName', '?')}")
-            print(f"      Facturation  : tous les {ag.get('billingFrequency', '?')} mois")
+            print(
+                f"      Facturation  : tous les {ag.get('billingFrequency', '?')} mois"
+            )
 
             rate = ag.get("energySupplyRate") or {}
             standing = rate.get("standingRate") or {}
             if standing:
-                print(f"      Abonnement   : {_fmt_price(standing.get('pricePerUnit'), standing.get('pricePerUnitWithTaxes'), standing.get('unitType'))}")
+                print(
+                    f"      Abonnement   : {_fmt_price(standing.get('pricePerUnit'), standing.get('pricePerUnitWithTaxes'), standing.get('unitType'))}"
+                )
 
             consumption_edges = (rate.get("consumptionRates") or {}).get("edges", [])
             if consumption_edges:
@@ -229,17 +239,22 @@ def print_account_summary(account: dict) -> None:
                     [e["node"] for e in consumption_edges],
                     key=lambda r: float(r.get("pricePerUnitWithTaxes", 0)),
                 )
-                print(f"      Taux de conso ({len(rates_sorted)} taux, trié par prix ↑) :")
+                print(
+                    f"      Taux de conso ({len(rates_sorted)} taux, trié par prix ↑) :"
+                )
                 for r in rates_sorted:
                     slots = r.get("timeSlots") or []
 
                     slots_str = ""
                     if slots:
                         slots_str = "  horaires=" + ", ".join(
-                            f"{s.get('startAt','?')}–{s.get('endAt','?')}" for s in slots
+                            f"{s.get('startAt', '?')}-{s.get('endAt', '?')}"
+                            for s in slots
                         )
 
-                    print(f"        {_fmt_price(r.get('pricePerUnit'), r.get('pricePerUnitWithTaxes'), r.get('unitType'))}{slots_str}")
+                    print(
+                        f"        {_fmt_price(r.get('pricePerUnit'), r.get('pricePerUnitWithTaxes'), r.get('unitType'))}{slots_str}"
+                    )
 
                 if len(rates_sorted) == 6:
                     print("        ⚠️  6 taux → contrat OctoTempo !")
@@ -251,22 +266,26 @@ def print_account_summary(account: dict) -> None:
             nxt = ag.get("nextPaymentForecast") or {}
             if nxt.get("amount"):
                 amount = float(nxt["amount"]) / 100
-                print(f"      Prochain prélèvement : {amount:.2f} € le {nxt.get('date', '?')}")
-
+                print(
+                    f"      Prochain prélèvement : {amount:.2f} € le {nxt.get('date', '?')}"
+                )
 
 
 def main() -> None:
+    """Point d'entrée en ligne de commande du script."""
     parser = argparse.ArgumentParser(
         description="Données du compte Octopus Energy France",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
     parser.add_argument("--account", help="Numéro de compte (ex: A-XXXX0000)")
-    parser.add_argument("--raw", action="store_true", help="Affiche le JSON brut complet")
+    parser.add_argument(
+        "--raw", action="store_true", help="Affiche le JSON brut complet"
+    )
     args = parser.parse_args()
 
     client = OctopusClient()
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(UTC).isoformat()
 
     accounts_data = client.query(QUERY_GET_ACCOUNTS)
     accounts = accounts_data.get("data", {}).get("viewer", {}).get("accounts", [])
@@ -298,7 +317,7 @@ def main() -> None:
 
     print_account_summary(account)
     print(f"\n{'═' * 60}")
-    print(f"💡  Astuce : utilisez --raw pour le JSON complet")
+    print("💡  Astuce : utilisez --raw pour le JSON complet")
     print(f"{'═' * 60}\n")
 
 

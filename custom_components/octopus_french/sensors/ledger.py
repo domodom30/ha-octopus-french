@@ -4,7 +4,8 @@ import logging
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.core import callback
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from ..const import DOMAIN
@@ -14,7 +15,9 @@ from .descriptions import OctopusLedgerSensorDescription
 _LOGGER = logging.getLogger(__name__)
 
 
-class OctopusLedgerSensor(CoordinatorEntity, SensorEntity):
+class OctopusLedgerSensor(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+    CoordinatorEntity[OctopusFrenchDataUpdateCoordinator], SensorEntity
+):
     """Sensor for account ledgers (balances)."""
 
     def __init__(
@@ -41,9 +44,20 @@ class OctopusLedgerSensor(CoordinatorEntity, SensorEntity):
             self._attr_suggested_display_precision = (
                 sensor_config.suggested_display_precision
             )
+        self._update_attrs()
 
-    @property
-    def native_value(self) -> float | None:
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Recompute derived attributes when coordinator data changes."""
+        self._update_attrs()
+        super()._handle_coordinator_update()
+
+    def _update_attrs(self) -> None:
+        """Refresh the cached attribute values from coordinator data."""
+        self._attr_native_value = self._compute_native_value()
+        self._attr_extra_state_attributes = self._compute_attributes()
+
+    def _compute_native_value(self) -> float | None:
         """Return the balance in euros."""
         key = self._sensor_config.key
 
@@ -78,8 +92,7 @@ class OctopusLedgerSensor(CoordinatorEntity, SensorEntity):
 
         return balance_cents / 100 if balance_cents is not None else None
 
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
+    def _compute_attributes(self) -> dict[str, Any]:
         """Return ledger information."""
         key = self._sensor_config.key
 

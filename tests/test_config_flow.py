@@ -3,15 +3,27 @@
 from contextlib import AbstractContextManager
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from custom_components.octopus_french.config_flow import OctopusFrenchConfigFlow
 from custom_components.octopus_french.const import CONF_ACCOUNT_NUMBER
 from custom_components.octopus_french.octopus_french import (
     OctopusAuthError,
     OctopusConnectionError,
 )
-import pytest
 
 _USER_INPUT = {"email": "user@example.fr", "password": "s3cret"}
+
+
+@pytest.fixture(autouse=True)
+def _mock_clientsession():
+    """Avoid building a real aiohttp session (which would create a shared Zeroconf
+    instance and trip HA's frame helper) since the API client is mocked anyway."""
+    with patch(
+        "custom_components.octopus_french.config_flow.async_get_clientsession",
+        return_value=MagicMock(),
+    ):
+        yield
 
 
 @pytest.fixture
@@ -124,6 +136,32 @@ async def test_connection_error_surfaces_cannot_connect(
     assert result["errors"] == {"base": "cannot_connect"}
 
 
+async def test_value_error_surfaces_invalid_auth(
+    flow: OctopusFrenchConfigFlow,
+) -> None:
+    """A ValueError while fetching accounts maps to invalid_auth."""
+    with _patch_client(accounts=ValueError("bad payload")):
+        result = await flow.async_step_user(_USER_INPUT)
+
+    assert result["errors"] == {"base": "invalid_auth"}
+
+
+async def test_parsing_error_surfaces_unknown(flow: OctopusFrenchConfigFlow) -> None:
+    """An unexpected parsing error (KeyError…) maps to unknown."""
+    with _patch_client(accounts=KeyError("number")):
+        result = await flow.async_step_user(_USER_INPUT)
+
+    assert result["errors"] == {"base": "unknown"}
+
+
+async def test_reauth_step_routes_to_confirm(flow: OctopusFrenchConfigFlow) -> None:
+    """The reauth entry point routes to the confirm step."""
+    result = await flow.async_step_reauth({})
+
+    assert result["type"] == "form"
+    assert result["step_id"] == "reauth_confirm"
+
+
 async def test_reauth_confirm_shows_form(flow: OctopusFrenchConfigFlow) -> None:
     """The reauth confirm step shows its form."""
     result = await flow.async_step_reauth_confirm(None)
@@ -159,3 +197,52 @@ async def test_reauth_confirm_invalid_auth(flow: OctopusFrenchConfigFlow) -> Non
 
     assert result["type"] == "form"
     assert result["errors"] == {"base": "invalid_auth"}
+
+
+async def test_reauth_confirm_auth_error(flow: OctopusFrenchConfigFlow) -> None:
+    """An OctopusAuthError during reauth maps to invalid_auth."""
+    reauth_entry = MagicMock()
+    reauth_entry.data = {"email": _USER_INPUT["email"]}
+    flow._get_reauth_entry = MagicMock(return_value=reauth_entry)
+
+    with _patch_client(authenticate=OctopusAuthError("bad token")):
+        result = await flow.async_step_reauth_confirm({"password": "new-pw"})
+
+    assert result["errors"] == {"base": "invalid_auth"}
+
+
+async def test_reauth_confirm_connection_error(flow: OctopusFrenchConfigFlow) -> None:
+    """An OctopusConnectionError during reauth maps to cannot_connect."""
+    reauth_entry = MagicMock()
+    reauth_entry.data = {"email": _USER_INPUT["email"]}
+    flow._get_reauth_entry = MagicMock(return_value=reauth_entry)
+
+    with _patch_client(authenticate=OctopusConnectionError("no network")):
+        result = await flow.async_step_reauth_confirm({"password": "new-pw"})
+
+    assert result["errors"] == {"base": "cannot_connect"}
+
+
+async def test_reauth_confirm_purges_persisted_refresh_token(
+    flow: OctopusFrenchConfigFlow,
+) -> None:
+    """A successful reauth drops the refresh token of the old session."""
+    reauth_entry = MagicMock()
+    reauth_entry.data = {
+        "email": _USER_INPUT["email"],
+        "password": "old-pw",
+        "refresh_token": "stale",
+        "refresh_token_expiry": 123.0,
+    }
+    flow._get_reauth_entry = MagicMock(return_value=reauth_entry)
+    flow.async_update_reload_and_abort = MagicMock(
+        return_value={"type": "abort", "reason": "reauth_successful"}
+    )
+
+    with _patch_client(authenticate=True):
+        await flow.async_step_reauth_confirm({"password": "new-pw"})
+
+    new_data = flow.async_update_reload_and_abort.call_args.kwargs["data"]
+    assert new_data["password"] == "new-pw"
+    assert "refresh_token" not in new_data
+    assert "refresh_token_expiry" not in new_data

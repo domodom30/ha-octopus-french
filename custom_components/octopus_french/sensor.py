@@ -6,8 +6,8 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
@@ -104,22 +104,23 @@ async def async_setup_entry(
             for sensor_config in TEMPO_SENSORS:
                 if sensor_config.key == "tempo_color_today":
                     entities.append(
-                        OctopusTempoColorSensor(coordinator, prm_id, sensor_config, is_tomorrow=False)
+                        OctopusTempoColorSensor(
+                            coordinator, prm_id, sensor_config, is_tomorrow=False
+                        )
                     )
                 elif sensor_config.key == "tempo_color_tomorrow":
                     entities.append(
-                        OctopusTempoColorSensor(coordinator, prm_id, sensor_config, is_tomorrow=True)
+                        OctopusTempoColorSensor(
+                            coordinator, prm_id, sensor_config, is_tomorrow=True
+                        )
                     )
                 elif sensor_config.key == "tempo_current_rate":
                     entities.append(
-                        OctopusTempoCurrentRateSensor(coordinator, prm_id, sensor_config)
+                        OctopusTempoCurrentRateSensor(
+                            coordinator, prm_id, sensor_config
+                        )
                     )
                 else:
-                    entities.append(
-                        OctopusElectricitySensor(coordinator, prm_id, sensor_config)
-                    )
-            for sensor_config in ELECTRICITY_SENSORS:
-                if sensor_config.key in {"contract", "subscription", "subscribed_power"}:
                     entities.append(
                         OctopusElectricitySensor(coordinator, prm_id, sensor_config)
                     )
@@ -128,7 +129,9 @@ async def async_setup_entry(
             OctopusLatestReadingSensor(coordinator, prm_id, LATEST_READING_SENSOR)
         )
 
-        index_data = coordinator.data.get("electricity", {}).get("index")
+        index_data = (
+            coordinator.data.get("electricity_by_prm", {}).get(prm_id, {}).get("index")
+        )
         if index_data:
             index_tariff_type = index_data.get("tariff_type")
 
@@ -163,14 +166,28 @@ async def async_setup_entry(
             if not device_id:
                 continue
             device_name = device.get("name", "Véhicule")
-            entities.extend([
-                OctopusIntelligentVehicleStatusSensor(intelligent_coordinator, device_id, device_name),
-                OctopusIntelligentWeekdayTargetSocSensor(intelligent_coordinator, device_id, device_name),
-                OctopusIntelligentWeekdayTargetTimeSensor(intelligent_coordinator, device_id, device_name),
-                OctopusIntelligentWeekendTargetSocSensor(intelligent_coordinator, device_id, device_name),
-                OctopusIntelligentWeekendTargetTimeSensor(intelligent_coordinator, device_id, device_name),
-                OctopusIntelligentPlannedDispatchesSensor(intelligent_coordinator, device_id, device_name),
-            ])
+            entities.extend(
+                [
+                    OctopusIntelligentVehicleStatusSensor(
+                        intelligent_coordinator, device_id, device_name
+                    ),
+                    OctopusIntelligentWeekdayTargetSocSensor(
+                        intelligent_coordinator, device_id, device_name
+                    ),
+                    OctopusIntelligentWeekdayTargetTimeSensor(
+                        intelligent_coordinator, device_id, device_name
+                    ),
+                    OctopusIntelligentWeekendTargetSocSensor(
+                        intelligent_coordinator, device_id, device_name
+                    ),
+                    OctopusIntelligentWeekendTargetTimeSensor(
+                        intelligent_coordinator, device_id, device_name
+                    ),
+                    OctopusIntelligentPlannedDispatchesSensor(
+                        intelligent_coordinator, device_id, device_name
+                    ),
+                ]
+            )
 
     async_add_entities(entities)
 
@@ -190,7 +207,9 @@ def _detect_tariff_type_for_meter(data: dict, prm_id: str) -> str:
             if len(codes) == 1:
                 return "BASE"
 
-        electricity_readings = data.get("electricity", {}).get("readings", [])
+        electricity_readings = (
+            data.get("electricity_by_prm", {}).get(prm_id, {}).get("readings", [])
+        )
         if electricity_readings:
             latest_reading = electricity_readings[-1]
             statistics = (latest_reading.get("metaData") or {}).get("statistics", [])
@@ -209,7 +228,7 @@ def _detect_tariff_type_for_meter(data: dict, prm_id: str) -> str:
                 if any(kw in code for kw in TEMPO_PRODUCT_CODE_KEYWORDS):
                     return TARIFF_TYPE_TEMPO
 
-        index = data.get("electricity", {}).get("index") or {}
+        index = data.get("electricity_by_prm", {}).get(prm_id, {}).get("index") or {}
         tariff_type = index.get("tariff_type")
         if tariff_type in ("BASE", "HPHC", TARIFF_TYPE_TEMPO):
             return tariff_type
@@ -219,7 +238,9 @@ def _detect_tariff_type_for_meter(data: dict, prm_id: str) -> str:
     return "UNKNOWN"
 
 
-class OctopusIntelligentVehicleStatusSensor(CoordinatorEntity, SensorEntity):
+class OctopusIntelligentVehicleStatusSensor(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+    CoordinatorEntity[OctopusIntelligentDataUpdateCoordinator], SensorEntity
+):
     """Sensor for vehicle charging status."""
 
     def __init__(
@@ -228,9 +249,10 @@ class OctopusIntelligentVehicleStatusSensor(CoordinatorEntity, SensorEntity):
         device_id: str,
         device_name: str,
     ) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
         self._device_id = device_id
-        self._attr_unique_id = f"{device_id}_vehicle_status"
+        self._attr_unique_id = f"{DOMAIN}_{device_id}_vehicle_status"
         self._attr_has_entity_name = True
         self._attr_translation_key = "vehicle_status"
         self._attr_device_info = DeviceInfo(
@@ -239,27 +261,32 @@ class OctopusIntelligentVehicleStatusSensor(CoordinatorEntity, SensorEntity):
             name=device_name,
             model=device_name,
         )
+        self._update_attrs()
 
     def _device_data(self) -> dict[str, Any]:
         return self.coordinator.get_device(self._device_id) or {}
 
-    @property
-    def native_value(self) -> str | None:
-        status = self._device_data().get("status", {})
-        return status.get("currentState") or status.get("current")
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Recompute derived attributes when coordinator data changes."""
+        self._update_attrs()
+        super()._handle_coordinator_update()
 
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
+    def _update_attrs(self) -> None:
+        """Refresh the cached attribute values from coordinator data."""
         device = self._device_data()
         status = device.get("status", {})
-        return {
+        self._attr_native_value = status.get("currentState") or status.get("current")
+        self._attr_extra_state_attributes = {
             "device_id": self._device_id,
             "name": device.get("name"),
             "current": status.get("current"),
         }
 
 
-class OctopusIntelligentWeekdayTargetSocSensor(CoordinatorEntity, SensorEntity):
+class OctopusIntelligentWeekdayTargetSocSensor(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+    CoordinatorEntity[OctopusIntelligentDataUpdateCoordinator], SensorEntity
+):
     """Sensor for weekday target state of charge."""
 
     def __init__(
@@ -268,9 +295,10 @@ class OctopusIntelligentWeekdayTargetSocSensor(CoordinatorEntity, SensorEntity):
         device_id: str,
         device_name: str,
     ) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
         self._device_id = device_id
-        self._attr_unique_id = f"{device_id}_weekday_target_soc"
+        self._attr_unique_id = f"{DOMAIN}_{device_id}_weekday_target_soc"
         self._attr_has_entity_name = True
         self._attr_translation_key = "weekday_target_soc"
         self._attr_icon = "mdi:battery-charging-high"
@@ -282,13 +310,24 @@ class OctopusIntelligentWeekdayTargetSocSensor(CoordinatorEntity, SensorEntity):
             name=device_name,
             model=device_name,
         )
+        self._update_attrs()
 
-    @property
-    def native_value(self) -> int | None:
-        return self.coordinator.data.get("preferences", {}).get("weekdayTargetSoc")
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Recompute derived attributes when coordinator data changes."""
+        self._update_attrs()
+        super()._handle_coordinator_update()
+
+    def _update_attrs(self) -> None:
+        """Refresh the cached attribute values from coordinator data."""
+        self._attr_native_value = self.coordinator.data.get("preferences", {}).get(
+            "weekdayTargetSoc"
+        )
 
 
-class OctopusIntelligentWeekdayTargetTimeSensor(CoordinatorEntity, SensorEntity):
+class OctopusIntelligentWeekdayTargetTimeSensor(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+    CoordinatorEntity[OctopusIntelligentDataUpdateCoordinator], SensorEntity
+):
     """Sensor for weekday target charging time."""
 
     def __init__(
@@ -297,9 +336,10 @@ class OctopusIntelligentWeekdayTargetTimeSensor(CoordinatorEntity, SensorEntity)
         device_id: str,
         device_name: str,
     ) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
         self._device_id = device_id
-        self._attr_unique_id = f"{device_id}_weekday_target_time"
+        self._attr_unique_id = f"{DOMAIN}_{device_id}_weekday_target_time"
         self._attr_has_entity_name = True
         self._attr_translation_key = "weekday_target_time"
         self._attr_icon = "mdi:clock-outline"
@@ -309,13 +349,24 @@ class OctopusIntelligentWeekdayTargetTimeSensor(CoordinatorEntity, SensorEntity)
             name=device_name,
             model=device_name,
         )
+        self._update_attrs()
 
-    @property
-    def native_value(self) -> str | None:
-        return self.coordinator.data.get("preferences", {}).get("weekdayTargetTime")
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Recompute derived attributes when coordinator data changes."""
+        self._update_attrs()
+        super()._handle_coordinator_update()
+
+    def _update_attrs(self) -> None:
+        """Refresh the cached attribute values from coordinator data."""
+        self._attr_native_value = self.coordinator.data.get("preferences", {}).get(
+            "weekdayTargetTime"
+        )
 
 
-class OctopusIntelligentWeekendTargetSocSensor(CoordinatorEntity, SensorEntity):
+class OctopusIntelligentWeekendTargetSocSensor(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+    CoordinatorEntity[OctopusIntelligentDataUpdateCoordinator], SensorEntity
+):
     """Sensor for weekend target state of charge."""
 
     def __init__(
@@ -324,9 +375,10 @@ class OctopusIntelligentWeekendTargetSocSensor(CoordinatorEntity, SensorEntity):
         device_id: str,
         device_name: str,
     ) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
         self._device_id = device_id
-        self._attr_unique_id = f"{device_id}_weekend_target_soc"
+        self._attr_unique_id = f"{DOMAIN}_{device_id}_weekend_target_soc"
         self._attr_has_entity_name = True
         self._attr_translation_key = "weekend_target_soc"
         self._attr_icon = "mdi:battery-charging-high"
@@ -338,13 +390,24 @@ class OctopusIntelligentWeekendTargetSocSensor(CoordinatorEntity, SensorEntity):
             name=device_name,
             model=device_name,
         )
+        self._update_attrs()
 
-    @property
-    def native_value(self) -> int | None:
-        return self.coordinator.data.get("preferences", {}).get("weekendTargetSoc")
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Recompute derived attributes when coordinator data changes."""
+        self._update_attrs()
+        super()._handle_coordinator_update()
+
+    def _update_attrs(self) -> None:
+        """Refresh the cached attribute values from coordinator data."""
+        self._attr_native_value = self.coordinator.data.get("preferences", {}).get(
+            "weekendTargetSoc"
+        )
 
 
-class OctopusIntelligentWeekendTargetTimeSensor(CoordinatorEntity, SensorEntity):
+class OctopusIntelligentWeekendTargetTimeSensor(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+    CoordinatorEntity[OctopusIntelligentDataUpdateCoordinator], SensorEntity
+):
     """Sensor for weekend target charging time."""
 
     def __init__(
@@ -353,9 +416,10 @@ class OctopusIntelligentWeekendTargetTimeSensor(CoordinatorEntity, SensorEntity)
         device_id: str,
         device_name: str,
     ) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
         self._device_id = device_id
-        self._attr_unique_id = f"{device_id}_weekend_target_time"
+        self._attr_unique_id = f"{DOMAIN}_{device_id}_weekend_target_time"
         self._attr_has_entity_name = True
         self._attr_translation_key = "weekend_target_time"
         self._attr_icon = "mdi:clock-outline"
@@ -365,13 +429,24 @@ class OctopusIntelligentWeekendTargetTimeSensor(CoordinatorEntity, SensorEntity)
             name=device_name,
             model=device_name,
         )
+        self._update_attrs()
 
-    @property
-    def native_value(self) -> str | None:
-        return self.coordinator.data.get("preferences", {}).get("weekendTargetTime")
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Recompute derived attributes when coordinator data changes."""
+        self._update_attrs()
+        super()._handle_coordinator_update()
+
+    def _update_attrs(self) -> None:
+        """Refresh the cached attribute values from coordinator data."""
+        self._attr_native_value = self.coordinator.data.get("preferences", {}).get(
+            "weekendTargetTime"
+        )
 
 
-class OctopusIntelligentPlannedDispatchesSensor(CoordinatorEntity, SensorEntity):
+class OctopusIntelligentPlannedDispatchesSensor(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+    CoordinatorEntity[OctopusIntelligentDataUpdateCoordinator], SensorEntity
+):
     """Sensor for planned charging dispatches."""
 
     def __init__(
@@ -380,9 +455,10 @@ class OctopusIntelligentPlannedDispatchesSensor(CoordinatorEntity, SensorEntity)
         device_id: str,
         device_name: str,
     ) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
         self._device_id = device_id
-        self._attr_unique_id = f"{device_id}_planned_dispatches"
+        self._attr_unique_id = f"{DOMAIN}_{device_id}_planned_dispatches"
         self._attr_has_entity_name = True
         self._attr_translation_key = "planned_dispatches"
         self._attr_icon = "mdi:calendar-clock"
@@ -392,6 +468,13 @@ class OctopusIntelligentPlannedDispatchesSensor(CoordinatorEntity, SensorEntity)
             name=device_name,
             model=device_name,
         )
+        self._update_attrs()
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Recompute derived attributes when coordinator data changes."""
+        self._update_attrs()
+        super()._handle_coordinator_update()
 
     def _format_dispatch(self, timestamp: str | None) -> str | None:
         if not timestamp:
@@ -411,17 +494,26 @@ class OctopusIntelligentPlannedDispatchesSensor(CoordinatorEntity, SensorEntity)
         except (ValueError, AttributeError, TypeError):
             return None
 
-    @property
-    def native_value(self) -> str | None:
-        dispatches = self.coordinator.data.get("dispatches", {}).get(self._device_id, [])
+    def _update_attrs(self) -> None:
+        """Refresh the cached attribute values from coordinator data."""
+        self._attr_native_value = self._compute_native_value()
+        self._attr_extra_state_attributes = self._compute_attributes()
+
+    def _compute_native_value(self) -> str | None:
+        """Return a summary of the planned charging dispatches."""
+        dispatches = self.coordinator.data.get("dispatches", {}).get(
+            self._device_id, []
+        )
         if not dispatches:
             return "Aucune"
         n = len(dispatches)
         return f"{n} programmée{'s' if n > 1 else ''}"
 
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        dispatches = self.coordinator.data.get("dispatches", {}).get(self._device_id, [])
+    def _compute_attributes(self) -> dict[str, Any]:
+        """Return additional state attributes."""
+        dispatches = self.coordinator.data.get("dispatches", {}).get(
+            self._device_id, []
+        )
         formatted = [
             f"{self._format_dispatch(d.get('start'))} → {self._format_dispatch(d.get('end'))}"
             for d in dispatches
@@ -442,6 +534,10 @@ class OctopusIntelligentPlannedDispatchesSensor(CoordinatorEntity, SensorEntity)
             "has_dispatches": len(dispatches) > 0,
             "next_dispatch": dispatches[0] if dispatches else None,
             "formatted_list": formatted,
-            "summary": "\n".join(formatted) if formatted else "Aucune fenêtre programmée",
-            "dispatches_json": json.dumps(dispatches_detail, ensure_ascii=False, indent=2),
+            "summary": "\n".join(formatted)
+            if formatted
+            else "Aucune fenêtre programmée",
+            "dispatches_json": json.dumps(
+                dispatches_detail, ensure_ascii=False, indent=2
+            ),
         }

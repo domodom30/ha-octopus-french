@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Affiche l'index électrique Linky (temporalClass, calendarTempClass, valeurs d'index…).
+"""
+Affiche l'index électrique Linky (temporalClass, calendarTempClass, valeurs d'index…).
 
 Particulièrement utile pour OctoTempo :
 - Révèle les valeurs réelles de `temporalClass.code` (champ structuré, prioritaire)
@@ -24,7 +25,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from _client import OctopusClient, get_account_number, hr, print_json
-
 
 QUERY_GET_INDEX_ELECTRICITY = """
 query getElectricityIndex($accountNumber: String!, $prmId: String!, $first: Int!) {
@@ -65,12 +65,12 @@ query getElectricityIndex($accountNumber: String!, $prmId: String!, $first: Int!
 
 
 _COLOR_MAP = {
-    "BLEU":  "\033[94m",
+    "BLEU": "\033[94m",
     "BLANC": "\033[97m",
     "ROUGE": "\033[91m",
-    "HP":    "\033[93m",
-    "HC":    "\033[96m",
-    "BASE":  "\033[92m",
+    "HP": "\033[93m",
+    "HC": "\033[96m",
+    "BASE": "\033[92m",
 }
 _RESET = "\033[0m"
 
@@ -81,9 +81,9 @@ def _color(text: str, key: str) -> str:
     return f"{code}{text}{_RESET}" if code else text
 
 
-
 def _get_temporal_code(entry: dict) -> tuple[str, str]:
-    """Retourne (code, source) depuis temporalClass ou calendarTempClass (fallback).
+    """
+    Retourne (code, source) depuis temporalClass ou calendarTempClass (fallback).
 
     source est 'temporalClass' ou 'calendarTempClass' pour affichage.
     """
@@ -108,14 +108,16 @@ def print_index(entries: list[dict], prm: str) -> None:
     print(f"\n{'═' * 65}")
     print(f"  Index électrique Linky  —  PRM : {prm}  ({len(entries)} entrées)")
     print(f"{'═' * 65}")
-    print(f"\n🔍  Codes temporels rencontrés (temporalClass.code / calendarTempClass) :")
+    print("\n🔍  Codes temporels rencontrés (temporalClass.code / calendarTempClass) :")
     if all_codes:
         for cls in sorted(all_codes):
             print(f"    → {_color(cls, cls)}")
     else:
         print("    (champ absent ou vide)")
 
-    tempo_colors = {c for c in all_codes if any(col in c for col in ("BLEU", "BLANC", "ROUGE"))}
+    tempo_colors = {
+        c for c in all_codes if any(col in c for col in ("BLEU", "BLANC", "ROUGE"))
+    }
     if tempo_colors:
         print(f"\n🎨  Classes Tempo détectées : {', '.join(sorted(tempo_colors))}")
         print("    → Ce compteur est sur un contrat OctoTempo !")
@@ -169,7 +171,7 @@ def print_index(entries: list[dict], prm: str) -> None:
                 print(f"      calendarTempClass  : {legacy_tc}  (legacy)")
         else:
             print(f"      calendarTempClass  : {tc_display}")
-            print(f"      temporalClass      : (absent)")
+            print("      temporalClass      : (absent)")
         print(f"      calendarType       : {cal_type}")
         print(f"      Consommation       : {conso_str}  (fiabilité: {conso_rel})")
         print(f"      Index              : {idx_str}  (fiabilité: {idx_rel})")
@@ -178,8 +180,8 @@ def print_index(entries: list[dict], prm: str) -> None:
     print()
 
 
-
 def main() -> None:
+    """Point d'entrée en ligne de commande du script."""
     parser = argparse.ArgumentParser(
         description="Index électrique Linky avec calendarTempClass",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -187,18 +189,27 @@ def main() -> None:
     )
     parser.add_argument("--account", help="Numéro de compte (ex: A-XXXX0000)")
     parser.add_argument("--prm", required=True, help="Numéro PRM du compteur")
-    parser.add_argument("--first", type=int, default=5, help="Nombre d'entrées (défaut: 5)")
-    parser.add_argument("--raw", action="store_true", help="Affiche le JSON brut complet")
+    parser.add_argument(
+        "--first", type=int, default=5, help="Nombre d'entrées (défaut: 5)"
+    )
+    parser.add_argument(
+        "--raw", action="store_true", help="Affiche le JSON brut complet"
+    )
     args = parser.parse_args()
 
     client = OctopusClient()
     account_number = args.account or get_account_number()
 
     if not account_number:
-        print("❌  Numéro de compte requis (--account ou OCTOPUS_ACCOUNT dans .env)", file=sys.stderr)
+        print(
+            "❌  Numéro de compte requis (--account ou OCTOPUS_ACCOUNT dans .env)",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
-    print(f"📥  Récupération de l'index électrique (PRM: {args.prm}, {args.first} entrées)...")
+    print(
+        f"📥  Récupération de l'index électrique (PRM: {args.prm}, {args.first} entrées)..."
+    )
 
     variables = {
         "accountNumber": account_number,
@@ -206,11 +217,7 @@ def main() -> None:
         "first": args.first,
     }
     data = client.query(QUERY_GET_INDEX_ELECTRICITY, variables)
-    edges = (
-        data.get("data", {})
-        .get("electricityReading", {})
-        .get("edges", [])
-    )
+    edges = data.get("data", {}).get("electricityReading", {}).get("edges", [])
     entries = [e["node"] for e in edges]
 
     if args.raw:
@@ -222,7 +229,9 @@ def main() -> None:
         return
 
     print_index(entries, args.prm)
-    print(f"💡  Utilisez --first N pour voir plus d'entrées | --raw pour le JSON complet\n")
+    print(
+        "💡  Utilisez --first N pour voir plus d'entrées | --raw pour le JSON complet\n"
+    )
 
 
 if __name__ == "__main__":

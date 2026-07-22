@@ -1,0 +1,43 @@
+{
+  "name": "Octopus French Integration",
+  "image": "ghcr.io/home-assistant/home-assistant:stable",
+
+  "mounts": [
+    "source=${localWorkspaceFolder}/config,target=/config,type=bind,consistency=cached",
+    "source=${localWorkspaceFolder}/custom_components,target=/config/custom_components,type=bind,consistency=cached"
+  ],
+
+  "forwardPorts": [
+    8123,
+    5678
+  ],
+  "portsAttributes": {
+    "8123": {
+      "label": "Home Assistant"
+    },
+    "5678": {
+      "label": "debugpy"
+    }
+  },
+
+  "postCreateCommand": "apk add --no-cache nodejs npm && pip install --no-cache-dir debugpy ruff black pytest && npm install -g @anthropic-ai/claude-code && npx -y ccstatusline",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "ms-python.black-formatter"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python3",
+        "[python]": {
+          "editor.formatOnSave": true,
+          "editor.defaultFormatter": "charliermarsh.ruff"
+        }
+      }
+    }
+  },
+
+  "remoteUser": "root",
+  "overrideCommand": true
+}

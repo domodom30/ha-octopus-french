@@ -1,5 +1,7 @@
 """API client for Octopus Intelligent features."""
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -104,7 +106,9 @@ class OctopusIntelligentApiClient:
                 extensions = error.get("extensions", {})
                 refusal_reasons.extend(extensions.get("boostChargeRefusalReasons", []))
 
-        data = (response.get("data") or {}).get("updateBoostCharge") if response else None
+        data = (
+            (response.get("data") or {}).get("updateBoostCharge") if response else None
+        )
         return data, refusal_reasons
 
     async def trigger_boost_charge(

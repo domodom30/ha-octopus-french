@@ -1,28 +1,26 @@
 """Electricity sensor entities for Octopus Energy France."""
 
-from datetime import datetime, timedelta
 import logging
+from datetime import datetime, time
 from typing import Any
 
-from homeassistant.components.recorder import get_instance
-from homeassistant.components.recorder.statistics import (
-    StatisticData,
-    StatisticMeanType,
-    StatisticMetaData,
-    async_add_external_statistics,
-    get_last_statistics,
-    statistics_during_period,
-)
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.core import callback
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from ..const import DOMAIN, LEDGER_TYPE_ELECTRICITY
+from ..const import (
+    COST_KEY_TO_LABEL,
+    DOMAIN,
+    ENERGY_KEY_TO_LABEL,
+    LEDGER_TYPE_ELECTRICITY,
+)
 from ..coordinator import OctopusFrenchDataUpdateCoordinator
 from ..utils import (
     find_contract_hc_slots,
+    get_tariff_rate_for_key,
     normalize_consumption_label,
     normalize_provider_calendar,
     parse_off_peak_hours,
@@ -32,20 +30,10 @@ from .descriptions import OctopusIndexSensorDescription
 
 _LOGGER = logging.getLogger(__name__)
 
-_COST_TO_CONSUMPTION_LABEL: dict[str, str] = {
-    "cost_base": "BASE",
-    "cost_peak_hours": "HEURES_PLEINES",
-    "cost_off_peak_hours": "HEURES_CREUSES",
-    "cost_tempo_ete_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
-    "cost_tempo_ete_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCE_0.0_37.0",
-    "cost_tempo_hiver_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPHI_0.0_37.0",
-    "cost_tempo_hiver_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCHI_0.0_37.0",
-    "cost_tempo_rouge_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0",
-    "cost_tempo_rouge_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCP_0.0_37.0",
-}
 
-
-class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
+class OctopusElectricitySensor(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+    CoordinatorEntity[OctopusFrenchDataUpdateCoordinator], SensorEntity
+):
     """Sensor for electricity data with statistics support."""
 
     def __init__(
@@ -73,243 +61,19 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
         self._attr_entity_category = sensor_config.entity_category
 
         self._current_month: str | None = None
-        self._last_imported_date: str | None = None
-        self._import_in_progress = False
+        self._update_attrs()
 
-    async def async_added_to_hass(self) -> None:
-        """When entity is added to hass."""
-        await super().async_added_to_hass()
-
-        if self._sensor_config.key.startswith(("energy_", "cost_")) and self.entity_id:
-            self.hass.async_create_task(self._async_import_statistics())
-
+    @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        if self.entity_id and self._sensor_config.key.startswith(("energy_", "cost_")):
-            self.hass.async_create_task(self._async_import_statistics())
-
+        self._update_attrs()
         super()._handle_coordinator_update()
 
-    async def _async_import_statistics(self) -> None:
-        """Import statistics with correct dates from readings."""
-        if self._import_in_progress:
-            return
-        self._import_in_progress = True
-        try:
-            await self._async_do_import_statistics()
-        finally:
-            self._import_in_progress = False
-
-    async def _async_do_import_statistics(self) -> None:
-        """Perform the actual statistics import."""
-        key = self._sensor_config.key
-        readings = self.coordinator.data.get("electricity", {}).get("readings", [])
-
-        if not readings:
-            return
-
-        if not self.entity_id:
-            _LOGGER.warning(
-                "entity_id not available for %s, skipping statistics import",
-                self._attr_unique_id,
-            )
-            return
-
-        if not self.entity_id.startswith("sensor."):
-            _LOGGER.error(
-                "Invalid entity_id format '%s' for sensor %s, cannot import statistics",
-                self.entity_id,
-                self._attr_unique_id,
-            )
-            return
-
-        statistic_id = f"{DOMAIN}:{self._prm_id}_{key}"
-
-        _LOGGER.debug(
-            "Starting statistics import for entity_id: %s (statistic_id: %s)",
-            self.entity_id,
-            statistic_id,
-        )
-
-        consumption_mapping = {
-            "energy_base": "BASE",
-            "energy_peak_hours": "HEURES_PLEINES",
-            "energy_off_peak_hours": "HEURES_CREUSES",
-            "energy_tempo_ete_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
-            "energy_tempo_ete_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCE_0.0_37.0",
-            "energy_tempo_hiver_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPHI_0.0_37.0",
-            "energy_tempo_hiver_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCHI_0.0_37.0",
-            "energy_tempo_rouge_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0",
-            "energy_tempo_rouge_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCP_0.0_37.0",
-        }
-
-        try:
-            sorted_readings = sorted(
-                readings, key=lambda x: x.get("startAt", ""), reverse=False
-            )
-        except (TypeError, KeyError) as e:
-            _LOGGER.warning("Error sorting readings: %s", e)
-            return
-
-        last_imported_day: datetime | None = None
-
-        try:
-            last_stats = await get_instance(self.hass).async_add_executor_job(
-                get_last_statistics, self.hass, 1, statistic_id, False, {"sum", "start"}
-            )
-            if last_stats and statistic_id in last_stats and last_stats[statistic_id]:
-                last_entry = last_stats[statistic_id][0]
-                cumulative_sum = float(last_entry.get("sum") or 0.0)
-                last_start = last_entry.get("start")
-                if last_start is not None:
-                    last_imported_day = datetime.fromtimestamp(
-                        float(last_start), tz=dt_util.UTC
-                    ).astimezone(dt_util.DEFAULT_TIME_ZONE)
-            else:
-                cumulative_sum = 0.0
-        except OSError, ValueError, TypeError:
-            _LOGGER.debug(
-                "Could not fetch last statistics for %s, starting sum at 0",
-                statistic_id,
-            )
-            cumulative_sum = 0.0
-
-        daily_values: dict[datetime, float] = {}
-
-        for reading in sorted_readings:
-            reading_date = reading.get("startAt")
-
-            if not reading_date:
-                continue
-
-            try:
-                day = (
-                    datetime.fromisoformat(reading_date)
-                    .astimezone(dt_util.DEFAULT_TIME_ZONE)
-                    .replace(hour=0, minute=0, second=0, microsecond=0)
-                )
-            except (ValueError, TypeError, AttributeError) as e:
-                _LOGGER.warning("Error parsing date %s: %s", reading_date, e)
-                continue
-
-            stat_list = (reading.get("metaData") or {}).get("statistics", [])
-            reading_value = 0.0
-
-            for stat in stat_list:
-                label = normalize_consumption_label(stat.get("label", ""))
-
-                if key.startswith("energy_"):
-                    expected_label = consumption_mapping.get(key)
-                    value = stat.get("value")
-
-                    if value is not None and label == expected_label:
-                        reading_value = float(value)
-
-                elif key in _COST_TO_CONSUMPTION_LABEL:
-                    if label == _COST_TO_CONSUMPTION_LABEL[key]:
-                        value = stat.get("value")
-                        tariff_rate = self._get_tariff_rate()
-                        if value is not None and tariff_rate:
-                            reading_value = float(value) * tariff_rate
-
-            if reading_value > 0:
-                daily_values[day] = reading_value
-
-        days = sorted(daily_values)
-        statistics: list[StatisticData] = []
-
-        contiguous = bool(days) and len(days) == (days[-1] - days[0]).days + 1
-
-        if contiguous:
-            cumulative_sum = await self._async_get_anchor_sum(statistic_id, days[0])
-            for day in days:
-                reading_value = daily_values[day]
-                cumulative_sum += reading_value
-                statistics.append(
-                    StatisticData(start=day, state=reading_value, sum=cumulative_sum)
-                )
-                self._last_imported_date = day.isoformat()
-        else:
-            for day in days:
-                if last_imported_day is not None and day <= last_imported_day:
-                    continue
-
-                reading_value = daily_values[day]
-                cumulative_sum += reading_value
-
-                statistics.append(
-                    StatisticData(start=day, state=reading_value, sum=cumulative_sum)
-                )
-                self._last_imported_date = day.isoformat()
-
-        if not statistics:
-            _LOGGER.debug("No new statistics to import for %s", self.entity_id)
-            return
-
-        _LOGGER.debug(
-            "Preparing to import %d statistics for statistic_id: %s",
-            len(statistics),
-            statistic_id,
-        )
-
-        unit_class = "energy" if key.startswith("energy_") else None
-
-        metadata = StatisticMetaData(
-            mean_type=StatisticMeanType.NONE,
-            has_sum=True,
-            name=f"Octopus Energy {key}",
-            source=DOMAIN,
-            statistic_id=statistic_id,
-            unit_class=unit_class,
-            unit_of_measurement=self._attr_native_unit_of_measurement,
-        )
-
-        try:
-            async_add_external_statistics(self.hass, metadata, statistics)
-
-            _LOGGER.info(
-                "Successfully imported %d statistics for %s (last date: %s)",
-                len(statistics),
-                statistic_id,
-                self._last_imported_date,
-            )
-        except Exception:
-            _LOGGER.exception("Failed to import statistics for %s", statistic_id)
-
-    async def _async_get_anchor_sum(
-        self, statistic_id: str, first_day: datetime
-    ) -> float:
-        """Return the cumulative sum of the last statistic strictly before first_day."""
-        try:
-            rows = await get_instance(self.hass).async_add_executor_job(
-                statistics_during_period,
-                self.hass,
-                first_day - timedelta(days=40),
-                first_day,
-                {statistic_id},
-                "day",
-                None,
-                {"sum"},
-            )
-        except OSError, ValueError, TypeError:
-            _LOGGER.debug("Could not fetch anchor sum for %s, using 0", statistic_id)
-            return 0.0
-
-        entries = rows.get(statistic_id) if rows else None
-        if not entries:
-            return 0.0
-
-        first_ts = first_day.timestamp()
-        anchor = 0.0
-        anchor_start: float | None = None
-        for row in entries:
-            row_start = row.get("start")
-            if row_start is None or float(row_start) >= first_ts:
-                continue
-            if anchor_start is None or float(row_start) > anchor_start:
-                anchor_start = float(row_start)
-                anchor = float(row.get("sum") or 0.0)
-        return anchor
+    def _update_attrs(self) -> None:
+        """Refresh the cached attribute values from coordinator data."""
+        self._attr_last_reset = self._compute_last_reset()
+        self._attr_native_value = self._compute_native_value()
+        self._attr_extra_state_attributes = self._compute_attributes()
 
     def _calculate_monthly_subscription(self) -> float:
         """Get the monthly subscription cost from agreements."""
@@ -317,8 +81,8 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
 
         for agreement in agreements:
             if agreement.get("prm") == self._prm_id and agreement.get("is_active"):
-                tariffs = (agreement.get("tariffs") or {})
-                subscription = (tariffs.get("subscription") or {})
+                tariffs = agreement.get("tariffs") or {}
+                subscription = tariffs.get("subscription") or {}
 
                 if subscription:
                     monthly_ttc = subscription.get("monthly_ttc_eur")
@@ -333,7 +97,11 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
 
     def _calculate_monthly_subscription_fallback(self) -> float:
         """Fallback: Calculate monthly subscription from daily readings."""
-        readings = self.coordinator.data.get("electricity", {}).get("readings", [])
+        readings = (
+            self.coordinator.data.get("electricity_by_prm", {})
+            .get(self._prm_id, {})
+            .get("readings", [])
+        )
 
         if not readings:
             return 0.0
@@ -362,7 +130,11 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
     def _calculate_monthly_total(self) -> float:
         """Calculate monthly total."""
         key = self._sensor_config.key
-        readings = self.coordinator.data.get("electricity", {}).get("readings", [])
+        readings = (
+            self.coordinator.data.get("electricity_by_prm", {})
+            .get(self._prm_id, {})
+            .get("readings", [])
+        )
 
         if not readings:
             return 0.0
@@ -377,18 +149,6 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
 
         current_month = self._get_current_month()
         total = 0.0
-
-        consumption_mapping = {
-            "energy_base": "BASE",
-            "energy_peak_hours": "HEURES_PLEINES",
-            "energy_off_peak_hours": "HEURES_CREUSES",
-            "energy_tempo_ete_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
-            "energy_tempo_ete_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCE_0.0_37.0",
-            "energy_tempo_hiver_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPHI_0.0_37.0",
-            "energy_tempo_hiver_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCHI_0.0_37.0",
-            "energy_tempo_rouge_hp": "CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0",
-            "energy_tempo_rouge_hc": "CONSUMPTION_OCTOFLEX_4_V4_HCP_0.0_37.0",
-        }
 
         for reading in sorted_readings:
             reading_date = reading.get("startAt")
@@ -413,37 +173,34 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                 label = normalize_consumption_label(stat.get("label", ""))
 
                 if key.startswith("energy_"):
-                    expected_label = consumption_mapping.get(key)
+                    expected_label = ENERGY_KEY_TO_LABEL.get(key)
                     value = stat.get("value")
 
                     if value is not None and label == expected_label:
                         total += float(value)
 
-                elif key in _COST_TO_CONSUMPTION_LABEL:
-                    if label == _COST_TO_CONSUMPTION_LABEL[key]:
+                elif key in COST_KEY_TO_LABEL and label == COST_KEY_TO_LABEL[key]:
+                    # Montant réel de l'API (centimes, au tarif du jour du
+                    # relevé) ; fallback kWh x tarif actuel s'il est absent.
+                    amount = (stat.get("costInclTax") or {}).get("estimatedAmount")
+                    if amount is not None:
+                        total += float(amount) / 100
+                    else:
                         value = stat.get("value")
-                        if value is not None:
-                            total += float(value)
-
-        if key in _COST_TO_CONSUMPTION_LABEL:
-            tariff_rate = self._get_tariff_rate()
-            if tariff_rate and total > 0.0:
-                total = total * tariff_rate
-            else:
-                return 0.0
+                        tariff_rate = self._get_tariff_rate()
+                        if value is not None and tariff_rate:
+                            total += float(value) * tariff_rate
 
         return round(total, 2)
 
-    @property
-    def last_reset(self) -> datetime | None:
+    def _compute_last_reset(self) -> datetime | None:
         """Expose the monthly reset for the current-month total sensors."""
         key = self._sensor_config.key
         if key.startswith(("energy_", "cost_")) or key == "subscription":
             return dt_util.start_of_local_day().replace(day=1)
         return None
 
-    @property
-    def native_value(self) -> float | str | None:
+    def _compute_native_value(self) -> float | str | None:
         """Return the state of the sensor."""
         key = self._sensor_config.key
 
@@ -470,8 +227,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
 
         return None
 
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
+    def _compute_attributes(self) -> dict[str, Any]:
         """Return extra attributes."""
         key = self._sensor_config.key
 
@@ -485,7 +241,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
 
             return {
                 "ledger_id": electricity_ledger.get("number"),
-                "prm_id": meter.get("id"),
+                "prm_id": meter.get("prm"),
                 "agreement": (meter.get("providerCalendar") or {}).get("id"),
                 "distributor_status": meter.get("distributorStatus"),
                 "meter_kind": meter.get("meterKind"),
@@ -509,13 +265,13 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             }
 
             if agreement_data:
-                tariffs = (agreement_data.get("tariffs") or {})
-                subscription = (tariffs.get("subscription") or {})
+                tariffs = agreement_data.get("tariffs") or {}
+                subscription = tariffs.get("subscription") or {}
 
                 attributes.update(
                     {
                         "contract_number": agreement_data.get("contract_number"),
-                        "product_name": agreement_data.get("product", {}).get(
+                        "product_name": (agreement_data.get("product") or {}).get(
                             "display_name"
                         ),
                         "annual_ht_eur": subscription.get("annual_ht_eur"),
@@ -538,8 +294,10 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
                     )
                     attributes["next_payment_date"] = next_payment.get("date")
             else:
-                readings = self.coordinator.data.get("electricity", {}).get(
-                    "readings", []
+                readings = (
+                    self.coordinator.data.get("electricity_by_prm", {})
+                    .get(self._prm_id, {})
+                    .get("readings", [])
                 )
                 days_with_subscription = 0
 
@@ -572,13 +330,22 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
             return attributes
 
         if key.startswith(("energy_", "cost_")):
-            readings = self.coordinator.data.get("electricity", {}).get("readings", [])
+            readings = (
+                self.coordinator.data.get("electricity_by_prm", {})
+                .get(self._prm_id, {})
+                .get("readings", [])
+            )
+
+            importer = getattr(self.coordinator, "statistics_importer", None)
+            statistic_id = f"{DOMAIN}:{self._prm_id}_{key}"
 
             return {
                 "current_month": self._current_month,
                 "readings_count": len(readings),
                 "calculation_method": "Cumulée / mois",
-                "last_imported_date": self._last_imported_date,
+                "last_imported_date": (
+                    importer.last_imported.get(statistic_id) if importer else None
+                ),
             }
 
         if key.startswith("rate_"):
@@ -595,7 +362,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
 
             for agreement in agreements:
                 if agreement.get("prm") == self._prm_id and agreement.get("is_active"):
-                    tariffs = (agreement.get("tariffs") or {})
+                    tariffs = agreement.get("tariffs") or {}
                     consumption = tariffs.get("consumption", {})
 
                     attributes: dict[str, Any] = {
@@ -638,60 +405,15 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
 
     def _get_tariff_rate(self) -> float | None:
         """Get the tariff rate from agreements."""
-        key = self._sensor_config.key
-
-        _TEMPO_RATE_KEY_MAP: dict[str, str] = {
-            "rate_tempo_ete_hp": "tempo_ete_hp",
-            "cost_tempo_ete_hp": "tempo_ete_hp",
-            "rate_tempo_ete_hc": "tempo_ete_hc",
-            "cost_tempo_ete_hc": "tempo_ete_hc",
-            "rate_tempo_hiver_hp": "tempo_hiver_hp",
-            "cost_tempo_hiver_hp": "tempo_hiver_hp",
-            "rate_tempo_hiver_hc": "tempo_hiver_hc",
-            "cost_tempo_hiver_hc": "tempo_hiver_hc",
-            "rate_tempo_rouge_hp": "tempo_rouge_hp",
-            "cost_tempo_rouge_hp": "tempo_rouge_hp",
-            "rate_tempo_rouge_hc": "tempo_rouge_hc",
-            "cost_tempo_rouge_hc": "tempo_rouge_hc",
-        }
-
-        agreements = self.coordinator.data.get("agreements", [])
-
-        for agreement in agreements:
-            if agreement.get("prm") == self._prm_id and agreement.get("is_active"):
-                tariffs = (agreement.get("tariffs") or {})
-                consumption = tariffs.get("consumption", {})
-
-                if key in ("rate_base", "cost_base"):
-                    base_rate = consumption.get("base")
-                    if base_rate:
-                        return base_rate.get("price_ttc")
-
-                elif key in ("rate_peak_hours", "cost_peak_hours"):
-                    hp_rate = consumption.get("heures_pleines")
-                    if hp_rate:
-                        return hp_rate.get("price_ttc")
-
-                elif key in ("rate_off_peak_hours", "cost_off_peak_hours"):
-                    hc_rate = consumption.get("heures_creuses")
-                    if hc_rate:
-                        return hc_rate.get("price_ttc")
-
-                elif key in _TEMPO_RATE_KEY_MAP:
-                    rate = consumption.get(_TEMPO_RATE_KEY_MAP[key])
-                    if rate:
-                        return rate.get("price_ttc")
-
-        _LOGGER.debug(
-            "No tariff rate found in agreements for PRM %s, key %s", self._prm_id, key
+        return get_tariff_rate_for_key(
+            self.coordinator.data, self._prm_id, self._sensor_config.key
         )
-        return None
 
     def _get_meter_data(self) -> dict | None:
         """Get meter data for this PRM ID."""
         supply_points = self.coordinator.data.get("supply_points", {})
         elec_points = supply_points.get("electricity", [])
-        return next((m for m in elec_points if m.get("id") == self._prm_id), None)
+        return next((m for m in elec_points if m.get("prm") == self._prm_id), None)
 
     def _get_subscribed_power(self) -> float | None:
         """Get the subscribed power in kVA."""
@@ -701,7 +423,7 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
         value = meter.get("subscribedMaxPower")
         try:
             return float(value) if value is not None else None
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             return None
 
     def _get_contract_type(self) -> str:
@@ -712,7 +434,9 @@ class OctopusElectricitySensor(CoordinatorEntity, SensorEntity):
         return normalize_provider_calendar(meter)
 
 
-class OctopusLatestReadingSensor(CoordinatorEntity, SensorEntity):
+class OctopusLatestReadingSensor(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+    CoordinatorEntity[OctopusFrenchDataUpdateCoordinator], SensorEntity
+):
     """Sensor for the latest daily electricity reading."""
 
     def __init__(
@@ -739,11 +463,24 @@ class OctopusLatestReadingSensor(CoordinatorEntity, SensorEntity):
             self._attr_suggested_display_precision = (
                 sensor_config.suggested_display_precision
             )
+        self._update_attrs()
 
-    @property
-    def native_value(self) -> float | None:
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Recompute derived attributes when coordinator data changes."""
+        self._update_attrs()
+        super()._handle_coordinator_update()
+
+    def _update_attrs(self) -> None:
+        """Refresh the cached attribute values from coordinator data."""
+        self._attr_native_value = self._compute_native_value()
+        self._attr_extra_state_attributes = self._compute_attributes()
+
+    def _compute_native_value(self) -> float | None:
         """Return the latest reading value."""
-        electricity_data = self.coordinator.data.get("electricity", {})
+        electricity_data = self.coordinator.data.get("electricity_by_prm", {}).get(
+            self._prm_id, {}
+        )
         readings = electricity_data.get("readings", [])
 
         if not readings:
@@ -753,10 +490,11 @@ class OctopusLatestReadingSensor(CoordinatorEntity, SensorEntity):
         value = reading.get("value")
         return float(value) if value is not None else None
 
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
+    def _compute_attributes(self) -> dict[str, Any]:
         """Return extra attributes for the latest reading."""
-        electricity_data = self.coordinator.data.get("electricity", {})
+        electricity_data = self.coordinator.data.get("electricity_by_prm", {}).get(
+            self._prm_id, {}
+        )
         readings = electricity_data.get("readings", [])
 
         if not readings:
@@ -802,7 +540,9 @@ class OctopusLatestReadingSensor(CoordinatorEntity, SensorEntity):
             agreements = self.coordinator.data.get("agreements", [])
             for agreement in agreements:
                 if agreement.get("prm") == self._prm_id and agreement.get("is_active"):
-                    consumption = (agreement.get("tariffs") or {}).get("consumption", {})
+                    consumption = (agreement.get("tariffs") or {}).get(
+                        "consumption", {}
+                    )
                     if base_kwh is not None:
                         base_rate = consumption.get("base")
                         if base_rate:
@@ -833,7 +573,9 @@ class OctopusLatestReadingSensor(CoordinatorEntity, SensorEntity):
             agreements = self.coordinator.data.get("agreements", [])
             for agreement in agreements:
                 if agreement.get("prm") == self._prm_id and agreement.get("is_active"):
-                    consumption = (agreement.get("tariffs") or {}).get("consumption", {})
+                    consumption = (agreement.get("tariffs") or {}).get(
+                        "consumption", {}
+                    )
                     for attr_key, rate_key in _TEMPO_ATTR_TO_RATE_KEY.items():
                         kwh = attributes.get(attr_key)
                         if kwh is not None and (rate := consumption.get(rate_key)):
@@ -845,7 +587,9 @@ class OctopusLatestReadingSensor(CoordinatorEntity, SensorEntity):
         return attributes
 
 
-class OctopusElectricityIndexSensor(CoordinatorEntity, SensorEntity):
+class OctopusElectricityIndexSensor(
+    CoordinatorEntity[OctopusFrenchDataUpdateCoordinator], SensorEntity
+):
     """Sensor for electricity meter index (Linky counter value)."""
 
     def __init__(
@@ -874,11 +618,26 @@ class OctopusElectricityIndexSensor(CoordinatorEntity, SensorEntity):
             self._attr_suggested_display_precision = (
                 sensor_config.suggested_display_precision
             )
+        self._update_attrs()
 
-    @property
-    def native_value(self) -> float | None:
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Recompute derived attributes when coordinator data changes."""
+        self._update_attrs()
+        super()._handle_coordinator_update()
+
+    def _update_attrs(self) -> None:
+        """Refresh the cached attribute values from coordinator data."""
+        self._attr_native_value = self._compute_native_value()
+        self._attr_extra_state_attributes = self._compute_attributes()
+
+    def _compute_native_value(self) -> float | None:
         """Return the index end value."""
-        index_data = self.coordinator.data.get("electricity", {}).get("index")
+        index_data = (
+            self.coordinator.data.get("electricity_by_prm", {})
+            .get(self._prm_id, {})
+            .get("index")
+        )
 
         if not index_data:
             return None
@@ -886,10 +645,13 @@ class OctopusElectricityIndexSensor(CoordinatorEntity, SensorEntity):
         type_data = index_data.get(self._index_type, {})
         return type_data.get("index_end")
 
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
+    def _compute_attributes(self) -> dict[str, Any]:
         """Return extra attributes."""
-        index_data = self.coordinator.data.get("electricity", {}).get("index")
+        index_data = (
+            self.coordinator.data.get("electricity_by_prm", {})
+            .get(self._prm_id, {})
+            .get("index")
+        )
 
         if not index_data:
             return {}
@@ -906,17 +668,23 @@ class OctopusElectricityIndexSensor(CoordinatorEntity, SensorEntity):
         }
 
     @property
-    def available(self) -> bool:
+    def available(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
         """Return if entity is available."""
         if not super().available:
             return False
-        index_data = self.coordinator.data.get("electricity", {}).get("index")
+        index_data = (
+            self.coordinator.data.get("electricity_by_prm", {})
+            .get(self._prm_id, {})
+            .get("index")
+        )
         if not index_data:
             return False
         return self._index_type in index_data
 
 
-class OctopusTempoColorSensor(CoordinatorEntity, SensorEntity):
+class OctopusTempoColorSensor(
+    CoordinatorEntity[OctopusFrenchDataUpdateCoordinator], SensorEntity
+):
     """Capteur indiquant la couleur Tempo (Bleu/Blanc/Rouge) d'aujourd'hui ou de demain."""
 
     def __init__(
@@ -937,20 +705,39 @@ class OctopusTempoColorSensor(CoordinatorEntity, SensorEntity):
         self._attr_icon = sensor_config.icon
         self._attr_entity_category = sensor_config.entity_category
         self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, prm_id)})
+        self._update_attrs()
 
-    @property
-    def native_value(self) -> str | None:
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Recompute derived attributes when coordinator data changes."""
+        self._update_attrs()
+        super()._handle_coordinator_update()
+
+    def _update_attrs(self) -> None:
+        """Refresh the cached attribute values from coordinator data."""
+        self._attr_native_value = self._compute_native_value()
+        self._attr_extra_state_attributes = self._compute_attributes()
+
+    def _compute_native_value(self) -> str | None:
         """Return the Tempo color from the electricity index."""
-        index_data = self.coordinator.data.get("electricity", {}).get("index")
+        index_data = (
+            self.coordinator.data.get("electricity_by_prm", {})
+            .get(self._prm_id, {})
+            .get("index")
+        )
         if not index_data:
             return None
         color_key = "tempo_color_tomorrow" if self._is_tomorrow else "tempo_color"
         return index_data.get(color_key)
 
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
+    def _compute_attributes(self) -> dict[str, Any]:
         """Return extra attributes."""
-        index_data = self.coordinator.data.get("electricity", {}).get("index") or {}
+        index_data = (
+            self.coordinator.data.get("electricity_by_prm", {})
+            .get(self._prm_id, {})
+            .get("index")
+            or {}
+        )
         return {
             "prm_id": self._prm_id,
             "period_start": index_data.get("period_start"),
@@ -959,19 +746,26 @@ class OctopusTempoColorSensor(CoordinatorEntity, SensorEntity):
         }
 
     @property
-    def available(self) -> bool:
+    def available(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
         """Return True only when coordinator data is fresh (and tomorrow's color is known)."""
         if not (
             self.coordinator.last_update_success and self.coordinator.data is not None
         ):
             return False
         if self._is_tomorrow:
-            index_data = self.coordinator.data.get("electricity", {}).get("index") or {}
+            index_data = (
+                self.coordinator.data.get("electricity_by_prm", {})
+                .get(self._prm_id, {})
+                .get("index")
+                or {}
+            )
             return "tempo_color_tomorrow" in index_data
         return True
 
 
-class OctopusTempoCurrentRateSensor(CoordinatorEntity, SensorEntity):
+class OctopusTempoCurrentRateSensor(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+    CoordinatorEntity[OctopusFrenchDataUpdateCoordinator], SensorEntity
+):
     """Capteur dynamique : tarif OctoTempo actif en ce moment (€/kWh)."""
 
     def __init__(
@@ -995,6 +789,7 @@ class OctopusTempoCurrentRateSensor(CoordinatorEntity, SensorEntity):
         )
         self._attr_entity_category = sensor_config.entity_category
         self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, prm_id)})
+        self._update_attrs()
 
     async def async_added_to_hass(self) -> None:
         """When entity is added to hass."""
@@ -1003,14 +798,30 @@ class OctopusTempoCurrentRateSensor(CoordinatorEntity, SensorEntity):
             async_track_time_change(self.hass, self._async_update_state, second=0)
         )
 
-    async def _async_update_state(self, now=None) -> None:
+    async def _async_update_state(self, now: datetime | None = None) -> None:
         """Refresh state on each minute tick."""
+        self._update_attrs()
         self.async_write_ha_state()
 
-    @property
-    def native_value(self) -> float | None:
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Recompute derived attributes when coordinator data changes."""
+        self._update_attrs()
+        super()._handle_coordinator_update()
+
+    def _update_attrs(self) -> None:
+        """Refresh the cached attribute values from data and current time."""
+        self._attr_native_value = self._compute_native_value()
+        self._attr_extra_state_attributes = self._compute_attributes()
+
+    def _compute_native_value(self) -> float | None:
         """Return the active Tempo rate (€/kWh) for the current color and HC/HP period."""
-        index_data = self.coordinator.data.get("electricity", {}).get("index") or {}
+        index_data = (
+            self.coordinator.data.get("electricity_by_prm", {})
+            .get(self._prm_id, {})
+            .get("index")
+            or {}
+        )
         color = index_data.get("tempo_color")
         if not color:
             return None
@@ -1027,10 +838,14 @@ class OctopusTempoCurrentRateSensor(CoordinatorEntity, SensorEntity):
                     return rate.get("price_ttc")
         return None
 
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
+    def _compute_attributes(self) -> dict[str, Any]:
         """Return current color and period information."""
-        index_data = self.coordinator.data.get("electricity", {}).get("index") or {}
+        index_data = (
+            self.coordinator.data.get("electricity_by_prm", {})
+            .get(self._prm_id, {})
+            .get("index")
+            or {}
+        )
         color = index_data.get("tempo_color")
         is_hc = self._is_currently_hc() if color else None
         return {
@@ -1048,7 +863,7 @@ class OctopusTempoCurrentRateSensor(CoordinatorEntity, SensorEntity):
         else:
             off_peak_label = None
             for meter in data.get("supply_points", {}).get("electricity", []):
-                if meter.get("id") == self._prm_id:
+                if meter.get("prm") == self._prm_id:
                     off_peak_label = meter.get("offPeakLabel")
                     break
             if not off_peak_label:
@@ -1065,7 +880,7 @@ class OctopusTempoCurrentRateSensor(CoordinatorEntity, SensorEntity):
         )
 
     @staticmethod
-    def _is_time_in_range(current_time, start_str: str, end_str: str) -> bool:
+    def _is_time_in_range(current_time: time, start_str: str, end_str: str) -> bool:
         """Check if current_time is within [start_str, end_str] (handles overnight ranges)."""
         try:
             sh, sm = start_str.split(":")[:2]
@@ -1073,7 +888,7 @@ class OctopusTempoCurrentRateSensor(CoordinatorEntity, SensorEntity):
             start_min = int(sh) * 60 + int(sm)
             end_min = int(eh) * 60 + int(em)
             cur_min = current_time.hour * 60 + current_time.minute
-        except ValueError, IndexError:
+        except (ValueError, IndexError):
             return False
 
         if end_min <= start_min:

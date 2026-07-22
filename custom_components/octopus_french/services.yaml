@@ -1,6 +1,4 @@
-# Services for Octopus Energy France integration
+# Services de l'intégration Octopus Energy France.
+# Les libellés viennent de strings.json / translations (clé `services`).
 
 force_update:
-  name: Force update
-  description: Force an immediate data update from Octopus Energy API
-  fields: {}

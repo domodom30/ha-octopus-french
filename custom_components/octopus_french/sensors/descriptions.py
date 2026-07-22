@@ -7,8 +7,12 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import CURRENCY_EURO, UnitOfApparentPower, UnitOfEnergy
-from homeassistant.helpers.entity import EntityCategory
+from homeassistant.const import (
+    CURRENCY_EURO,
+    EntityCategory,
+    UnitOfApparentPower,
+    UnitOfEnergy,
+)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -98,21 +102,21 @@ ELECTRICITY_SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="rate_base",
         icon="mdi:cash",
-        native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
+        native_unit_of_measurement=f"{CURRENCY_EURO}/{UnitOfEnergy.KILO_WATT_HOUR}",
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
     SensorEntityDescription(
         key="rate_peak_hours",
         icon="mdi:cash-plus",
-        native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
+        native_unit_of_measurement=f"{CURRENCY_EURO}/{UnitOfEnergy.KILO_WATT_HOUR}",
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
     SensorEntityDescription(
         key="rate_off_peak_hours",
         icon="mdi:cash-minus",
-        native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
+        native_unit_of_measurement=f"{CURRENCY_EURO}/{UnitOfEnergy.KILO_WATT_HOUR}",
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
@@ -257,42 +261,42 @@ TEMPO_SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="rate_tempo_ete_hp",
         icon="mdi:cash-plus",
-        native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
+        native_unit_of_measurement=f"{CURRENCY_EURO}/{UnitOfEnergy.KILO_WATT_HOUR}",
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
     SensorEntityDescription(
         key="rate_tempo_ete_hc",
         icon="mdi:cash-minus",
-        native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
+        native_unit_of_measurement=f"{CURRENCY_EURO}/{UnitOfEnergy.KILO_WATT_HOUR}",
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
     SensorEntityDescription(
         key="rate_tempo_hiver_hp",
         icon="mdi:cash-plus",
-        native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
+        native_unit_of_measurement=f"{CURRENCY_EURO}/{UnitOfEnergy.KILO_WATT_HOUR}",
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
     SensorEntityDescription(
         key="rate_tempo_hiver_hc",
         icon="mdi:cash-minus",
-        native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
+        native_unit_of_measurement=f"{CURRENCY_EURO}/{UnitOfEnergy.KILO_WATT_HOUR}",
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
     SensorEntityDescription(
         key="rate_tempo_rouge_hp",
         icon="mdi:cash-plus",
-        native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
+        native_unit_of_measurement=f"{CURRENCY_EURO}/{UnitOfEnergy.KILO_WATT_HOUR}",
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
     SensorEntityDescription(
         key="rate_tempo_rouge_hc",
         icon="mdi:cash-minus",
-        native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
+        native_unit_of_measurement=f"{CURRENCY_EURO}/{UnitOfEnergy.KILO_WATT_HOUR}",
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
@@ -309,7 +313,7 @@ TEMPO_SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="tempo_current_rate",
         icon="mdi:currency-eur-off",
-        native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
+        native_unit_of_measurement=f"{CURRENCY_EURO}/{UnitOfEnergy.KILO_WATT_HOUR}",
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
@@ -349,7 +353,7 @@ GAS_SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="rate_base",
         icon="mdi:cash",
-        native_unit_of_measurement=f"{CURRENCY_EURO}/kWh",
+        native_unit_of_measurement=f"{CURRENCY_EURO}/{UnitOfEnergy.KILO_WATT_HOUR}",
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),

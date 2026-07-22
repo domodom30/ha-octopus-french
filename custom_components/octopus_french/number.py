@@ -2,9 +2,9 @@
 
 from homeassistant.components.number import NumberEntity
 from homeassistant.const import PERCENTAGE
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -40,7 +40,9 @@ async def async_setup_entry(
         async_add_entities(entities)
 
 
-class OctopusIntelligentTargetSocNumber(CoordinatorEntity, NumberEntity):
+class OctopusIntelligentTargetSocNumber(
+    CoordinatorEntity[OctopusIntelligentDataUpdateCoordinator], NumberEntity
+):
     """Number entity for target state of charge."""
 
     def __init__(
@@ -52,7 +54,7 @@ class OctopusIntelligentTargetSocNumber(CoordinatorEntity, NumberEntity):
         """Initialize the number entity."""
         super().__init__(coordinator)
         self._device_id = device_id
-        self._attr_unique_id = f"{device_id}_target_soc"
+        self._attr_unique_id = f"{DOMAIN}_{device_id}_target_soc"
         self._attr_has_entity_name = True
         self._attr_translation_key = "target_soc"
         self._attr_icon = "mdi:battery-charging"
@@ -66,13 +68,19 @@ class OctopusIntelligentTargetSocNumber(CoordinatorEntity, NumberEntity):
             name=device_name,
             model=device_name,
         )
+        self._update_attrs()
 
-    @property
-    def native_value(self) -> float | None:
-        """Return the current target SOC."""
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Recompute derived attributes when coordinator data changes."""
+        self._update_attrs()
+        super()._handle_coordinator_update()
+
+    def _update_attrs(self) -> None:
+        """Refresh the cached attribute values from coordinator data."""
         preferences = self.coordinator.data.get("preferences", {})
         value = preferences.get("weekdayTargetSoc")
-        return float(value) if value is not None else None
+        self._attr_native_value = float(value) if value is not None else None
 
     async def async_set_native_value(self, value: float) -> None:
         """Set the target SOC."""

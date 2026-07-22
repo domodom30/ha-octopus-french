@@ -63,10 +63,9 @@ def test_normalize_consumption_label(label: str, expected: str) -> None:
     assert normalize_consumption_label(label) == expected
 
 
-def _run_label_matching(
-    labels_and_values: list[tuple[str, float]], key: str
-) -> float:
-    """Reproduit la boucle interne qui accumule la consommation pour une clé.
+def _run_label_matching(labels_and_values: list[tuple[str, float]], key: str) -> float:
+    """
+    Reproduit la boucle interne qui accumule la consommation pour une clé.
 
     Réplique la logique de OctopusElectricitySensor._calculate_monthly_total /
     _async_import_statistics afin de valider le bout-à-bout du matching.
@@ -133,9 +132,7 @@ def test_multi_day_accumulation() -> None:
     assert hc_total == pytest.approx(9.5)
 
 
-def _meter(
-    *, codes: list[str] | None = None, calendar_id: str | None = None
-) -> dict:
+def _meter(*, codes: list[str] | None = None, calendar_id: str | None = None) -> dict:
     """Construit un meter minimal pour tester normalize_provider_calendar."""
     meter: dict = {}
     if codes is not None:
@@ -157,9 +154,7 @@ def _meter(
             _meter(calendar_id="EFFACEMENT_HPHC_2"), "HPHC", id="fallback_effacement"
         ),
         pytest.param(_meter(calendar_id="BASE_1"), "BASE", id="fallback_base"),
-        pytest.param(
-            _meter(calendar_id="TEMPO_5_V4"), "TEMPO", id="fallback_tempo"
-        ),
+        pytest.param(_meter(calendar_id="TEMPO_5_V4"), "TEMPO", id="fallback_tempo"),
         # Id inconnu sans classes → renvoyé inchangé (aucune perte d'info).
         pytest.param(
             _meter(calendar_id="MYSTERY_CALENDAR"),

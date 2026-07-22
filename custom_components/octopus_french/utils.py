@@ -1,8 +1,8 @@
 """helpers functions."""
 
-from datetime import datetime
 import logging
 import re
+from datetime import datetime
 from typing import Any
 
 from .const import (
@@ -69,7 +69,8 @@ def parse_off_peak_hours(off_peak_label: str | None) -> dict[str, Any]:
 
 
 def parse_time_slots(time_slots: list[dict[str, Any]]) -> dict[str, Any]:
-    """Convert structured timeSlots from the contract API to the HC schedule format.
+    """
+    Convert structured timeSlots from the contract API to the HC schedule format.
 
     Produces the same dict shape as parse_off_peak_hours() so the two sources
     are interchangeable downstream.  The 'source' key distinguishes them.
@@ -118,15 +119,20 @@ def parse_time_slots(time_slots: list[dict[str, Any]]) -> dict[str, Any]:
                 }
             )
         except (ValueError, IndexError) as err:
-            _LOGGER.warning("Impossible de parser le créneau '%s'–'%s': %s", start_str, end_str, err)
+            _LOGGER.warning(
+                "Impossible de parser le créneau '%s'-'%s': %s", start_str, end_str, err
+            )
 
     result["total_hours"] = round(total_minutes / 60, 2)
     result["range_count"] = len(result["ranges"])
     return result
 
 
-def find_contract_hc_slots(data: dict[str, Any], prm_id: str) -> list[dict[str, Any]] | None:
-    """Return the HC timeSlots from the active contract for a given PRM, or None.
+def find_contract_hc_slots(
+    data: dict[str, Any], prm_id: str
+) -> list[dict[str, Any]] | None:
+    """
+    Return the HC timeSlots from the active contract for a given PRM, or None.
 
     Checks heures_creuses first (HP/HC contract), then any *_hc key (Tempo).
     """
@@ -140,15 +146,19 @@ def find_contract_hc_slots(data: dict[str, Any], prm_id: str) -> list[dict[str, 
             return slots
 
         for key, rate in consumption.items():
-            if key.endswith("_hc") and isinstance(rate, dict):
-                if slots := rate.get("time_slots"):
-                    return slots
+            if (
+                key.endswith("_hc")
+                and isinstance(rate, dict)
+                and (slots := rate.get("time_slots"))
+            ):
+                return slots
 
     return None
 
 
 def normalize_consumption_label(label: str) -> str:
-    """Normalise les variantes de label de l'API vers leur forme canonique.
+    """
+    Normalise les variantes de label de l'API vers leur forme canonique.
 
     Certains comptes (offre Effacement HPHC) renvoient les labels sous la forme
     CONSUMPTION_EFFACEMENT_HPHC_2_HP_* / ..._HC_* au lieu des
@@ -167,7 +177,8 @@ def normalize_consumption_label(label: str) -> str:
 
 
 def normalize_provider_calendar(meter: dict) -> str:
-    """Dérive la famille de tarif (BASE/HPHC/TEMPO) depuis le calendrier fournisseur.
+    """
+    Dérive la famille de tarif (BASE/HPHC/TEMPO) depuis le calendrier fournisseur.
 
     Le sensor `contrat` exposait l'id brut du calendrier (ex. EFFACEMENT_HPHC_2) ;
     on renvoie ici la famille lisible. L'id brut reste disponible dans l'attribut
@@ -194,7 +205,54 @@ def normalize_provider_calendar(meter: dict) -> str:
     return calendar_id  # inconnu → ne rien perdre
 
 
-def convert_sensor_date(date_string):
+_RATE_KEY_TO_CONSUMPTION_KEY: dict[str, str] = {
+    "rate_base": "base",
+    "cost_base": "base",
+    "cost": "base",  # coût gaz (tarif base uniquement)
+    "rate_peak_hours": "heures_pleines",
+    "cost_peak_hours": "heures_pleines",
+    "rate_off_peak_hours": "heures_creuses",
+    "cost_off_peak_hours": "heures_creuses",
+    "rate_tempo_ete_hp": "tempo_ete_hp",
+    "cost_tempo_ete_hp": "tempo_ete_hp",
+    "rate_tempo_ete_hc": "tempo_ete_hc",
+    "cost_tempo_ete_hc": "tempo_ete_hc",
+    "rate_tempo_hiver_hp": "tempo_hiver_hp",
+    "cost_tempo_hiver_hp": "tempo_hiver_hp",
+    "rate_tempo_hiver_hc": "tempo_hiver_hc",
+    "cost_tempo_hiver_hc": "tempo_hiver_hc",
+    "rate_tempo_rouge_hp": "tempo_rouge_hp",
+    "cost_tempo_rouge_hp": "tempo_rouge_hp",
+    "rate_tempo_rouge_hc": "tempo_rouge_hc",
+    "cost_tempo_rouge_hc": "tempo_rouge_hc",
+}
+
+
+def get_tariff_rate_for_key(
+    data: dict[str, Any], prm_id: str, key: str
+) -> float | None:
+    """
+    Retourne le prix TTC (€/kWh) du contrat actif pour une clé de sensor.
+
+    Partagé entre les sensors (rate_*, coût mensuel) et l'import de statistiques
+    (fallback quand l'API ne fournit pas costInclTax).
+    """
+    consumption_key = _RATE_KEY_TO_CONSUMPTION_KEY.get(key)
+    if not consumption_key:
+        return None
+
+    for agreement in data.get("agreements", []):
+        if agreement.get("prm") == prm_id and agreement.get("is_active"):
+            consumption = (agreement.get("tariffs") or {}).get("consumption", {})
+            rate = consumption.get(consumption_key)
+            if rate:
+                return rate.get("price_ttc")
+
+    _LOGGER.debug("No tariff rate found in agreements for %s, key %s", prm_id, key)
+    return None
+
+
+def convert_sensor_date(date_string: str | None) -> str | None:
     """Convertit une date au format ISO 8601 vers le format YYYY-MM-DD."""
     if not date_string:
         return None
