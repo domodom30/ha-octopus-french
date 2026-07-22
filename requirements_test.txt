@@ -3,6 +3,8 @@
 #
 # pytest-homeassistant-custom-component épingle exactement homeassistant et pytest.
 # La version ci-dessous correspond à Home Assistant 2026.3.2 (schéma 0.13.PATCH).
+# NB : Home Assistant >= 2026.3 exige Python >= 3.14.2 (les tests ne tournent donc
+# plus sous Python 3.13).
 # Pour la mettre à jour, aligner sur la version de HA visée puis :
 #   pip install pytest-homeassistant-custom-component -c <(echo "homeassistant==<version>")
 #
