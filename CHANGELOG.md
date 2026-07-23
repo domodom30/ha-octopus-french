@@ -1,3 +1,11 @@
+## [4.1.1] - 2026-07-23
+
+### 🐛 Corrections
+
+- **Interrupteur « Recharge rapide » (boost)** : le switch est désormais rattaché à l'appareil du **véhicule Octopus Intelligent** (via `via_device`) au lieu d'apparaître comme entité isolée. Il est ainsi regroupé avec les autres entités du véhicule. Merci à [@jeremygovi](https://github.com/jeremygovi).
+
+---
+
 ## [4.1.0] - 2026-07-23
 
 ### ✨ Nouveautés
