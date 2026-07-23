@@ -5,6 +5,7 @@ from typing import Any
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -26,15 +27,18 @@ async def async_setup_entry(
     if coordinator is None:
         return
 
-    entities = [
-        OctopusIntelligentBumpChargeSwitch(
-            coordinator,
-            device["id"],
-            device.get("name", "Véhicule"),
+    entities: list[SwitchEntity] = []
+    for device in coordinator.data.get("devices", []):
+        device_id = device.get("id")
+        if not device_id:
+            continue
+        device_name = device.get("name", "Véhicule")
+        entities.append(
+            OctopusIntelligentBumpChargeSwitch(coordinator, device_id, device_name)
         )
-        for device in coordinator.data.get("devices", [])
-        if device.get("id")
-    ]
+        entities.append(
+            OctopusIntelligentSmartControlSwitch(coordinator, device_id, device_name)
+        )
 
     if entities:
         async_add_entities(entities)
@@ -114,5 +118,72 @@ class OctopusIntelligentBumpChargeSwitch(
                 translation_domain=DOMAIN,
                 translation_key="cancel_boost_charge_failed",
                 translation_placeholders={"reasons": ", ".join(refusal_reasons)},
+            )
+        await self.coordinator.async_refresh_devices()
+
+
+class OctopusIntelligentSmartControlSwitch(
+    CoordinatorEntity[OctopusIntelligentDataUpdateCoordinator], SwitchEntity
+):
+    """Switch to suspend/restore Octopus's automatic smart control of a device.
+
+    Unlike boost charge, suspending smart control does not incur the
+    Intelligent tariff's boost-usage cost. It stops Octopus from
+    interrupting a charging session it did not schedule itself, at the
+    cost of losing Octopus's own schedule optimisation while suspended.
+    """
+
+    def __init__(
+        self,
+        coordinator: OctopusIntelligentDataUpdateCoordinator,
+        device_id: str,
+        device_name: str,
+    ) -> None:
+        """Initialize the switch."""
+        super().__init__(coordinator)
+        self._device_id = device_id
+        self._attr_unique_id = f"{DOMAIN}_{device_id}_smart_control"
+        self._attr_has_entity_name = True
+        self._attr_translation_key = "smart_control"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, device_id)},
+            via_device=(DOMAIN, coordinator.account_number),
+            name=device_name,
+            model=device_name,
+        )
+
+    def _get_device_status(self) -> dict[str, Any]:
+        """Return the device payload from coordinator data."""
+        return self.coordinator.get_device(self._device_id) or {}
+
+    @property
+    def is_on(self) -> bool:
+        """Return true if Octopus's automatic smart control is active (not suspended)."""
+        status_data = self._get_device_status().get("status", {})
+        return not status_data.get("isSuspended", False)
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Restore Octopus's automatic smart control."""
+        success = await self.coordinator.intelligent_client.unsuspend_smart_control(
+            self._device_id
+        )
+        if not success:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="update_smart_control_failed",
+                translation_placeholders={"device_id": self._device_id},
+            )
+        await self.coordinator.async_refresh_devices()
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Suspend Octopus's automatic smart control."""
+        success = await self.coordinator.intelligent_client.suspend_smart_control(
+            self._device_id
+        )
+        if not success:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="update_smart_control_failed",
+                translation_placeholders={"device_id": self._device_id},
             )
         await self.coordinator.async_refresh_devices()

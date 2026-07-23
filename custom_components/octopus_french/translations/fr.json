@@ -1005,6 +1005,9 @@
             "name": "Raisons de refus"
           }
         }
+      },
+      "smart_control": {
+        "name": "Contrôle intelligent"
       }
     },
     "number": {
@@ -1036,6 +1039,9 @@
     },
     "cancel_boost_charge_failed": {
       "message": "Impossible d'annuler la charge boost : {reasons}."
+    },
+    "update_smart_control_failed": {
+      "message": "Impossible de mettre à jour le contrôle intelligent pour l'appareil {device_id}."
     }
   }
 }

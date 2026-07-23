@@ -4,7 +4,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from custom_components.octopus_french.api.intelligent import OctopusIntelligentApiClient
+from custom_components.octopus_french.api.intelligent import (
+    QUERY_DEVICES,
+    OctopusIntelligentApiClient,
+)
 
 
 @pytest.fixture
@@ -174,3 +177,55 @@ async def test_get_flex_planned_dispatches(intelligent_client, mock_api_client):
         {"start": "2026-04-22T21:00:00+00:00", "end": "2026-04-22T22:00:00+00:00"}
     ]
     mock_api_client.execute_with_auth.assert_called_once()
+
+
+def test_query_devices_requests_is_suspended():
+    """QUERY_DEVICES doit demander isSuspended (état du Smart Control switch)."""
+    assert "isSuspended" in QUERY_DEVICES
+
+
+@pytest.mark.asyncio
+async def test_suspend_smart_control_success(intelligent_client, mock_api_client):
+    """Suspend renvoie True et envoie l'action SUSPEND."""
+    mock_api_client.execute_with_auth.return_value = {
+        "data": {"updateDeviceSmartControl": {"id": "abc-123", "name": "Tesla"}}
+    }
+
+    result = await intelligent_client.suspend_smart_control("abc-123")
+
+    assert result is True
+    _, variables = mock_api_client.execute_with_auth.call_args[0]
+    assert variables == {"deviceId": "abc-123", "action": "SUSPEND"}
+
+
+@pytest.mark.asyncio
+async def test_unsuspend_smart_control_success(intelligent_client, mock_api_client):
+    """Unsuspend renvoie True et envoie l'action UNSUSPEND."""
+    mock_api_client.execute_with_auth.return_value = {
+        "data": {"updateDeviceSmartControl": {"id": "abc-123", "name": "Tesla"}}
+    }
+
+    result = await intelligent_client.unsuspend_smart_control("abc-123")
+
+    assert result is True
+    _, variables = mock_api_client.execute_with_auth.call_args[0]
+    assert variables == {"deviceId": "abc-123", "action": "UNSUSPEND"}
+
+
+@pytest.mark.asyncio
+async def test_update_smart_control_error(intelligent_client, mock_api_client):
+    """Une réponse en erreur renvoie False."""
+    mock_api_client.execute_with_auth.return_value = {
+        "errors": [{"message": "boom"}],
+        "data": None,
+    }
+
+    assert await intelligent_client.suspend_smart_control("abc-123") is False
+
+
+@pytest.mark.asyncio
+async def test_update_smart_control_empty_response(intelligent_client, mock_api_client):
+    """Une réponse vide renvoie False."""
+    mock_api_client.execute_with_auth.return_value = None
+
+    assert await intelligent_client.unsuspend_smart_control("abc-123") is False
