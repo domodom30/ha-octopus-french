@@ -54,6 +54,7 @@ Octopus Energy propose un service « [Intelligent Recharge](https://octopusenerg
 Cette intégration ajoute le support complet de cette fonctionnalité dans Home Assistant :
 
 - **Interrupteur Recharge Rapide** : déclenche ou annule une recharge immédiate hors planning
+- **Interrupteur Contrôle Intelligent** : suspend ou rétablit le pilotage automatique Octopus. Suspendre empêche Octopus d'interrompre une session de charge qu'il n'a pas planifiée, sans le coût d'un boost.
 - **Capteur État du Dispositif VE** : affiche le statut courant du véhicule (SMART_CONTROL_CAPABLE, BOOSTING, SMART_CONTROL_IN_PROGRESS, etc.).
 - **Capteurs** : cible SOC semaine/weekend, heure cible, fenêtres de dispatch planifiées.
 
@@ -343,6 +344,7 @@ Les données sont rafraîchies automatiquement toutes les **60 minutes** (5 minu
 | Entité          | Type         | Description                                                               |
 | --------------- | ------------ | ------------------------------------------------------------------------- |
 | Recharge rapide | Interrupteur | Active/désactive la recharge rapide immédiate (mode BOOSTING) hors planning |
+| Contrôle intelligent | Interrupteur | Suspend/rétablit le pilotage automatique Octopus (empêche l'interruption d'une charge non planifiée, sans coût de boost) |
 
 **Attributs de l'interrupteur :**
 - `current` : État de connexion du véhicule (LIVE/autre)
