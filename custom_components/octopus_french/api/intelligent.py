@@ -33,6 +33,19 @@ query devices($accountNumber: String!) {
     status {
       current
       currentState
+      isSuspended
+    }
+  }
+}
+"""
+
+MUTATION_UPDATE_DEVICE_SMART_CONTROL = """
+mutation updateDeviceSmartControl($deviceId: ID!, $action: SmartControlAction!) {
+  updateDeviceSmartControl(input: { deviceId: $deviceId, action: $action }) {
+    id
+    name
+    status {
+      isSuspended
     }
   }
 }
@@ -122,6 +135,24 @@ class OctopusIntelligentApiClient:
     ) -> tuple[dict[str, Any] | None, list[str]]:
         """Cancel boost charge. Returns (data, refusal_reasons)."""
         return await self._update_boost_charge(device_id, MUTATION_CANCEL_BOOST_CHARGE)
+
+    async def _update_smart_control(self, device_id: str, action: str) -> bool:
+        """Suspend or unsuspend Octopus's automatic smart control of a device."""
+        response = await self.api_client.execute_with_auth(
+            MUTATION_UPDATE_DEVICE_SMART_CONTROL,
+            {"deviceId": device_id, "action": action},
+        )
+        if response and "errors" in response:
+            return False
+        return response is not None and "data" in response
+
+    async def suspend_smart_control(self, device_id: str) -> bool:
+        """Suspend Octopus's automatic smart control (stops it interrupting charging)."""
+        return await self._update_smart_control(device_id, "SUSPEND")
+
+    async def unsuspend_smart_control(self, device_id: str) -> bool:
+        """Restore Octopus's automatic smart control."""
+        return await self._update_smart_control(device_id, "UNSUSPEND")
 
     async def get_devices(self, account_number: str) -> list[dict[str, Any]]:
         """Get list of Intelligent devices for an account."""
