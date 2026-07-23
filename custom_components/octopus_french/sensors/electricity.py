@@ -31,7 +31,7 @@ from .descriptions import OctopusIndexSensorDescription
 _LOGGER = logging.getLogger(__name__)
 
 
-class OctopusElectricitySensor(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+class OctopusElectricitySensor(
     CoordinatorEntity[OctopusFrenchDataUpdateCoordinator], SensorEntity
 ):
     """Sensor for electricity data with statistics support."""
@@ -434,7 +434,7 @@ class OctopusElectricitySensor(  # pyright: ignore[reportIncompatibleVariableOve
         return normalize_provider_calendar(meter)
 
 
-class OctopusLatestReadingSensor(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+class OctopusLatestReadingSensor(
     CoordinatorEntity[OctopusFrenchDataUpdateCoordinator], SensorEntity
 ):
     """Sensor for the latest daily electricity reading."""
@@ -668,7 +668,7 @@ class OctopusElectricityIndexSensor(
         }
 
     @property
-    def available(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+    def available(self) -> bool:
         """Return if entity is available."""
         if not super().available:
             return False
@@ -746,7 +746,7 @@ class OctopusTempoColorSensor(
         }
 
     @property
-    def available(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+    def available(self) -> bool:
         """Return True only when coordinator data is fresh (and tomorrow's color is known)."""
         if not (
             self.coordinator.last_update_success and self.coordinator.data is not None
@@ -763,7 +763,7 @@ class OctopusTempoColorSensor(
         return True
 
 
-class OctopusTempoCurrentRateSensor(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+class OctopusTempoCurrentRateSensor(
     CoordinatorEntity[OctopusFrenchDataUpdateCoordinator], SensorEntity
 ):
     """Capteur dynamique : tarif OctoTempo actif en ce moment (€/kWh)."""

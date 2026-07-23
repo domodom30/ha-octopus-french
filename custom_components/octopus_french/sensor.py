@@ -238,7 +238,7 @@ def _detect_tariff_type_for_meter(data: dict, prm_id: str) -> str:
     return "UNKNOWN"
 
 
-class OctopusIntelligentVehicleStatusSensor(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+class OctopusIntelligentVehicleStatusSensor(
     CoordinatorEntity[OctopusIntelligentDataUpdateCoordinator], SensorEntity
 ):
     """Sensor for vehicle charging status."""
@@ -284,7 +284,7 @@ class OctopusIntelligentVehicleStatusSensor(  # pyright: ignore[reportIncompatib
         }
 
 
-class OctopusIntelligentWeekdayTargetSocSensor(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+class OctopusIntelligentWeekdayTargetSocSensor(
     CoordinatorEntity[OctopusIntelligentDataUpdateCoordinator], SensorEntity
 ):
     """Sensor for weekday target state of charge."""
@@ -325,7 +325,7 @@ class OctopusIntelligentWeekdayTargetSocSensor(  # pyright: ignore[reportIncompa
         )
 
 
-class OctopusIntelligentWeekdayTargetTimeSensor(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+class OctopusIntelligentWeekdayTargetTimeSensor(
     CoordinatorEntity[OctopusIntelligentDataUpdateCoordinator], SensorEntity
 ):
     """Sensor for weekday target charging time."""
@@ -364,7 +364,7 @@ class OctopusIntelligentWeekdayTargetTimeSensor(  # pyright: ignore[reportIncomp
         )
 
 
-class OctopusIntelligentWeekendTargetSocSensor(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+class OctopusIntelligentWeekendTargetSocSensor(
     CoordinatorEntity[OctopusIntelligentDataUpdateCoordinator], SensorEntity
 ):
     """Sensor for weekend target state of charge."""
@@ -405,7 +405,7 @@ class OctopusIntelligentWeekendTargetSocSensor(  # pyright: ignore[reportIncompa
         )
 
 
-class OctopusIntelligentWeekendTargetTimeSensor(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+class OctopusIntelligentWeekendTargetTimeSensor(
     CoordinatorEntity[OctopusIntelligentDataUpdateCoordinator], SensorEntity
 ):
     """Sensor for weekend target charging time."""
@@ -444,7 +444,7 @@ class OctopusIntelligentWeekendTargetTimeSensor(  # pyright: ignore[reportIncomp
         )
 
 
-class OctopusIntelligentPlannedDispatchesSensor(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+class OctopusIntelligentPlannedDispatchesSensor(
     CoordinatorEntity[OctopusIntelligentDataUpdateCoordinator], SensorEntity
 ):
     """Sensor for planned charging dispatches."""

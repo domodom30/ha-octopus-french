@@ -84,6 +84,35 @@ def test_extract_supply_points_with_null_provider_calendar(
     assert meter["provider_temporal_classes"] == []
 
 
+def test_extract_supply_points_keeps_parent_property_id(
+    client: OctopusFrenchApiClient,
+) -> None:
+    """Chaque compteur retient l'id de SA property (routage des relevés, issue #56)."""
+    properties = [
+        {
+            "id": "PROP-1",
+            "supplyPoints": {
+                "edges": [
+                    {"node": {"externalIdentifier": "PRM_A", "meterPoint": {"meterKind": "SMART"}}}
+                ]
+            },
+        },
+        {
+            "id": "PROP-2",
+            "supplyPoints": {
+                "edges": [
+                    {"node": {"externalIdentifier": "PRM_B", "meterPoint": {"meterKind": "SMART"}}}
+                ]
+            },
+        },
+    ]
+
+    electricity = client._extract_supply_points(properties)["electricity"]
+    property_by_prm = {m["prm"]: m["property_id"] for m in electricity}
+
+    assert property_by_prm == {"PRM_A": "PROP-1", "PRM_B": "PROP-2"}
+
+
 def test_extract_agreements_with_null_nested_objects(
     client: OctopusFrenchApiClient,
 ) -> None:

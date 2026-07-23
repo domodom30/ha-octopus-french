@@ -1,18 +1,4 @@
-"""Import centralisé des statistiques long-terme (électricité + gaz).
-
-Une seule passe sur les readings du coordinator calcule les valeurs journalières
-de toutes les clés (energy_*, cost_*, consumption, cost), puis chaque
-``statistic_id`` est importé avec l'algorithme historique :
-
-- fusion des offsets UTC mixtes sur le même jour local ;
-- fenêtre contiguë → réécriture depuis une ancre (répare les sommes corrompues) ;
-- fenêtre trouée → append-only après le dernier jour déjà importé ;
-- garde de ré-entrance.
-
-Les ``statistic_id`` (``octopus_french:{prm}_{key}``) et les noms de metadata
-sont identiques à ceux écrits par les entités jusqu'à la v3.4.0 : aucune
-migration de données.
-"""
+"""Import centralisé des statistiques long-terme (électricité + gaz)."""
 
 from __future__ import annotations
 
@@ -90,8 +76,6 @@ class OctopusStatisticsImporter:
         finally:
             self._import_in_progress = False
 
-    # ------------------------------------------------------------------ collect
-
     def _collect_electricity_daily_values(
         self, data: dict[str, Any], prm_id: str, readings: list[dict[str, Any]]
     ) -> dict[str, dict[datetime, float]]:
@@ -136,12 +120,8 @@ class OctopusStatisticsImporter:
         stat: dict[str, Any],
         rates: dict[str, float | None],
     ) -> float | None:
-        """Coût d'un relevé : montant réel de l'API, sinon kWh x tarif actuel.
+        """Coût d'un relevé : montant réel de l'API, sinon kWh x tarif actuel."""
 
-        ``costInclTax.estimatedAmount`` (en centimes) reflète le tarif en vigueur
-        au moment du relevé — contrairement au fallback, faux après un
-        changement de prix.
-        """
         amount = (stat.get("costInclTax") or {}).get("estimatedAmount")
         if amount is not None:
             try:
@@ -156,8 +136,6 @@ class OctopusStatisticsImporter:
             rates[cost_key] = get_tariff_rate_for_key(data, prm_id, cost_key)
         rate = rates[cost_key]
         return float(value) * rate if rate else None
-
-    # ------------------------------------------------------------------- passes
 
     async def _async_import_electricity(self) -> None:
         """Import electricity statistics for every PRM."""
@@ -231,8 +209,6 @@ class OctopusStatisticsImporter:
             unit=CURRENCY_EURO,
             daily_values=cost_values,
         )
-
-    # ------------------------------------------------------------------- import
 
     async def _async_import_statistic(
         self,

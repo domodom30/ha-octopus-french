@@ -1,3 +1,11 @@
+## [4.0.1] - 2026-07-23
+
+### 🐛 Corrections
+
+- **Comptes multi-Linky (issue #56)** : sur un compte à plusieurs contrats/logements, les relevés de consommation sont désormais récupérés sur la **bonne propriété** pour chaque point de livraison. Les données ne sont plus mélangées ni dupliquées entre les deux compteurs.
+
+---
+
 ## [4.0.0] - 2026-07-22
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/A1V11ZZTPI)

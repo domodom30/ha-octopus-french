@@ -165,14 +165,7 @@ async def async_setup_entry(
 def _async_migrate_intelligent_unique_ids(
     entity_entry: er.RegistryEntry,
 ) -> dict[str, str] | None:
-    """Prefix legacy Intelligent unique_ids with the domain for consistency.
-
-    Older versions registered Octopus Intelligent entities as ``{device_id}_...``
-    without the ``octopus_french_`` prefix used by every other entity. All
-    non-Intelligent unique_ids already start with ``f"{DOMAIN}_"``, so prefixing
-    the ones that don't targets exactly the legacy Intelligent entities and
-    preserves their history and customisations.
-    """
+    """Prefix legacy Intelligent unique_ids with the domain for consistency."""
     if not entity_entry.unique_id.startswith(f"{DOMAIN}_"):
         return {"new_unique_id": f"{DOMAIN}_{entity_entry.unique_id}"}
     return None
@@ -210,8 +203,7 @@ async def _async_setup_intelligent_coordinator(
             return None
         return coordinator
     except ConfigEntryAuthFailed:
-        # Une erreur d'authentification n'est jamais « Intelligent indisponible » :
-        # elle doit déclencher le flow de réauthentification.
+        # Une erreur d'authentification doit déclencher le flow de réauthentification.
         raise
     except Exception as err:
         _LOGGER.debug("Octopus Intelligent not available for this account: %s", err)

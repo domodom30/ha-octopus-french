@@ -15,7 +15,7 @@ from .descriptions import OctopusLedgerSensorDescription
 _LOGGER = logging.getLogger(__name__)
 
 
-class OctopusLedgerSensor(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+class OctopusLedgerSensor(
     CoordinatorEntity[OctopusFrenchDataUpdateCoordinator], SensorEntity
 ):
     """Sensor for account ledgers (balances)."""
