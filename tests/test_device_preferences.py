@@ -6,6 +6,7 @@ import pytest
 from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.octopus_french.api.intelligent import (
+    MUTATION_SET_DEVICE_PREFERENCES,
     OctopusIntelligentApiClient,
 )
 from custom_components.octopus_french.coordinator_intelligent import (
@@ -28,6 +29,17 @@ _DAYS_OF_WEEK = [
     "SATURDAY",
     "SUNDAY",
 ]
+
+
+def test_set_device_preferences_declares_correct_graphql_types():
+    """setDevicePreferences doit déclarer deviceId/time/max en ID!/Time!/Decimal! (issue #55).
+
+    Kraken rejette `String!`/`Int!` en HTTP 400 (« used in position expecting type 'ID!' »),
+    ce qui cassait la charge cible / l'heure cible / la recharge rapide.
+    """
+    assert "$deviceId: ID!" in MUTATION_SET_DEVICE_PREFERENCES
+    assert "$time: Time!" in MUTATION_SET_DEVICE_PREFERENCES
+    assert "$max: Decimal!" in MUTATION_SET_DEVICE_PREFERENCES
 
 
 @pytest.fixture

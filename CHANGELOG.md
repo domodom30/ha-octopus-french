@@ -3,6 +3,7 @@
 ### 🐛 Corrections
 
 - **Comptes multi-Linky (issue #56)** : sur un compte à plusieurs contrats/logements, les relevés de consommation sont désormais récupérés sur la **bonne propriété** pour chaque point de livraison. Les données ne sont plus mélangées ni dupliquées entre les deux compteurs.
+- **Recharge Intelligent / charge cible (issue #55)** : la mutation `setDevicePreferences` déclarait des types GraphQL erronés (`String!`/`Int!`), rejetés par l'API (HTTP 400) et masqués en « endpoint injoignable ». Les types corrects (`ID!`/`Time!`/`Decimal!`) sont désormais utilisés — la charge cible, l'heure cible et la recharge rapide refonctionnent.
 
 ---
 

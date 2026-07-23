@@ -61,7 +61,7 @@ query flexPlannedDispatches($deviceId: String!) {
 # Les 7 jours sont écrits en littéral : ce sont des enums GraphQL (pas des valeurs
 # interpolées). Seuls time/max varient et passent par des variables réutilisées.
 MUTATION_SET_DEVICE_PREFERENCES = """
-mutation setDevicePreferences($deviceId: String!, $time: String!, $max: Int!) {
+mutation setDevicePreferences($deviceId: ID!, $time: Time!, $max: Decimal!) {
   setDevicePreferences(input: {
     deviceId: $deviceId
     mode: CHARGE
