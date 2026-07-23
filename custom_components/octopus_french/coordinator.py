@@ -91,7 +91,9 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
         gas_supply_points = supply_points.get("gas", [])
         gas_meter = gas_supply_points[0] if gas_supply_points else None
         gas_meter_id = gas_meter.get("prm") if gas_meter else None
-        gas_property_id = (gas_meter.get("property_id") or account_id) if gas_meter else None
+        gas_property_id = (
+            (gas_meter.get("property_id") or account_id) if gas_meter else None
+        )
 
         now = dt_util.now()
         today_midnight = dt_util.start_of_local_day(now)
