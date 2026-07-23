@@ -93,7 +93,12 @@ def test_extract_supply_points_keeps_parent_property_id(
             "id": "PROP-1",
             "supplyPoints": {
                 "edges": [
-                    {"node": {"externalIdentifier": "PRM_A", "meterPoint": {"meterKind": "SMART"}}}
+                    {
+                        "node": {
+                            "externalIdentifier": "PRM_A",
+                            "meterPoint": {"meterKind": "SMART"},
+                        }
+                    }
                 ]
             },
         },
@@ -101,7 +106,12 @@ def test_extract_supply_points_keeps_parent_property_id(
             "id": "PROP-2",
             "supplyPoints": {
                 "edges": [
-                    {"node": {"externalIdentifier": "PRM_B", "meterPoint": {"meterKind": "SMART"}}}
+                    {
+                        "node": {
+                            "externalIdentifier": "PRM_B",
+                            "meterPoint": {"meterKind": "SMART"},
+                        }
+                    }
                 ]
             },
         },
