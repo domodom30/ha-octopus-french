@@ -61,6 +61,12 @@ class OctopusIntelligentBumpChargeSwitch(
         self._attr_unique_id = f"{DOMAIN}_{device_id}_bump_charge"
         self._attr_has_entity_name = True
         self._attr_translation_key = "bump_charge"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, device_id)},
+            via_device=(DOMAIN, coordinator.account_number),
+            name=device_name,
+            model=device_name,
+        )
         self._update_attrs()
 
     def _get_device_status(self) -> dict[str, Any]:

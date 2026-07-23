@@ -72,6 +72,16 @@ def bump_charge_switch(mock_coordinator):
     )
 
 
+def test_bump_charge_switch_is_attached_to_vehicle_device(bump_charge_switch):
+    """Test that the boost switch appears on the Intelligent vehicle device."""
+    assert bump_charge_switch.device_info == {
+        "identifiers": {("octopus_french", "abc-123")},
+        "via_device": ("octopus_french", "A-XXXX"),
+        "name": "Tesla Model 3",
+        "model": "Tesla Model 3",
+    }
+
+
 @pytest.mark.asyncio
 async def test_bump_charge_switch_on(bump_charge_switch, mock_coordinator):
     """Test turning on bump charge."""
