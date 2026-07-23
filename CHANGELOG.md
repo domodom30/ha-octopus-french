@@ -1,3 +1,11 @@
+## [4.1.0] - 2026-07-23
+
+### ✨ Nouveautés
+
+- **Interrupteur « Contrôle intelligent » (Octopus Intelligent)** : un nouveau switch par véhicule permet de **suspendre ou rétablir le pilotage automatique Octopus**. Contrairement au boost, suspendre le contrôle intelligent n'entraîne pas de coût — cela empêche simplement Octopus d'interrompre une session de charge qu'il n'a pas planifiée.
+
+---
+
 ## [4.0.1] - 2026-07-23
 
 ### 🐛 Corrections
