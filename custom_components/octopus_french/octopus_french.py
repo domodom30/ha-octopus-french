@@ -420,8 +420,6 @@ class OctopusFrenchApiClient:
         self._session = session
         self.token_manager = TokenManager()
         self._auth_lock = asyncio.Lock()
-        # Notifié à chaque rotation du refresh token (None = token invalidé),
-        # pour que l'appelant puisse le persister entre les redémarrages.
         self.on_token_update: Callable[[str | None, float | None], None] | None = None
 
     async def _async_execute(
@@ -748,6 +746,7 @@ class OctopusFrenchApiClient:
 
                 meter_point["prm"] = node.get("externalIdentifier")
                 meter_point["supply_point_id"] = node.get("id")
+                meter_point["property_id"] = prop.get("id")
                 meter_point["market_name"] = node.get("marketName")
 
                 if "meterKind" in meter_point or "distributorStatus" in meter_point:

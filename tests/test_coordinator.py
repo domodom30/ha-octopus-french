@@ -75,6 +75,91 @@ async def test_electricity_scoped_per_prm() -> None:
     assert by_prm["PRM_B"]["index"]["prm"] == "PRM_B"
 
 
+async def test_electricity_readings_use_own_property_id() -> None:
+    """Chaque PRM interroge SA property, pas celle du premier logement (issue #56).
+
+    Deux compteurs sur deux logements (properties) distincts : les relevés du
+    second ne doivent pas être demandés sur la property du premier.
+    """
+    account_data = {
+        "account_id": "PROP-1",
+        "account_number": "ACC-123",
+        "supply_points": {
+            "electricity": [
+                {
+                    "prm": "PRM_A",
+                    "distributorStatus": "SERVC",
+                    "property_id": "PROP-1",
+                },
+                {
+                    "prm": "PRM_B",
+                    "distributorStatus": "SERVC",
+                    "property_id": "PROP-2",
+                },
+            ],
+            "gas": [],
+        },
+        "agreements": [],
+        "ledgers": {},
+    }
+
+    coordinator = _make_coordinator(account_data)
+
+    property_by_prm: dict[str, str] = {}
+
+    async def _readings(
+        property_id: str,
+        start: str,
+        end: str,
+        prm_id: str,
+        **kwargs: Any,
+    ) -> list[dict[str, Any]]:
+        property_by_prm[prm_id] = property_id
+        return [{"prm": prm_id}]
+
+    coordinator.api_client.get_energy_readings.side_effect = _readings
+
+    await coordinator._fetch_all_data()
+
+    assert property_by_prm == {"PRM_A": "PROP-1", "PRM_B": "PROP-2"}
+
+
+async def test_electricity_property_id_falls_back_to_account_id() -> None:
+    """Sans property_id sur le compteur, on retombe sur account_id (compat)."""
+    account_data = {
+        "account_id": "PROP-1",
+        "account_number": "ACC-123",
+        "supply_points": {
+            "electricity": [
+                {"prm": "PRM_A", "distributorStatus": "SERVC"},
+            ],
+            "gas": [],
+        },
+        "agreements": [],
+        "ledgers": {},
+    }
+
+    coordinator = _make_coordinator(account_data)
+
+    seen: dict[str, str] = {}
+
+    async def _readings(
+        property_id: str,
+        start: str,
+        end: str,
+        prm_id: str,
+        **kwargs: Any,
+    ) -> list[dict[str, Any]]:
+        seen[prm_id] = property_id
+        return []
+
+    coordinator.api_client.get_energy_readings.side_effect = _readings
+
+    await coordinator._fetch_all_data()
+
+    assert seen == {"PRM_A": "PROP-1"}
+
+
 async def test_resiliated_supply_point_is_filtered_out() -> None:
     """Un point de livraison résilié (RESIL) est exclu du fetch."""
     account_data = {

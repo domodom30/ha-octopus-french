@@ -17,7 +17,7 @@ from ..utils import get_tariff_rate_for_key
 _LOGGER = logging.getLogger(__name__)
 
 
-class OctopusGasSensor(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+class OctopusGasSensor(
     CoordinatorEntity[OctopusFrenchDataUpdateCoordinator], SensorEntity
 ):
     """Sensor for gas data."""

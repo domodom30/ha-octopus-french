@@ -69,15 +69,8 @@ def parse_off_peak_hours(off_peak_label: str | None) -> dict[str, Any]:
 
 
 def parse_time_slots(time_slots: list[dict[str, Any]]) -> dict[str, Any]:
-    """
-    Convert structured timeSlots from the contract API to the HC schedule format.
+    """Convert structured timeSlots from the contract API to the HC schedule format."""
 
-    Produces the same dict shape as parse_off_peak_hours() so the two sources
-    are interchangeable downstream.  The 'source' key distinguishes them.
-
-    time_slots items are expected to have 'start' and 'end' in HH:MM:SS format,
-    as returned by _extract_tariffs() after mapping startAt/endAt.
-    """
     result: dict[str, Any] = {
         "type": "HC",
         "ranges": [],
@@ -131,11 +124,7 @@ def parse_time_slots(time_slots: list[dict[str, Any]]) -> dict[str, Any]:
 def find_contract_hc_slots(
     data: dict[str, Any], prm_id: str
 ) -> list[dict[str, Any]] | None:
-    """
-    Return the HC timeSlots from the active contract for a given PRM, or None.
-
-    Checks heures_creuses first (HP/HC contract), then any *_hc key (Tempo).
-    """
+    """Return the HC timeSlots from the active contract for a given PRM, or None."""
     for agreement in data.get("agreements", []):
         if agreement.get("prm") != prm_id or not agreement.get("is_active"):
             continue
@@ -193,7 +182,6 @@ def normalize_provider_calendar(meter: dict) -> str:
     if len(codes) == 1:
         return "BASE"
 
-    # Repli : le meter n'expose pas de classes temporelles exploitables.
     calendar_id = (meter.get("providerCalendar") or {}).get("id", "") or ""
     upper = calendar_id.upper()
     if any(kw in upper for kw in TEMPO_PRODUCT_CODE_KEYWORDS):
@@ -202,13 +190,13 @@ def normalize_provider_calendar(meter: dict) -> str:
         return "HPHC"
     if "BASE" in upper:
         return "BASE"
-    return calendar_id  # inconnu → ne rien perdre
+    return calendar_id
 
 
 _RATE_KEY_TO_CONSUMPTION_KEY: dict[str, str] = {
     "rate_base": "base",
     "cost_base": "base",
-    "cost": "base",  # coût gaz (tarif base uniquement)
+    "cost": "base",
     "rate_peak_hours": "heures_pleines",
     "cost_peak_hours": "heures_pleines",
     "rate_off_peak_hours": "heures_creuses",
@@ -231,12 +219,8 @@ _RATE_KEY_TO_CONSUMPTION_KEY: dict[str, str] = {
 def get_tariff_rate_for_key(
     data: dict[str, Any], prm_id: str, key: str
 ) -> float | None:
-    """
-    Retourne le prix TTC (€/kWh) du contrat actif pour une clé de sensor.
+    """Retourne le prix TTC (€/kWh) du contrat actif pour une clé de sensor."""
 
-    Partagé entre les sensors (rate_*, coût mensuel) et l'import de statistiques
-    (fallback quand l'API ne fournit pas costInclTax).
-    """
     consumption_key = _RATE_KEY_TO_CONSUMPTION_KEY.get(key)
     if not consumption_key:
         return None

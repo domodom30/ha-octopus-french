@@ -43,7 +43,6 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
         )
         self.api_client = api_client
         self.account_number = account_number
-        # Renseigné au setup ; les sensors y lisent last_imported_date.
         self.statistics_importer: OctopusStatisticsImporter | None = None
 
     async def _async_update_data(self) -> dict[str, Any]:
@@ -81,8 +80,18 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
         electricity_meter_ids = [
             sp.get("prm") for sp in electricity_supply_points if sp.get("prm")
         ]
+        # Chaque compteur peut vivre sur une property (logement) distincte : on
+        # route chaque PRM vers SA property, sinon les relevés du 2e compteur
+        # seraient demandés sur la property du 1er (issue #56).
+        property_id_by_prm = {
+            sp["prm"]: sp.get("property_id") or account_id
+            for sp in electricity_supply_points
+            if sp.get("prm")
+        }
         gas_supply_points = supply_points.get("gas", [])
-        gas_meter_id = gas_supply_points[0].get("prm") if gas_supply_points else None
+        gas_meter = gas_supply_points[0] if gas_supply_points else None
+        gas_meter_id = gas_meter.get("prm") if gas_meter else None
+        gas_property_id = (gas_meter.get("property_id") or account_id) if gas_meter else None
 
         now = dt_util.now()
         today_midnight = dt_util.start_of_local_day(now)
@@ -96,7 +105,7 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
         async def fetch_electricity_for_prm(prm_id: str) -> tuple[str, list, Any]:
             try:
                 readings = await self.api_client.get_energy_readings(
-                    account_id,
+                    property_id_by_prm.get(prm_id, account_id),
                     electricity_start,
                     date_end,
                     prm_id,
@@ -121,7 +130,7 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
                 return []
             try:
                 return await self.api_client.get_energy_readings(
-                    account_id,
+                    gas_property_id or account_id,
                     gas_start,
                     date_end,
                     gas_meter_id,

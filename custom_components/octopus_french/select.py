@@ -41,7 +41,7 @@ async def async_setup_entry(
         async_add_entities(entities)
 
 
-class OctopusIntelligentTargetTimeSelect(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+class OctopusIntelligentTargetTimeSelect(
     CoordinatorEntity[OctopusIntelligentDataUpdateCoordinator], SelectEntity
 ):
     """Select entity for target charging time (30-minute intervals)."""

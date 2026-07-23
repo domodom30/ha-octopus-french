@@ -40,7 +40,7 @@ async def async_setup_entry(
         async_add_entities(entities)
 
 
-class OctopusIntelligentBumpChargeSwitch(  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+class OctopusIntelligentBumpChargeSwitch(
     CoordinatorEntity[OctopusIntelligentDataUpdateCoordinator], SwitchEntity
 ):
     """Switch for boost charge."""
@@ -90,8 +90,6 @@ class OctopusIntelligentBumpChargeSwitch(  # pyright: ignore[reportIncompatibleV
             self._device_id
         )
         self.coordinator.data["boost_refusal_reasons"] = refusal_reasons
-        # Notifie les listeners même en cas de refus (sinon l'attribut
-        # refusal_reasons resterait figé jusqu'au prochain refresh).
         self.coordinator.async_set_updated_data(self.coordinator.data)
         if refusal_reasons and refusal_reasons != ["BC_BOOST_CHARGE_IN_PROGRESS"]:
             raise HomeAssistantError(

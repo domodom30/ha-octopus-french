@@ -147,7 +147,7 @@ class OctopusFrenchHcBinarySensor(
         }
 
     @property
-    def available(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride] -- Entity.available and CoordinatorEntity.available are defined incompatible
+    def available(self) -> bool:
         """Return True if entity is available."""
         return (
             self.coordinator.last_update_success
