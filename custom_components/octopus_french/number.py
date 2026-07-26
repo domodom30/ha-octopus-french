@@ -1,7 +1,7 @@
 """Number platform for Octopus Intelligent target state of charge."""
 
 from homeassistant.components.number import NumberEntity
-from homeassistant.const import PERCENTAGE
+from homeassistant.const import PERCENTAGE, EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -58,6 +58,7 @@ class OctopusIntelligentTargetSocNumber(
         self._attr_has_entity_name = True
         self._attr_translation_key = "target_soc"
         self._attr_icon = "mdi:battery-charging"
+        self._attr_entity_category = EntityCategory.CONFIG
         self._attr_native_min_value = 0.0
         self._attr_native_max_value = 100.0
         self._attr_native_step = 5.0

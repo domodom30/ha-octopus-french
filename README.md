@@ -875,7 +875,6 @@ automation:
 - 💬 **Discussions** : [GitHub Discussions](https://github.com/domodom30/ha-octopus-french/discussions)
 - 📖 **Documentation** : [Wiki](https://github.com/domodom30/ha-octopus-french/wiki)
 
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/A1V11ZZTPI)
 
 ---
 
@@ -885,4 +884,4 @@ Cette intégration n'est pas officielle et n'est pas affiliée à Octopus Energy
 
 ## Don
 
-[![Support me on Liberapay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/Domodom/donate)
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/A1V11ZZTPI)

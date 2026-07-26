@@ -6,6 +6,7 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -255,6 +256,7 @@ class OctopusIntelligentVehicleStatusSensor(
         self._attr_unique_id = f"{DOMAIN}_{device_id}_vehicle_status"
         self._attr_has_entity_name = True
         self._attr_translation_key = "vehicle_status"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
             via_device=(DOMAIN, coordinator.account_number),
@@ -462,6 +464,7 @@ class OctopusIntelligentPlannedDispatchesSensor(
         self._attr_has_entity_name = True
         self._attr_translation_key = "planned_dispatches"
         self._attr_icon = "mdi:calendar-clock"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
             via_device=(DOMAIN, coordinator.account_number),

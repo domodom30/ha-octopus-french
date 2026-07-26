@@ -1,6 +1,7 @@
 """Select platform for Octopus Intelligent target charging time."""
 
 from homeassistant.components.select import SelectEntity
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -59,6 +60,7 @@ class OctopusIntelligentTargetTimeSelect(
         self._attr_has_entity_name = True
         self._attr_translation_key = "target_time"
         self._attr_icon = "mdi:clock-outline"
+        self._attr_entity_category = EntityCategory.CONFIG
         self._attr_options = TIME_OPTIONS
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},

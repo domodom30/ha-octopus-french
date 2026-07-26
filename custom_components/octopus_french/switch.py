@@ -3,6 +3,7 @@
 from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -151,6 +152,7 @@ class OctopusIntelligentSmartControlSwitch(
         self._attr_unique_id = f"{DOMAIN}_{device_id}_smart_control"
         self._attr_has_entity_name = True
         self._attr_translation_key = "smart_control"
+        self._attr_entity_category = EntityCategory.CONFIG
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
             via_device=(DOMAIN, coordinator.account_number),
