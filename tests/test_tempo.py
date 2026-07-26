@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
+from homeassistant.util import dt as dt_util
 
 from custom_components.octopus_french.const import (
     COST_KEY_TO_LABEL,
@@ -438,7 +439,9 @@ class TestElectricityIndexTempo:
         )
 
         client = OctopusFrenchApiClient.__new__(OctopusFrenchApiClient)
-        today_str = date.today().isoformat()
+        # Date locale HA, pas date.today() : sous pytest-homeassistant-custom-component
+        # le fuseau HA est US/Pacific, donc les deux diffèrent entre 00h et 07h UTC.
+        today_str = dt_util.now().date().isoformat()
 
         with patch.object(
             client,
@@ -459,7 +462,8 @@ class TestElectricityIndexTempo:
         )
 
         client = OctopusFrenchApiClient.__new__(OctopusFrenchApiClient)
-        tomorrow_str = (date.today() + timedelta(days=1)).isoformat()
+        # Idem : la date « demain » doit être calculée dans le fuseau HA.
+        tomorrow_str = (dt_util.now().date() + timedelta(days=1)).isoformat()
 
         with patch.object(
             client,
