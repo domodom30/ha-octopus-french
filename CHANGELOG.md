@@ -1,3 +1,16 @@
+## [4.1.2] - 2026-07-26
+
+### ✨ Conformité HA — Catégories d'entités
+
+Les entités Octopus Intelligent sont désormais rangées dans les sections standard de la fiche appareil :
+
+- **Configuration** : Charge cible, Heure cible, Contrôle intelligent
+- **Diagnostic** : Statut de charge, Fenêtres de charge
+
+Elles n'encombrent plus la vue principale ni les dashboards auto-générés. « Recharge rapide » reste en contrôle principal.
+
+---
+
 ## [4.1.1] - 2026-07-23
 
 ### 🐛 Corrections
