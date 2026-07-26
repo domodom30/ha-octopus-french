@@ -11,10 +11,21 @@ on:
     - cron: "0 0 * * 1" # Tous les lundis à minuit
   workflow_dispatch:
 
+# Lecture seule par défaut ; le job release réhausse en contents: write.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # On annule les runs redondants sur PR uniquement : interrompre un push sur main
+  # pourrait couper le job release entre la création du tag et celle de la release.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   validate:
     name: Validate with hassfest
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: ⤵️ Check out code from GitHub
         uses: actions/checkout@v7
@@ -25,6 +36,7 @@ jobs:
   hacs:
     name: HACS Validation
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: ⤵️ Check out code from GitHub
         uses: actions/checkout@v7
@@ -33,11 +45,12 @@ jobs:
         uses: hacs/action@main
         with:
           category: integration
-          token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
   lint-test:
     name: Lint and Test
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         # 3.14 = runtime Home Assistant (≥ 2026.3 exige Python 3.14.2).
@@ -50,6 +63,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements_test.txt
 
       - name: 📦 Install test dependencies
         run: pip install -r requirements_test.txt
@@ -69,6 +84,7 @@ jobs:
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [validate, hacs, lint-test]
     permissions:
       contents: write
