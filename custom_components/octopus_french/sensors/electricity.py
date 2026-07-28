@@ -21,6 +21,7 @@ from ..coordinator import OctopusFrenchDataUpdateCoordinator
 from ..utils import (
     find_contract_hc_slots,
     get_tariff_rate_for_key,
+    get_tempo_color_for_prm,
     normalize_consumption_label,
     normalize_provider_calendar,
     parse_off_peak_hours,
@@ -857,7 +858,8 @@ class OctopusTempoCurrentRateSensor(
     def _is_currently_hc(self) -> bool:
         """Return True if the current time falls within an HC (off-peak) period."""
         data = self.coordinator.data or {}
-        contract_slots = find_contract_hc_slots(data, self._prm_id)
+        tempo_color = get_tempo_color_for_prm(data, self._prm_id)
+        contract_slots = find_contract_hc_slots(data, self._prm_id, tempo_color)
         if contract_slots:
             schedule = parse_time_slots(contract_slots)
         else:

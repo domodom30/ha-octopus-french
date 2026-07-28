@@ -13,6 +13,29 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+_TEMPO_COLOR_TO_HC_KEY = {
+    "ETE": "tempo_ete_hc",
+    "HIVER": "tempo_hiver_hc",
+    "ROUGE": "tempo_rouge_hc",
+}
+
+_OCTOFLEX_DEFAULT_HC_SLOTS = {
+    # OctoTempo exposes up to 16 off-peak hours in summer.
+    "ETE": [
+        {"start": "00:00:00", "end": "07:00:00"},
+        {"start": "11:00:00", "end": "20:00:00"},
+    ],
+    # Winter/red days expose 10 off-peak hours.
+    "HIVER": [
+        {"start": "00:00:00", "end": "07:00:00"},
+        {"start": "11:00:00", "end": "14:00:00"},
+    ],
+    "ROUGE": [
+        {"start": "00:00:00", "end": "07:00:00"},
+        {"start": "11:00:00", "end": "14:00:00"},
+    ],
+}
+
 
 def parse_off_peak_hours(off_peak_label: str | None) -> dict[str, Any]:
     """Parse off-peak hours label and extract time ranges."""
@@ -122,13 +145,22 @@ def parse_time_slots(time_slots: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def find_contract_hc_slots(
-    data: dict[str, Any], prm_id: str
+    data: dict[str, Any], prm_id: str, tempo_color: str | None = None
 ) -> list[dict[str, Any]] | None:
     """Return the HC timeSlots from the active contract for a given PRM, or None."""
     for agreement in data.get("agreements", []):
         if agreement.get("prm") != prm_id or not agreement.get("is_active"):
             continue
         consumption = (agreement.get("tariffs") or {}).get("consumption", {})
+
+        if tempo_color:
+            hc_key = _TEMPO_COLOR_TO_HC_KEY.get(tempo_color.upper())
+            if (
+                hc_key
+                and (rate := consumption.get(hc_key))
+                and (slots := rate.get("time_slots"))
+            ):
+                return slots
 
         hc_rate = consumption.get("heures_creuses") or {}
         if slots := hc_rate.get("time_slots"):
@@ -142,7 +174,20 @@ def find_contract_hc_slots(
             ):
                 return slots
 
+        product_code = ((agreement.get("product") or {}).get("code") or "").upper()
+        if any(kw in product_code for kw in TEMPO_PRODUCT_CODE_KEYWORDS):
+            color = (tempo_color or "").upper()
+            if slots := _OCTOFLEX_DEFAULT_HC_SLOTS.get(color):
+                return slots
+
     return None
+
+
+def get_tempo_color_for_prm(data: dict[str, Any], prm_id: str) -> str | None:
+    """Return the current Tempo color for a PRM from index data."""
+    index_data = data.get("electricity_by_prm", {}).get(prm_id, {}).get("index") or {}
+    color = index_data.get("tempo_color")
+    return color if isinstance(color, str) else None
 
 
 def normalize_consumption_label(label: str) -> str:

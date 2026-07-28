@@ -17,7 +17,12 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .coordinator import OctopusFrenchDataUpdateCoordinator
-from .utils import find_contract_hc_slots, parse_off_peak_hours, parse_time_slots
+from .utils import (
+    find_contract_hc_slots,
+    get_tempo_color_for_prm,
+    parse_off_peak_hours,
+    parse_time_slots,
+)
 
 PARALLEL_UPDATES = 0
 
@@ -123,7 +128,8 @@ class OctopusFrenchHcBinarySensor(
         """
         data = self.coordinator.data or {}
 
-        if contract_slots := find_contract_hc_slots(data, self._prm_id):
+        tempo_color = get_tempo_color_for_prm(data, self._prm_id)
+        if contract_slots := find_contract_hc_slots(data, self._prm_id, tempo_color):
             schedule = parse_time_slots(contract_slots)
             if schedule["range_count"] > 0:
                 return schedule
