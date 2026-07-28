@@ -172,20 +172,20 @@ class TestFindContractHcSlots:
 
         assert schedule["ranges"] == [
             {
-                "start": "00:00",
+                "start": "21:00",
                 "end": "07:00",
-                "start_minutes": 0,
+                "start_minutes": 1260,
                 "end_minutes": 420,
-                "duration_minutes": 420,
-                "duration_hours": 7.0,
+                "duration_minutes": 600,
+                "duration_hours": 10.0,
             },
             {
                 "start": "11:00",
-                "end": "20:00",
+                "end": "17:00",
                 "start_minutes": 660,
-                "end_minutes": 1200,
-                "duration_minutes": 540,
-                "duration_hours": 9.0,
+                "end_minutes": 1020,
+                "duration_minutes": 360,
+                "duration_hours": 6.0,
             },
         ]
         assert schedule["total_hours"] == 16.0

@@ -20,20 +20,14 @@ _TEMPO_COLOR_TO_HC_KEY = {
 }
 
 _OCTOFLEX_DEFAULT_HC_SLOTS = {
-    # OctoTempo exposes up to 16 off-peak hours in summer.
+    # OctoTempo exposes 16 off-peak hours in summer: 21:00-07:00 and 11:00-17:00.
     "ETE": [
-        {"start": "00:00:00", "end": "07:00:00"},
-        {"start": "11:00:00", "end": "20:00:00"},
+        {"start": "21:00:00", "end": "07:00:00"},
+        {"start": "11:00:00", "end": "17:00:00"},
     ],
-    # Winter/red days expose 10 off-peak hours.
-    "HIVER": [
-        {"start": "00:00:00", "end": "07:00:00"},
-        {"start": "11:00:00", "end": "14:00:00"},
-    ],
-    "ROUGE": [
-        {"start": "00:00:00", "end": "07:00:00"},
-        {"start": "11:00:00", "end": "14:00:00"},
-    ],
+    # Winter/red days expose 10 off-peak hours: 21:00-07:00.
+    "HIVER": [{"start": "21:00:00", "end": "07:00:00"}],
+    "ROUGE": [{"start": "21:00:00", "end": "07:00:00"}],
 }
 
 
