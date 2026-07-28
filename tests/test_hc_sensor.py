@@ -146,6 +146,50 @@ class TestFindContractHcSlots:
         result = find_contract_hc_slots(data, "PRM1")
         assert result == slots
 
+    def test_octoflex_fallback_uses_tempo_color_schedule(self):
+        """OctoTempo ne doit pas retomber sur offPeakLabel si le contrat n'a pas de timeSlots."""
+        data = {
+            "agreements": [
+                {
+                    "prm": "PRM1",
+                    "is_active": True,
+                    "product": {"code": "OCTOFLEX_4"},
+                    "tariffs": {
+                        "consumption": {
+                            "tempo_ete_hp": {"price_ttc": 0.1575},
+                            "tempo_ete_hc": {"price_ttc": 0.1325},
+                        }
+                    },
+                }
+            ],
+            "supply_points": {
+                "electricity": [{"id": "PRM1", "offPeakLabel": "HC (22H00-6H00)"}]
+            },
+        }
+
+        slots = find_contract_hc_slots(data, "PRM1", tempo_color="ETE")
+        schedule = parse_time_slots(slots or [])
+
+        assert schedule["ranges"] == [
+            {
+                "start": "00:00",
+                "end": "07:00",
+                "start_minutes": 0,
+                "end_minutes": 420,
+                "duration_minutes": 420,
+                "duration_hours": 7.0,
+            },
+            {
+                "start": "11:00",
+                "end": "20:00",
+                "start_minutes": 660,
+                "end_minutes": 1200,
+                "duration_minutes": 540,
+                "duration_hours": 9.0,
+            },
+        ]
+        assert schedule["total_hours"] == 16.0
+
     def test_contract_preferred_over_linky(self):
         """find_contract_hc_slots retourne les slots contrat même si offPeakLabel existe."""
         slots = [{"start": "22:00:00", "end": "06:00:00"}]

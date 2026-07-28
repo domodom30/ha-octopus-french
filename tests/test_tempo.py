@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
+from zoneinfo import ZoneInfo
 
 import pytest
 from homeassistant.util import dt as dt_util
@@ -13,7 +14,10 @@ from custom_components.octopus_french.const import (
     TARIFF_TYPE_TEMPO,
     TEMPO_STATISTICS_LABELS,
 )
-from custom_components.octopus_french.octopus_french import OctopusFrenchApiClient
+from custom_components.octopus_french.octopus_french import (
+    QUERY_GET_ACCOUNT_DATA,
+    OctopusFrenchApiClient,
+)
 from custom_components.octopus_french.sensor import _detect_tariff_type_for_meter
 from custom_components.octopus_french.sensors.descriptions import TEMPO_SENSORS
 from custom_components.octopus_french.sensors.electricity import (
@@ -161,6 +165,16 @@ class TestDetectTariffTypeTempo:
 
 class TestExtractTariffsTempo:
     """Tests pour l'extraction des 6 taux OctoTempo depuis l'API."""
+
+    def test_account_query_requests_consumption_rate_temporal_class(self) -> None:
+        """La requête doit demander temporalClass pour mapper les taux OctoTempo."""
+        consumption_rates_block = QUERY_GET_ACCOUNT_DATA.split(
+            "consumptionRates(first: 10)"
+        )[1].split("billingFrequency", 1)[0]
+
+        assert "temporalClass" in consumption_rates_block
+        assert "code" in consumption_rates_block
+        assert "registerId" in consumption_rates_block
 
     def _make_api_client(self) -> OctopusFrenchApiClient:
         """Créer un client API factice."""
@@ -574,6 +588,22 @@ class TestTempoCurrentRateSensor:
         assert attrs["tempo_color"] == "HIVER"
         assert attrs["period_type"] == "HP"
         assert attrs["prm_id"] == "TEST_PRM"
+
+    def test_octoflex_summer_daytime_uses_hc_rate_without_contract_slots(self) -> None:
+        """OctoTempo été utilise la plage HC de journée même sans timeSlots API."""
+        coordinator = self._make_coordinator("ETE", "tempo_ete_hc", 0.1325)
+        coordinator.data["agreements"][0]["product"] = {"code": "OCTOFLEX_4"}
+        coordinator.data["supply_points"] = {
+            "electricity": [{"prm": "TEST_PRM", "offPeakLabel": "HC (22H00-6H00)"}]
+        }
+        sensor = self._make_sensor(coordinator)
+
+        with patch(
+            "custom_components.octopus_french.sensors.electricity.dt_util.now",
+            return_value=datetime(2026, 7, 28, 13, 0, tzinfo=ZoneInfo("Europe/Paris")),
+        ):
+            assert sensor._compute_native_value() == pytest.approx(0.1325)
+            assert sensor._compute_attributes()["period_type"] == "HC"
 
 
 class TestCostToConsumptionLabel:
