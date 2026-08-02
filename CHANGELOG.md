@@ -1,3 +1,9 @@
+## [4.1.3] - 2026-08-02
+
+### 🐛 Corrections
+
+Fix : [68](https://github.com/domodom30/ha-octopus-french/issues/68)
+
 ## [4.1.2] - 2026-07-26
 
 ### ✨ Conformité HA — Catégories d'entités
