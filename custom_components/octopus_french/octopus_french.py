@@ -185,11 +185,9 @@ query getAccountData($accountNumber: String!, $activeAt: DateTime!) {
                   pricePerUnitWithTaxes
                   validFrom
                   validTo
-                  temporalClass {
-                    code
-                    label
-                    registerId
-                  }
+                  # NE PAS ajouter temporalClass ici : le champ n'existe pas sur
+                  # SupplyConsumptionRateType et fait échouer toute la requête
+                  # (HTTP 400). Régression déjà vue en 3.3.0 puis en 4.1.3.
                   timeSlots {
                     startAt
                     endAt
