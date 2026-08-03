@@ -19,16 +19,16 @@ _TEMPO_COLOR_TO_HC_KEY = {
     "ROUGE": "tempo_rouge_hc",
 }
 
-_OCTOFLEX_DEFAULT_HC_SLOTS = {
-    # OctoTempo exposes 16 off-peak hours in summer: 21:00-07:00 and 11:00-17:00.
-    "ETE": [
-        {"start": "21:00:00", "end": "07:00:00"},
-        {"start": "11:00:00", "end": "17:00:00"},
-    ],
-    # Winter/red days expose 10 off-peak hours: 21:00-07:00.
-    "HIVER": [{"start": "21:00:00", "end": "07:00:00"}],
-    "ROUGE": [{"start": "21:00:00", "end": "07:00:00"}],
+# Code de la classe temporelle HC du calendrier fournisseur, par couleur Tempo.
+_TEMPO_COLOR_TO_HC_TEMPORAL_CODE = {
+    "ETE": "HCE",
+    "HIVER": "HCHI",
+    "ROUGE": "HCP",
 }
+
+# PRM pour lesquels le repli sur offPeakLabel a déjà été signalé, pour ne pas
+# répéter l'avertissement à chaque rafraîchissement du coordinator.
+_LINKY_FALLBACK_WARNED: set[str] = set()
 
 
 def parse_off_peak_hours(off_peak_label: str | None) -> dict[str, Any]:
@@ -168,13 +168,106 @@ def find_contract_hc_slots(
             ):
                 return slots
 
-        product_code = ((agreement.get("product") or {}).get("code") or "").upper()
-        if any(kw in product_code for kw in TEMPO_PRODUCT_CODE_KEYWORDS):
-            color = (tempo_color or "").upper()
-            if slots := _OCTOFLEX_DEFAULT_HC_SLOTS.get(color):
-                return slots
+    return None
+
+
+def _find_electricity_meter(data: dict[str, Any], prm_id: str) -> dict[str, Any] | None:
+    """Retourne le compteur électrique correspondant au PRM, ou None."""
+    for meter in data.get("supply_points", {}).get("electricity", []):
+        if meter.get("prm") == prm_id:
+            return meter
+    return None
+
+
+def find_calendar_hc_ranges(
+    data: dict[str, Any], prm_id: str, tempo_color: str | None = None
+) -> dict[str, Any] | None:
+    """
+    Dérive les plages HC depuis le calendrier fournisseur du compteur.
+
+    Chaque classe temporelle de `providerCalendar` porte ses horaires dans son
+    champ `description` (ex. `"0H50-6H50;14H50-16H50"`). Un contrat OctoTempo
+    expose une classe HC par couleur (HCE / HCHI / HCP), ce qui donne la plage
+    réellement souscrite sans avoir à la deviner.
+
+    Renvoie None si la description est absente ou illisible.
+    """
+    meter = _find_electricity_meter(data, prm_id)
+    if not meter:
+        return None
+
+    wanted = _TEMPO_COLOR_TO_HC_TEMPORAL_CODE.get((tempo_color or "").upper(), "HC")
+    for temporal_class in meter.get("provider_temporal_classes") or []:
+        if (temporal_class.get("code") or "").upper() != wanted:
+            continue
+        schedule = parse_off_peak_hours(temporal_class.get("description"))
+        if schedule["range_count"] > 0:
+            schedule["type"] = "HC"
+            schedule["source"] = "calendar"
+            return schedule
+        return None
 
     return None
+
+
+def _is_tempo_contract(data: dict[str, Any], prm_id: str) -> bool:
+    """Indique si le PRM est sur un contrat Tempo (produit ou classes temporelles)."""
+    for agreement in data.get("agreements", []):
+        if agreement.get("prm") != prm_id or not agreement.get("is_active"):
+            continue
+        product_code = ((agreement.get("product") or {}).get("code") or "").upper()
+        if any(kw in product_code for kw in TEMPO_PRODUCT_CODE_KEYWORDS):
+            return True
+
+    meter = _find_electricity_meter(data, prm_id) or {}
+    codes = {
+        (tc.get("code") or "").upper()
+        for tc in meter.get("provider_temporal_classes") or []
+    }
+    return bool(codes & TEMPO_TEMPORAL_CLASS_CODES)
+
+
+def resolve_hc_schedule(
+    data: dict[str, Any], prm_id: str, tempo_color: str | None = None
+) -> dict[str, Any]:
+    """
+    Retourne les plages HC applicables au PRM, avec leur provenance.
+
+    Sources par ordre de fiabilité décroissante, exposées via la clé `source` :
+    `contract` (créneaux du taux souscrit), `calendar` (description de la classe
+    temporelle du calendrier fournisseur), `linky` (offPeakLabel du compteur,
+    qui ne connaît qu'un seul jeu de plages) et `none`.
+    """
+    if contract_slots := find_contract_hc_slots(data, prm_id, tempo_color):
+        schedule = parse_time_slots(contract_slots)
+        if schedule["range_count"] > 0:
+            return schedule
+
+    if schedule := find_calendar_hc_ranges(data, prm_id, tempo_color):
+        return schedule
+
+    meter = _find_electricity_meter(data, prm_id) or {}
+    if off_peak_label := meter.get("offPeakLabel"):
+        schedule = parse_off_peak_hours(off_peak_label)
+        schedule["source"] = "linky"
+        if _is_tempo_contract(data, prm_id) and prm_id not in _LINKY_FALLBACK_WARNED:
+            _LINKY_FALLBACK_WARNED.add(prm_id)
+            _LOGGER.warning(
+                "PRM %s : contrat Tempo sans plages HC exploitables côté contrat "
+                "ni calendrier fournisseur — repli sur offPeakLabel Linky ('%s'), "
+                "qui ignore les plages HC de journée propres à chaque couleur",
+                prm_id,
+                off_peak_label,
+            )
+        return schedule
+
+    return {
+        "type": None,
+        "ranges": [],
+        "total_hours": 0.0,
+        "range_count": 0,
+        "source": "none",
+    }
 
 
 def get_tempo_color_for_prm(data: dict[str, Any], prm_id: str) -> str | None:

@@ -174,9 +174,11 @@ class TestExtractTariffsTempo:
         Régression déjà survenue en 3.3.0 puis en 4.1.3 : le champ y avait été
         ajouté, ce qui faisait rejeter toute la requête getAccountData.
         """
+        # temporalClass est légitime dans le bloc `rates` qui suit : on borne le
+        # découpage à consumptionRates seul.
         consumption_rates_block = QUERY_GET_ACCOUNT_DATA.split(
             "consumptionRates(first: 10)"
-        )[1].split("billingFrequency", 1)[0]
+        )[1].split("rates(first: 20)", 1)[0]
         # Le garde-fou en commentaire dans la requête mentionne le champ : on ne
         # regarde que les lignes réellement envoyées à l'API.
         queried_fields = "\n".join(
@@ -191,27 +193,116 @@ class TestExtractTariffsTempo:
         """Créer un client API factice."""
         return OctopusFrenchApiClient.__new__(OctopusFrenchApiClient)
 
-    def _make_consumption_rates(
-        self, prices: list[float], codes: list[str] | None = None
-    ) -> dict:
+    def _make_consumption_rates(self, prices: list[float]) -> dict:
         """
-        Construit une réponse consumptionRates avec les prix indiqués.
+        Construit une réponse `consumptionRates` avec les prix indiqués.
 
-        Si `codes` est fourni, chaque taux porte un temporalClass.code (mapping
-        fiable par code) ; sinon le fallback par ordre de prix est emprunté.
+        Ce champ n'expose jamais temporalClass (le demander déclenche un
+        HTTP 400) : ces taux empruntent donc le fallback par ordre de prix.
+        Pour le mapping par code, voir `_make_rates`.
         """
-        edges = []
-        for i, p in enumerate(prices):
-            node: dict = {
-                "pricePerUnit": str(p * 100),
-                "pricePerUnitWithTaxes": str(p * 100),
-                "currency": "EUR",
-                "unitType": "kWh",
+        edges = [
+            {
+                "node": {
+                    "pricePerUnit": str(p * 100),
+                    "pricePerUnitWithTaxes": str(p * 100),
+                    "currency": "EUR",
+                    "unitType": "kWh",
+                }
             }
-            if codes is not None:
-                node["temporalClass"] = {"code": codes[i]}
-            edges.append({"node": node})
+            for p in prices
+        ]
         return {"standingRate": None, "consumptionRates": {"edges": edges}}
+
+    def _make_rates(self, rates: list[tuple[float, str, str]]) -> dict:
+        """
+        Construit une réponse `rates` telle que renvoyée par l'API.
+
+        Chaque entrée est (prix, code de classe temporelle, description horaire),
+        au format réel d'`ElectricitySupplyConsumptionRateType`.
+        """
+        edges = [
+            {
+                "node": {
+                    "__typename": "ElectricitySupplyConsumptionRateType",
+                    "pricePerUnit": str(price * 100),
+                    "pricePerUnitWithTaxes": str(price * 100),
+                    "currency": "EURO_CENTS",
+                    "unitType": "KWH_CONSUMPION",
+                    "timeSlots": [],
+                    "temporalClass": {
+                        "code": code,
+                        "label": code,
+                        "description": description,
+                        "registerId": 1,
+                    },
+                }
+            }
+            for price, code, description in rates
+        ]
+        return {"standingRate": None, "rates": {"edges": edges}}
+
+    def test_rates_map_tempo_keys_by_code(self) -> None:
+        """Les 6 taux OctoTempo sont mappés par temporalClass.code, pas par prix."""
+        client = self._make_api_client()
+        # Prix volontairement désordonnés : un mapping par prix se tromperait.
+        energy_rate = self._make_rates(
+            [
+                (0.60, "HPP", ""),
+                (0.10, "HCE", "21H00-7H00;11H00-17H00"),
+                (0.16, "HPE", ""),
+                (0.40, "HCP", "2H00-6H00"),
+                (0.20, "HPHI", ""),
+                (0.12, "HCHI", "21H00-7H00"),
+            ]
+        )
+        consumption = client._extract_tariffs(energy_rate)["consumption"]
+
+        assert consumption["tempo_rouge_hp"]["price_ttc"] == pytest.approx(0.60)
+        assert consumption["tempo_ete_hc"]["price_ttc"] == pytest.approx(0.10)
+        assert consumption["tempo_rouge_hc"]["price_ttc"] == pytest.approx(0.40)
+        assert consumption["tempo_hiver_hc"]["price_ttc"] == pytest.approx(0.12)
+
+    def test_rates_carry_temporal_class_description(self) -> None:
+        """La description horaire de la classe est conservée sur le taux."""
+        client = self._make_api_client()
+        energy_rate = self._make_rates([(0.10, "HCE", "21H00-7H00;11H00-17H00")])
+        consumption = client._extract_tariffs(energy_rate)["consumption"]
+
+        assert (
+            consumption["tempo_ete_hc"]["temporal_class_description"]
+            == "21H00-7H00;11H00-17H00"
+        )
+
+    def test_rates_ignore_standing_rate_nodes(self) -> None:
+        """Un éventuel nœud d'abonnement dans `rates` n'est pas pris pour un taux kWh."""
+        client = self._make_api_client()
+        energy_rate = self._make_rates([(0.10, "HC", "0H50-6H50")])
+        energy_rate["rates"]["edges"].insert(
+            0,
+            {
+                "node": {
+                    "__typename": "ElectricityStandingRateType",
+                    "pricePerUnit": "5000",
+                    "pricePerUnitWithTaxes": "6000",
+                    "currency": "EURO_CENTS",
+                    "unitType": "DAY",
+                }
+            },
+        )
+        consumption = client._extract_tariffs(energy_rate)["consumption"]
+
+        assert consumption["heures_creuses"]["price_ttc"] == pytest.approx(0.10)
+        assert "base" not in consumption
+
+    def test_consumption_rates_used_when_rates_absent(self) -> None:
+        """Sans `rates`, l'extraction retombe sur `consumptionRates`."""
+        client = self._make_api_client()
+        energy_rate = self._make_consumption_rates([0.20, 0.10])
+        consumption = client._extract_tariffs(energy_rate)["consumption"]
+
+        assert consumption["heures_pleines"]["price_ttc"] == pytest.approx(0.20)
+        assert consumption["heures_creuses"]["price_ttc"] == pytest.approx(0.10)
 
     def test_six_rates_assigns_tempo_keys(self) -> None:
         """Avec 6 taux, les clés Tempo doivent être présentes dans consumption."""
@@ -266,12 +357,24 @@ class TestExtractTariffsTempo:
         assert consumption["tempo_rouge_hc"]["price_ttc"] == pytest.approx(0.1575)
 
     def test_mapping_by_temporal_class_code_ignores_price_order(self) -> None:
-        """Avec temporalClass.code, l'affectation est déterministe (pas par prix)."""
+        """
+        Non-régression issue #37 : l'affectation suit temporalClass.code, pas le prix.
+
+        Grille réelle de l'issue, dans le désordre. Le mapping par code n'est
+        atteignable que via `rates` : `consumptionRates` n'expose pas
+        temporalClass, et le demander à cet endroit casse toute la requête.
+        """
         client = self._make_api_client()
-        # Prix volontairement dans le désordre ; les codes font foi.
-        prices = [0.1871, 0.1575, 0.1296, 0.7562, 0.1486, 0.1609]
-        codes = ["HPHI", "HCP", "HCE", "HPP", "HCHI", "HPE"]
-        energy_rate = self._make_consumption_rates(prices, codes=codes)
+        energy_rate = self._make_rates(
+            [
+                (0.1871, "HPHI", ""),
+                (0.1575, "HCP", "2H00-6H00"),
+                (0.1296, "HCE", "21H00-7H00;11H00-17H00"),
+                (0.7562, "HPP", ""),
+                (0.1486, "HCHI", "21H00-7H00"),
+                (0.1609, "HPE", ""),
+            ]
+        )
         consumption = client._extract_tariffs(energy_rate)["consumption"]
 
         assert consumption["tempo_hiver_hp"]["price_ttc"] == pytest.approx(0.1871)
@@ -600,12 +703,25 @@ class TestTempoCurrentRateSensor:
         assert attrs["period_type"] == "HP"
         assert attrs["prm_id"] == "TEST_PRM"
 
-    def test_octoflex_summer_daytime_uses_hc_rate_without_contract_slots(self) -> None:
-        """OctoTempo été utilise la plage HC de journée même sans timeSlots API."""
+    def test_octoflex_summer_daytime_uses_calendar_hc_range(self) -> None:
+        """OctoTempo été : la plage HC de journée vient du calendrier fournisseur.
+
+        offPeakLabel n'expose qu'une seule plage nocturne et donnerait HP à 13h ;
+        la description de la classe HCE porte la vraie plage 11H-17H.
+        """
         coordinator = self._make_coordinator("ETE", "tempo_ete_hc", 0.1325)
-        coordinator.data["agreements"][0]["product"] = {"code": "OCTOFLEX_4"}
+        coordinator.data["agreements"][0]["product"] = {"code": "OCTOFLEX_4_V4"}
         coordinator.data["supply_points"] = {
-            "electricity": [{"prm": "TEST_PRM", "offPeakLabel": "HC (22H00-6H00)"}]
+            "electricity": [
+                {
+                    "prm": "TEST_PRM",
+                    "offPeakLabel": "HC (22H00-6H00)",
+                    "provider_temporal_classes": [
+                        {"code": "HCE", "description": "21H00-7H00;11H00-17H00"},
+                        {"code": "HPE", "description": ""},
+                    ],
+                }
+            ]
         }
         sensor = self._make_sensor(coordinator)
 
@@ -614,7 +730,10 @@ class TestTempoCurrentRateSensor:
             return_value=datetime(2026, 7, 28, 13, 0, tzinfo=ZoneInfo("Europe/Paris")),
         ):
             assert sensor._compute_native_value() == pytest.approx(0.1325)
-            assert sensor._compute_attributes()["period_type"] == "HC"
+            attrs = sensor._compute_attributes()
+
+        assert attrs["period_type"] == "HC"
+        assert attrs["hc_source"] == "calendar"
 
 
 class TestCostToConsumptionLabel:

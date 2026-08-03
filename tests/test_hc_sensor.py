@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from custom_components.octopus_french.utils import (
+    find_calendar_hc_ranges,
     find_contract_hc_slots,
     parse_time_slots,
+    resolve_hc_schedule,
 )
 
 
@@ -146,50 +148,6 @@ class TestFindContractHcSlots:
         result = find_contract_hc_slots(data, "PRM1")
         assert result == slots
 
-    def test_octoflex_fallback_uses_tempo_color_schedule(self):
-        """OctoTempo ne doit pas retomber sur offPeakLabel si le contrat n'a pas de timeSlots."""
-        data = {
-            "agreements": [
-                {
-                    "prm": "PRM1",
-                    "is_active": True,
-                    "product": {"code": "OCTOFLEX_4"},
-                    "tariffs": {
-                        "consumption": {
-                            "tempo_ete_hp": {"price_ttc": 0.1575},
-                            "tempo_ete_hc": {"price_ttc": 0.1325},
-                        }
-                    },
-                }
-            ],
-            "supply_points": {
-                "electricity": [{"id": "PRM1", "offPeakLabel": "HC (22H00-6H00)"}]
-            },
-        }
-
-        slots = find_contract_hc_slots(data, "PRM1", tempo_color="ETE")
-        schedule = parse_time_slots(slots or [])
-
-        assert schedule["ranges"] == [
-            {
-                "start": "21:00",
-                "end": "07:00",
-                "start_minutes": 1260,
-                "end_minutes": 420,
-                "duration_minutes": 600,
-                "duration_hours": 10.0,
-            },
-            {
-                "start": "11:00",
-                "end": "17:00",
-                "start_minutes": 660,
-                "end_minutes": 1020,
-                "duration_minutes": 360,
-                "duration_hours": 6.0,
-            },
-        ]
-        assert schedule["total_hours"] == 16.0
-
     def test_contract_preferred_over_linky(self):
         """find_contract_hc_slots retourne les slots contrat même si offPeakLabel existe."""
         slots = [{"start": "22:00:00", "end": "06:00:00"}]
@@ -200,3 +158,144 @@ class TestFindContractHcSlots:
         )
         result = find_contract_hc_slots(data, "PRM1")
         assert result == slots
+
+
+def _make_calendar_data(
+    prm: str,
+    temporal_classes: list[dict],
+    off_peak_label: str | None = None,
+    product_code: str = "OCTOFLEX_4_V4",
+) -> dict:
+    """coordinator.data avec un calendrier fournisseur, sans timeSlots contrat."""
+    return {
+        "supply_points": {
+            "electricity": [
+                {
+                    "prm": prm,
+                    "offPeakLabel": off_peak_label,
+                    "provider_temporal_classes": temporal_classes,
+                }
+            ]
+        },
+        "agreements": [
+            {
+                "prm": prm,
+                "is_active": True,
+                "product": {"code": product_code},
+                "tariffs": {"consumption": {}},
+            }
+        ],
+    }
+
+
+# Classes temporelles d'un contrat OctoTempo : une description par couleur.
+_OCTOTEMPO_CLASSES = [
+    {"code": "HPE", "label": "HP Été", "description": ""},
+    {"code": "HCE", "label": "HC Été", "description": "21H00-7H00;11H00-17H00"},
+    {"code": "HPHI", "label": "HP Hiver", "description": ""},
+    {"code": "HCHI", "label": "HC Hiver", "description": "21H00-7H00"},
+    {"code": "HPP", "label": "HP Rouge", "description": ""},
+    {"code": "HCP", "label": "HC Rouge", "description": "2H00-6H00"},
+]
+
+
+class TestFindCalendarHcRanges:
+    """Les plages HC dérivées de providerCalendar.temporalClasses[].description."""
+
+    def test_hphc_classic(self):
+        """Format réel d'un compteur HP/HC : deux plages séparées par ';'."""
+        data = _make_calendar_data(
+            "PRM1",
+            [
+                {"code": "HC", "label": "Heures creuses", "description": "0H50-6H50"},
+                {"code": "HP", "label": "Heures Pleines", "description": ""},
+            ],
+            product_code="ECO_CONSO_FIXE_3",
+        )
+        schedule = find_calendar_hc_ranges(data, "PRM1")
+
+        assert schedule is not None
+        assert schedule["source"] == "calendar"
+        assert schedule["type"] == "HC"
+        assert schedule["ranges"][0]["start"] == "00:50"
+        assert schedule["ranges"][0]["end"] == "06:50"
+        assert schedule["total_hours"] == 6.0
+
+    def test_tempo_color_selects_matching_class(self):
+        """Chaque couleur lit la description de SA classe HC (HCE/HCHI/HCP)."""
+        data = _make_calendar_data("PRM1", _OCTOTEMPO_CLASSES)
+
+        ete = find_calendar_hc_ranges(data, "PRM1", tempo_color="ETE")
+        assert ete is not None
+        assert [(r["start"], r["end"]) for r in ete["ranges"]] == [
+            ("21:00", "07:00"),
+            ("11:00", "17:00"),
+        ]
+        assert ete["total_hours"] == 16.0
+
+        hiver = find_calendar_hc_ranges(data, "PRM1", tempo_color="HIVER")
+        assert hiver is not None
+        assert [(r["start"], r["end"]) for r in hiver["ranges"]] == [("21:00", "07:00")]
+
+        rouge = find_calendar_hc_ranges(data, "PRM1", tempo_color="ROUGE")
+        assert rouge is not None
+        assert [(r["start"], r["end"]) for r in rouge["ranges"]] == [("02:00", "06:00")]
+
+    def test_empty_description_returns_none(self):
+        """Une description vide ne produit aucune plage inventée."""
+        data = _make_calendar_data(
+            "PRM1", [{"code": "HCE", "label": "HC Été", "description": ""}]
+        )
+        assert find_calendar_hc_ranges(data, "PRM1", tempo_color="ETE") is None
+
+    def test_unknown_prm_returns_none(self):
+        """Un PRM absent des supply points renvoie None."""
+        data = _make_calendar_data("PRM1", _OCTOTEMPO_CLASSES)
+        assert find_calendar_hc_ranges(data, "PRM_AUTRE", tempo_color="ETE") is None
+
+
+class TestResolveHcSchedule:
+    """Ordre de priorité contrat → calendrier → linky → none."""
+
+    def test_contract_wins(self):
+        """Les créneaux du contrat priment sur le calendrier et sur Linky."""
+        data = _make_calendar_data(
+            "PRM1", _OCTOTEMPO_CLASSES, off_peak_label="HC (22H00-6H00)"
+        )
+        data["agreements"][0]["tariffs"]["consumption"]["tempo_ete_hc"] = {
+            "time_slots": [{"start": "01:00:00", "end": "05:00:00"}]
+        }
+
+        schedule = resolve_hc_schedule(data, "PRM1", tempo_color="ETE")
+        assert schedule["source"] == "contract"
+        assert [(r["start"], r["end"]) for r in schedule["ranges"]] == [
+            ("01:00", "05:00")
+        ]
+
+    def test_calendar_used_when_contract_has_no_slots(self):
+        """Sans timeSlots contrat, on lit le calendrier — pas offPeakLabel."""
+        data = _make_calendar_data(
+            "PRM1", _OCTOTEMPO_CLASSES, off_peak_label="HC (22H00-6H00)"
+        )
+
+        schedule = resolve_hc_schedule(data, "PRM1", tempo_color="ETE")
+        assert schedule["source"] == "calendar"
+        assert schedule["total_hours"] == 16.0
+
+    def test_linky_last_resort(self):
+        """Sans contrat ni calendrier exploitable, on retombe sur offPeakLabel."""
+        data = _make_calendar_data("PRM1", [], off_peak_label="HC (22H00-6H00)")
+
+        schedule = resolve_hc_schedule(data, "PRM1", tempo_color="ETE")
+        assert schedule["source"] == "linky"
+        assert [(r["start"], r["end"]) for r in schedule["ranges"]] == [
+            ("22:00", "06:00")
+        ]
+
+    def test_none_when_no_source(self):
+        """Aucune source exploitable : plage vide, l'entité devient indisponible."""
+        data = _make_calendar_data("PRM1", [], off_peak_label=None)
+
+        schedule = resolve_hc_schedule(data, "PRM1", tempo_color="ETE")
+        assert schedule["source"] == "none"
+        assert schedule["range_count"] == 0

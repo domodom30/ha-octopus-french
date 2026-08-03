@@ -1,8 +1,45 @@
+## [4.1.4] - 2026-08-03
+
+### 🚨 Correction bloquante — Plus aucune donnée récupérée en 4.1.3
+
+La 4.1.3 demandait le champ `temporalClass` sur le nœud `consumptionRates`, où il n'existe pas. L'API rejetait **toute** la requête `getAccountData` :
+
+```
+HTTP 400 — Cannot query field 'temporalClass' on type 'SupplyConsumptionRateType'
+```
+
+Comptes, contrats, tarifs et points de livraison devenaient inaccessibles. Le champ est retiré, un commentaire de garde-fou est posé dans la requête et un test dédié empêche sa réintroduction — la même régression était déjà survenue en 3.3.0, corrigée en 3.3.1.
+
+### 🐛 Correction — Inversion des tarifs Tempo Hiver HP / Rouge HC (issue [#37](https://github.com/domodom30/ha-octopus-french/issues/37))
+
+Le correctif annoncé en 3.2.7 était **inopérant depuis son annulation en 3.3.1** : le bloc `temporalClass` ayant été retiré de `consumptionRates` pour lever le HTTP 400, le mapping des taux reposait depuis lors uniquement sur le tri par ordre de prix — juste tant que la grille conserve l'ordre `ete_hc < hiver_hc < rouge_hc < ete_hp < hiver_hp < rouge_hp`, faux dès qu'elle en dévie.
+
+Le mapping par code est désormais réellement emprunté : les taux sont lus via `energySupplyRate.rates`, le seul champ dont les membres électricité (`ElectricitySupplyConsumptionRateType`) exposent `temporalClass`. Le tri par ordre de prix ne sert plus que de secours pour les comptes qui ne renvoient aucun code. Merci à [@harty911](https://github.com/harty911).
+
+### ✨ Plages heures creuses OctoTempo lues sur l'API (issue [#68](https://github.com/domodom30/ha-octopus-french/issues/68))
+
+Les horaires HC proviennent maintenant de `providerCalendar.temporalClasses[].description`, qui expose **une plage par classe temporelle** — donc par couleur sur un contrat OctoTempo (`HCE` / `HCHI` / `HCP`). Cela remplace les plages codées en dur introduites en 4.1.3, qui supposaient une souscription particulière et donnaient un état HC/HP faux pour toute autre.
+
+Les sources sont désormais hiérarchisées et traçables :
+
+1. `contract` — créneaux horaires du taux souscrit
+2. `calendar` — description de la classe temporelle du calendrier fournisseur
+3. `linky` — `offPeakLabel` du compteur, qui ne connaît qu'un seul jeu de plages
+4. `none` — aucune plage exploitable, l'entité reste indisponible
+
+Un nouvel attribut `hc_source` sur le binaire « Heures creuses actives » et sur le capteur « Tarif Tempo en cours » indique laquelle a été retenue. Un contrat Tempo contraint de se rabattre sur `offPeakLabel` le signale désormais au journal au lieu de le faire silencieusement. Merci à [@gaby49100](https://github.com/gaby49100).
+
+---
+
 ## [4.1.3] - 2026-08-02
 
 ### 🐛 Corrections
 
 Fix : [68](https://github.com/domodom30/ha-octopus-french/issues/68)
+
+> ⚠️ Version à ne pas utiliser : elle empêche toute récupération de données (voir 4.1.4).
+
+---
 
 ## [4.1.2] - 2026-07-26
 
