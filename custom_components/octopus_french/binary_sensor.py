@@ -17,12 +17,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .coordinator import OctopusFrenchDataUpdateCoordinator
-from .utils import (
-    find_contract_hc_slots,
-    get_tempo_color_for_prm,
-    parse_off_peak_hours,
-    parse_time_slots,
-)
+from .utils import get_tempo_color_for_prm, resolve_hc_schedule
 
 PARALLEL_UPDATES = 0
 
@@ -51,10 +46,10 @@ async def async_setup_entry(
         if not prm_id:
             continue
 
-        off_peak_label = meter.get("offPeakLabel")
-        contract_slots = find_contract_hc_slots(data, prm_id)
+        tempo_color = get_tempo_color_for_prm(data, prm_id)
+        schedule = resolve_hc_schedule(data, prm_id, tempo_color)
 
-        if contract_slots or off_peak_label:
+        if schedule["range_count"] > 0:
             sensors.append(
                 OctopusFrenchHcBinarySensor(
                     coordinator=coordinator,
@@ -124,33 +119,11 @@ class OctopusFrenchHcBinarySensor(
         Return the best available HC schedule from coordinator data.
 
         Returns a dict with keys: ranges, total_hours, range_count, source, type.
-        'source' is 'contract' or 'linky'.
+        'source' is 'contract', 'calendar', 'linky' or 'none'.
         """
         data = self.coordinator.data or {}
-
         tempo_color = get_tempo_color_for_prm(data, self._prm_id)
-        if contract_slots := find_contract_hc_slots(data, self._prm_id, tempo_color):
-            schedule = parse_time_slots(contract_slots)
-            if schedule["range_count"] > 0:
-                return schedule
-
-        supply_points = data.get("supply_points", {})
-        for meter in supply_points.get("electricity", []):
-            if meter.get("prm") == self._prm_id:
-                off_peak_label = meter.get("offPeakLabel")
-                if off_peak_label:
-                    schedule = parse_off_peak_hours(off_peak_label)
-                    schedule["source"] = "linky"
-                    return schedule
-                break
-
-        return {
-            "ranges": [],
-            "total_hours": 0.0,
-            "range_count": 0,
-            "source": "none",
-            "type": None,
-        }
+        return resolve_hc_schedule(data, self._prm_id, tempo_color)
 
     @property
     def available(self) -> bool:

@@ -19,13 +19,11 @@ from ..const import (
 )
 from ..coordinator import OctopusFrenchDataUpdateCoordinator
 from ..utils import (
-    find_contract_hc_slots,
     get_tariff_rate_for_key,
     get_tempo_color_for_prm,
     normalize_consumption_label,
     normalize_provider_calendar,
-    parse_off_peak_hours,
-    parse_time_slots,
+    resolve_hc_schedule,
 )
 from .descriptions import OctopusIndexSensorDescription
 
@@ -852,26 +850,19 @@ class OctopusTempoCurrentRateSensor(
         return {
             "tempo_color": color,
             "period_type": "HC" if is_hc else ("HP" if is_hc is not None else None),
+            "hc_source": self._resolve_hc_schedule()["source"],
             "prm_id": self._prm_id,
         }
 
-    def _is_currently_hc(self) -> bool:
-        """Return True if the current time falls within an HC (off-peak) period."""
+    def _resolve_hc_schedule(self) -> dict[str, Any]:
+        """Return the HC schedule applicable to this PRM, with its provenance."""
         data = self.coordinator.data or {}
         tempo_color = get_tempo_color_for_prm(data, self._prm_id)
-        contract_slots = find_contract_hc_slots(data, self._prm_id, tempo_color)
-        if contract_slots:
-            schedule = parse_time_slots(contract_slots)
-        else:
-            off_peak_label = None
-            for meter in data.get("supply_points", {}).get("electricity", []):
-                if meter.get("prm") == self._prm_id:
-                    off_peak_label = meter.get("offPeakLabel")
-                    break
-            if not off_peak_label:
-                return False
-            schedule = parse_off_peak_hours(off_peak_label)
+        return resolve_hc_schedule(data, self._prm_id, tempo_color)
 
+    def _is_currently_hc(self) -> bool:
+        """Return True if the current time falls within an HC (off-peak) period."""
+        schedule = self._resolve_hc_schedule()
         if not schedule.get("ranges"):
             return False
 

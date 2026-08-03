@@ -188,9 +188,54 @@ query getAccountData($accountNumber: String!, $activeAt: DateTime!) {
                   # NE PAS ajouter temporalClass ici : le champ n'existe pas sur
                   # SupplyConsumptionRateType et fait échouer toute la requête
                   # (HTTP 400). Régression déjà vue en 3.3.0 puis en 4.1.3.
+                  # Pour obtenir temporalClass, utiliser le bloc `rates` ci-dessous.
                   timeSlots {
                     startAt
                     endAt
+                  }
+                }
+              }
+            }
+            # `rates` renvoie l'interface SupplyProductRateInterface : contrairement
+            # à consumptionRates, ses membres électricité portent temporalClass
+            # (code + description des plages horaires). Le gaz retombe sur
+            # SupplyConsumptionRateType, sans temporalClass.
+            rates(first: 20) {
+              edges {
+                node {
+                  __typename
+                  currency
+                  pricePerUnit
+                  unitType
+                  pricePerUnitWithTaxes
+                  validFrom
+                  validTo
+                  ... on ElectricitySupplyConsumptionRateType {
+                    timeSlots {
+                      startAt
+                      endAt
+                    }
+                    temporalClass {
+                      code
+                      label
+                      description
+                      registerId
+                    }
+                  }
+                  # ElectricityConsumptionRateType n'expose PAS timeSlots (HTTP 400).
+                  ... on ElectricityConsumptionRateType {
+                    temporalClass {
+                      code
+                      label
+                      description
+                      registerId
+                    }
+                  }
+                  ... on SupplyConsumptionRateType {
+                    timeSlots {
+                      startAt
+                      endAt
+                    }
                   }
                 }
               }
@@ -846,6 +891,53 @@ class OctopusFrenchApiClient:
         "HIVER": "HIVER",
     }
 
+    @staticmethod
+    def _parse_rate_nodes(energy_rate: dict[str, Any]) -> list[dict[str, Any]]:
+        """
+        Normalise les taux de consommation d'un energySupplyRate.
+
+        `rates` est privilégié sur `consumptionRates` : c'est le seul des deux
+        dont les membres électricité exposent `temporalClass` (code de classe et
+        description des plages horaires). `consumptionRates` sert de secours pour
+        les comptes où `rates` ne remonte rien.
+        """
+        edges = (energy_rate.get("rates") or {}).get("edges") or []
+        if not edges:
+            edges = (energy_rate.get("consumptionRates") or {}).get("edges") or []
+
+        rates: list[dict[str, Any]] = []
+        for edge in edges:
+            node = edge.get("node") or {}
+            # `rates` peut aussi contenir l'abonnement : seuls les taux au kWh
+            # nous intéressent ici (l'abonnement vient de standingRate).
+            if "Standing" in (node.get("__typename") or ""):
+                continue
+            try:
+                temporal_class = node.get("temporalClass") or {}
+                time_slots = node.get("timeSlots") or []
+                rates.append(
+                    {
+                        "price_ht": round(float(node.get("pricePerUnit", 0)) / 100, 4),
+                        "price_ttc": round(
+                            float(node.get("pricePerUnitWithTaxes", 0)) / 100, 4
+                        ),
+                        "currency": node.get("currency"),
+                        "unit_type": node.get("unitType"),
+                        "temporal_class_code": temporal_class.get("code"),
+                        "temporal_class_label": temporal_class.get("label"),
+                        "temporal_class_description": temporal_class.get("description"),
+                        "temporal_class_register_id": temporal_class.get("registerId"),
+                        "time_slots": [
+                            {"start": s.get("startAt"), "end": s.get("endAt")}
+                            for s in time_slots
+                        ],
+                    }
+                )
+            except (ValueError, TypeError) as e:
+                _LOGGER.warning("Error parsing consumption rate: %s", e)
+
+        return rates
+
     def _extract_tariffs(self, energy_rate: dict[str, Any]) -> dict[str, Any]:
         """Extract tariff information from energySupplyRate."""
         tariffs: dict[str, Any] = {
@@ -868,31 +960,7 @@ class OctopusFrenchApiClient:
             except (ValueError, TypeError) as e:
                 _LOGGER.warning("Error parsing standing rate: %s", e)
 
-        consumption_rates = []
-        for rate_edge in (energy_rate.get("consumptionRates") or {}).get("edges", []):
-            rate = rate_edge.get("node") or {}
-            try:
-                temporal_class = rate.get("temporalClass") or {}
-                time_slots = rate.get("timeSlots") or []
-                consumption_rates.append(
-                    {
-                        "price_ht": round(float(rate.get("pricePerUnit", 0)) / 100, 4),
-                        "price_ttc": round(
-                            float(rate.get("pricePerUnitWithTaxes", 0)) / 100, 4
-                        ),
-                        "currency": rate.get("currency"),
-                        "unit_type": rate.get("unitType"),
-                        "temporal_class_code": temporal_class.get("code"),
-                        "temporal_class_label": temporal_class.get("label"),
-                        "temporal_class_register_id": temporal_class.get("registerId"),
-                        "time_slots": [
-                            {"start": s.get("startAt"), "end": s.get("endAt")}
-                            for s in time_slots
-                        ],
-                    }
-                )
-            except (ValueError, TypeError) as e:
-                _LOGGER.warning("Error parsing consumption rate: %s", e)
+        consumption_rates = self._parse_rate_nodes(energy_rate)
 
         mapped_by_code = False
         for rate in consumption_rates:
