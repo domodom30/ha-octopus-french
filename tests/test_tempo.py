@@ -166,15 +166,26 @@ class TestDetectTariffTypeTempo:
 class TestExtractTariffsTempo:
     """Tests pour l'extraction des 6 taux OctoTempo depuis l'API."""
 
-    def test_account_query_requests_consumption_rate_temporal_class(self) -> None:
-        """La requête doit demander temporalClass pour mapper les taux OctoTempo."""
+    def test_account_query_does_not_request_consumption_rate_temporal_class(
+        self,
+    ) -> None:
+        """temporalClass n'existe pas sur SupplyConsumptionRateType → HTTP 400.
+
+        Régression déjà survenue en 3.3.0 puis en 4.1.3 : le champ y avait été
+        ajouté, ce qui faisait rejeter toute la requête getAccountData.
+        """
         consumption_rates_block = QUERY_GET_ACCOUNT_DATA.split(
             "consumptionRates(first: 10)"
         )[1].split("billingFrequency", 1)[0]
+        # Le garde-fou en commentaire dans la requête mentionne le champ : on ne
+        # regarde que les lignes réellement envoyées à l'API.
+        queried_fields = "\n".join(
+            line
+            for line in consumption_rates_block.splitlines()
+            if not line.lstrip().startswith("#")
+        )
 
-        assert "temporalClass" in consumption_rates_block
-        assert "code" in consumption_rates_block
-        assert "registerId" in consumption_rates_block
+        assert "temporalClass" not in queried_fields
 
     def _make_api_client(self) -> OctopusFrenchApiClient:
         """Créer un client API factice."""
