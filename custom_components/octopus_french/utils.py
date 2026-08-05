@@ -47,13 +47,23 @@ def parse_off_peak_hours(off_peak_label: str | None) -> dict[str, Any]:
         if type_match := re.match(r"^([A-Z]+)", off_peak_label):
             result["type"] = type_match.group(1)
 
-        time_pattern = r"(\d+)H(\d+)-(\d+)H(\d+)"
-        matches = re.findall(time_pattern, off_peak_label)
+        # Formats rencontrés :
+        # - offPeakLabel Linky : "HC (22H00-6H00)"
+        # - providerCalendar.description : "Avril à octobre, 21h à 7h et de 11h à 17h"
+        time_pattern = re.compile(
+            r"(\d{1,2})\s*[hH](\d{2})?\s*(?:-|à|a)\s*"
+            r"(\d{1,2})\s*[hH](\d{2})?"
+        )
+        matches = time_pattern.findall(off_peak_label)
 
         total_minutes = 0
 
         for match in matches:
-            start_hour, start_min, end_hour, end_min = map(int, match)
+            start_hour_s, start_min_s, end_hour_s, end_min_s = match
+            start_hour = int(start_hour_s)
+            start_min = int(start_min_s or 0)
+            end_hour = int(end_hour_s)
+            end_min = int(end_min_s or 0)
             start_minutes = start_hour * 60 + start_min
             end_minutes = end_hour * 60 + end_min
 

@@ -190,12 +190,36 @@ def _make_calendar_data(
 
 # Classes temporelles d'un contrat OctoTempo : une description par couleur.
 _OCTOTEMPO_CLASSES = [
-    {"code": "HPE", "label": "HP Été", "description": ""},
-    {"code": "HCE", "label": "HC Été", "description": "21H00-7H00;11H00-17H00"},
-    {"code": "HPHI", "label": "HP Hiver", "description": ""},
-    {"code": "HCHI", "label": "HC Hiver", "description": "21H00-7H00"},
-    {"code": "HPP", "label": "HP Rouge", "description": ""},
-    {"code": "HCP", "label": "HC Rouge", "description": "2H00-6H00"},
+    {
+        "code": "HPE",
+        "label": "HP Été",
+        "description": "Avril à octobre, de 7h à 11h et de 17h à 21h",
+    },
+    {
+        "code": "HCE",
+        "label": "HC Été",
+        "description": "Avril à octobre, 21h à 7h et de 11h à 17h",
+    },
+    {
+        "code": "HPHI",
+        "label": "HP Hiver",
+        "description": "Novembre à mars, de 7h à 21h",
+    },
+    {
+        "code": "HCHI",
+        "label": "HC Hiver",
+        "description": "Novembre à mars, de 21h à 7h",
+    },
+    {
+        "code": "HPP",
+        "label": "HP Rouge",
+        "description": "Heures pleines en jour rouge, de 7h à 21h",
+    },
+    {
+        "code": "HCP",
+        "label": "HC Rouge",
+        "description": "Heures creuses en jour rouge, de 21h à 7h",
+    },
 ]
 
 
@@ -239,7 +263,7 @@ class TestFindCalendarHcRanges:
 
         rouge = find_calendar_hc_ranges(data, "PRM1", tempo_color="ROUGE")
         assert rouge is not None
-        assert [(r["start"], r["end"]) for r in rouge["ranges"]] == [("02:00", "06:00")]
+        assert [(r["start"], r["end"]) for r in rouge["ranges"]] == [("21:00", "07:00")]
 
     def test_empty_description_returns_none(self):
         """Une description vide ne produit aucune plage inventée."""
