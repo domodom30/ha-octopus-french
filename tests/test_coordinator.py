@@ -180,3 +180,38 @@ async def test_resiliated_supply_point_is_filtered_out() -> None:
     result = await coordinator._fetch_all_data()
 
     assert set(result["electricity_by_prm"]) == {"PRM_A"}
+
+
+async def test_resiliated_but_powered_supply_point_is_kept() -> None:
+    """Un RESIL distributeur encore alimenté reste exposé (issue #75).
+
+    `distributorStatus` suit le contrat d'accès Enedis, pas la fourniture : il
+    reste à RESIL après un changement de fournisseur alors que le compteur est
+    alimenté et sous contrat.
+    """
+    account_data = {
+        "account_id": "ID-1",
+        "account_number": "ACC-123",
+        "supply_points": {
+            "electricity": [
+                {
+                    "prm": "PRM_ALIM",
+                    "distributorStatus": "RESIL",
+                    "poweredStatus": "ALIM",
+                },
+                {
+                    "prm": "PRM_LIMI",
+                    "distributorStatus": "RESIL",
+                    "poweredStatus": "LIMI",
+                },
+            ],
+            "gas": [],
+        },
+        "agreements": [],
+        "ledgers": {},
+    }
+
+    coordinator = _make_coordinator(account_data)
+    result = await coordinator._fetch_all_data()
+
+    assert set(result["electricity_by_prm"]) == {"PRM_ALIM"}

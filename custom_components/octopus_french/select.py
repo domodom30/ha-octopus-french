@@ -78,12 +78,12 @@ class OctopusIntelligentTargetTimeSelect(
 
     def _update_attrs(self) -> None:
         """Refresh the cached attribute values from coordinator data."""
-        preferences = self.coordinator.data.get("preferences", {})
+        preferences = self.coordinator.get_preferences(self._device_id)
         self._attr_current_option = preferences.get("weekdayTargetTime")
 
     async def async_select_option(self, option: str) -> None:
         """Set the target time."""
-        preferences = self.coordinator.data.get("preferences", {})
+        preferences = self.coordinator.get_preferences(self._device_id)
         current_soc = preferences.get("weekdayTargetSoc", 100)
 
         success = await self.coordinator.intelligent_client.set_target_time(

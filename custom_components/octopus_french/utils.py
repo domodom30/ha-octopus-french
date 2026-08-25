@@ -8,6 +8,7 @@ from typing import Any
 from .const import (
     TARIFF_TYPE_TEMPO,
     TEMPO_PRODUCT_CODE_KEYWORDS,
+    TEMPO_STATISTICS_LABELS,
     TEMPO_TEMPORAL_CLASS_CODES,
 )
 
@@ -29,6 +30,21 @@ _TEMPO_COLOR_TO_HC_TEMPORAL_CODE = {
 # PRM pour lesquels le repli sur offPeakLabel a déjà été signalé, pour ne pas
 # répéter l'avertissement à chaque rafraîchissement du coordinator.
 _LINKY_FALLBACK_WARNED: set[str] = set()
+
+# Labels de consommation déjà sous leur forme canonique.
+_CANONICAL_CONSUMPTION_LABELS: frozenset[str] = frozenset(
+    {"HEURES_PLEINES", "HEURES_CREUSES", "ABONNEMENT"}
+)
+
+# Segment de classe temporelle d'un label CONSUMPTION_* → forme canonique.
+_LABEL_SEGMENT_TO_CANONICAL: dict[str, str] = {
+    "HP": "HEURES_PLEINES",
+    "HC": "HEURES_CREUSES",
+}
+
+# Labels déjà signalés comme non reconnus, pour ne pas répéter l'avertissement
+# à chaque relevé de chaque rafraîchissement.
+_UNKNOWN_LABELS_WARNED: set[str] = set()
 
 
 def parse_off_peak_hours(off_peak_label: str | None) -> dict[str, Any]:
@@ -277,23 +293,61 @@ def get_tempo_color_for_prm(data: dict[str, Any], prm_id: str) -> str | None:
     return color if isinstance(color, str) else None
 
 
+def is_electricity_meter_active(meter: dict[str, Any]) -> bool:
+    """
+    Indique si un point de livraison électrique doit être exposé.
+
+    `distributorStatus` décrit le contrat d'accès distributeur (Enedis), pas le
+    contrat de fourniture : il reste à RESIL après un changement de fournisseur
+    ou un déménagement alors que le compteur est toujours alimenté et sous
+    contrat, ce qui faisait disparaître toute l'électricité du compte (issue #75).
+
+    Un RESIL n'est donc outrepassé que sur preuve positive d'alimentation : si
+    `poweredStatus` est absent, le compteur reste exclu, pour ne pas réexposer
+    les compteurs réellement résiliés.
+    """
+    if meter.get("distributorStatus") != "RESIL":
+        return True
+    powered_status = meter.get("poweredStatus")
+    return powered_status is not None and powered_status != "LIMI"
+
+
 def normalize_consumption_label(label: str) -> str:
     """
     Normalise les variantes de label de l'API vers leur forme canonique.
 
-    Certains comptes (offre Effacement HPHC) renvoient les labels sous la forme
-    CONSUMPTION_EFFACEMENT_HPHC_2_HP_* / ..._HC_* au lieu des
-    HEURES_PLEINES / HEURES_CREUSES historiques. Seuls ces labels Effacement
-    explicites sont remappés ; tout autre label (legacy, Tempo OctoFlex,
-    ABONNEMENT, …) est renvoyé inchangé.
+    Le nom de l'offre est interpolé dans le label (CONSUMPTION_EFFACEMENT_HPHC_2_HP_*,
+    CONSUMPTION_<OFFRE>_HC_*, …), donc le préfixe ne peut pas servir de clé : on
+    reconnaît le segment de classe temporelle HP / HC quelle que soit l'offre.
+    Restreindre ce mappage à la seule offre Effacement laissait les cumuls
+    mensuels à 0 sur les autres offres (issue #70).
+
+    Les labels OctoTempo portent leur propre code (HPE/HCE/HPHI/HCHI/HPP/HCP) et
+    sont mappés ailleurs via ENERGY_KEY_TO_LABEL : ils sont renvoyés inchangés.
     """
+    if not label:
+        return label
     if label in ("HEURES_BASE", "BASE"):
         return "BASE"
-    if label.startswith("CONSUMPTION_EFFACEMENT_HPHC"):
-        if "_HP_" in label or label.endswith("_HP"):
-            return "HEURES_PLEINES"
-        if "_HC_" in label or label.endswith("_HC"):
-            return "HEURES_CREUSES"
+    if label in _CANONICAL_CONSUMPTION_LABELS or label in TEMPO_STATISTICS_LABELS:
+        return label
+
+    if label.startswith("CONSUMPTION_"):
+        segments = set(label.split("_"))
+        if segments & TEMPO_TEMPORAL_CLASS_CODES:
+            return label
+        for segment, canonical in _LABEL_SEGMENT_TO_CANONICAL.items():
+            if segment in segments:
+                return canonical
+
+    if label not in _UNKNOWN_LABELS_WARNED:
+        _UNKNOWN_LABELS_WARNED.add(label)
+        _LOGGER.warning(
+            "Label de consommation non reconnu : '%s' — il n'alimentera aucun "
+            "cumul mensuel ni statistique. Merci de le signaler pour ajouter "
+            "sa correspondance",
+            label,
+        )
     return label
 
 

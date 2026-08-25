@@ -11,6 +11,7 @@ from custom_components.octopus_french.api.intelligent import (
 )
 from custom_components.octopus_french.coordinator_intelligent import (
     OctopusIntelligentDataUpdateCoordinator,
+    preferences_from_schedules,
 )
 from custom_components.octopus_french.number import OctopusIntelligentTargetSocNumber
 from custom_components.octopus_french.select import (
@@ -132,6 +133,17 @@ async def test_set_target_time_success(intelligent_client, mock_api_client):
     assert variables == {"deviceId": "abc-123", "time": "06:00", "max": 100}
 
 
+def _wire_get_preferences(coordinator: MagicMock) -> None:
+    """Câble get_preferences sur le mock, comme le fait le vrai coordinator.
+
+    Les entités lisent les préférences par appareil et non plus directement
+    coordinator.data["preferences"] (issue #77).
+    """
+    coordinator.get_preferences = lambda device_id: (
+        OctopusIntelligentDataUpdateCoordinator.get_preferences(coordinator, device_id)
+    )
+
+
 @pytest.fixture
 def mock_coordinator():
     """Mock coordinator."""
@@ -153,6 +165,7 @@ def mock_coordinator():
         },
         "boost_refusal_reasons": [],
     }
+    _wire_get_preferences(coordinator)
     coordinator.intelligent_client = MagicMock()
     coordinator.intelligent_client.set_target_soc = AsyncMock(return_value=True)
     coordinator.intelligent_client.set_target_time = AsyncMock(return_value=True)
@@ -257,3 +270,90 @@ async def test_target_time_select_option_failure(target_time_select, mock_coordi
 
     mock_coordinator.intelligent_client.set_target_time.assert_called_once()
     mock_coordinator.async_request_refresh.assert_not_called()
+
+
+_WEEKDAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]
+_WEEKEND = ["SATURDAY", "SUNDAY"]
+
+
+def _schedules(time: str, target: int, days: list[str]) -> list[dict]:
+    """Créneaux de préférence tels que renvoyés par l'API pour un appareil."""
+    return [{"dayOfWeek": d, "time": time, "min": None, "max": target} for d in days]
+
+
+def _coordinator_with_devices(devices: list[dict]) -> MagicMock:
+    """Coordinator simulé exposant get_preferences comme le vrai."""
+    coordinator = MagicMock(spec=OctopusIntelligentDataUpdateCoordinator)
+    coordinator.account_number = "A-1"
+    coordinator.data = {
+        "devices": devices,
+        "preferences": {"weekdayTargetTime": "07:00", "weekdayTargetSoc": 80},
+        "device_preferences": {
+            device["id"]: preferences_from_schedules(device.get("preferences"))
+            for device in devices
+        },
+    }
+    coordinator.get_preferences = lambda device_id: (
+        OctopusIntelligentDataUpdateCoordinator.get_preferences(coordinator, device_id)
+    )
+    return coordinator
+
+
+def test_preferences_from_schedules_splits_weekday_and_weekend() -> None:
+    """Les créneaux par jour deviennent des cibles semaine et week-end."""
+    preferences = {
+        "schedules": _schedules("07:00:00", 80, _WEEKDAYS)
+        + _schedules("09:30:00", 90, _WEEKEND)
+    }
+
+    assert preferences_from_schedules(preferences) == {
+        "weekdayTargetTime": "07:00",
+        "weekdayTargetSoc": 80,
+        "weekendTargetTime": "09:30",
+        "weekendTargetSoc": 90,
+    }
+
+
+def test_preferences_from_schedules_normalises_time_to_select_options() -> None:
+    """L'heure est ramenée au format HH:MM attendu par le select."""
+    result = preferences_from_schedules(
+        {"schedules": _schedules("05:30:00", 70, ["MONDAY"])}
+    )
+
+    assert result["weekdayTargetTime"] in TIME_OPTIONS
+
+
+def test_each_vehicle_exposes_its_own_target_time() -> None:
+    """Deux véhicules gardent chacun leur heure cible (issue #77)."""
+    devices = [
+        {
+            "id": "VE1",
+            "name": "Zoe",
+            "preferences": {"schedules": _schedules("07:00:00", 80, _WEEKDAYS)},
+        },
+        {
+            "id": "VE2",
+            "name": "Tesla",
+            "preferences": {"schedules": _schedules("05:30:00", 100, _WEEKDAYS)},
+        },
+    ]
+    coordinator = _coordinator_with_devices(devices)
+
+    ve1 = OctopusIntelligentTargetTimeSelect(coordinator, "VE1", "Zoe")
+    ve2 = OctopusIntelligentTargetTimeSelect(coordinator, "VE2", "Tesla")
+    soc1 = OctopusIntelligentTargetSocNumber(coordinator, "VE1", "Zoe")
+    soc2 = OctopusIntelligentTargetSocNumber(coordinator, "VE2", "Tesla")
+
+    assert ve1.current_option == "07:00"
+    assert ve2.current_option == "05:30"
+    assert soc1.native_value == 80.0
+    assert soc2.native_value == 100.0
+
+
+def test_device_without_schedules_falls_back_to_account_preferences() -> None:
+    """Sans créneaux par appareil, on garde les préférences du compte."""
+    coordinator = _coordinator_with_devices([{"id": "VE1", "name": "Zoe"}])
+
+    entity = OctopusIntelligentTargetTimeSelect(coordinator, "VE1", "Zoe")
+
+    assert entity.current_option == "07:00"

@@ -12,6 +12,8 @@ import aiohttp
 import jwt
 from homeassistant.util import dt as dt_util
 
+from .utils import is_electricity_meter_active
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -718,7 +720,7 @@ class OctopusFrenchApiClient:
                 node = edge.get("node") or {}
                 meter_point = node.get("meterPoint") or {}
 
-                if meter_point.get("distributorStatus") == "RESIL":
+                if not is_electricity_meter_active(meter_point):
                     continue
 
                 prm = node.get("externalIdentifier")

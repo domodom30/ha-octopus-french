@@ -1,3 +1,25 @@
+## [4.1.5] - 2026-08-25
+
+### 🐛 Correction — Électricité absente quand le distributeur déclare le compteur résilié (issue [#75](https://github.com/domodom30/ha-octopus-french/issues/75))
+
+`distributorStatus` décrit le contrat d'accès distributeur (Enedis), pas le contrat de fourniture : il reste à `RESIL` après un changement de fournisseur ou un déménagement, alors que le compteur est bel et bien alimenté et sous contrat. Tout point de livraison marqué `RESIL` était pourtant écarté, faisant disparaître **l'intégralité des entités électricité** de comptes actifs — sur un compte électricité + gaz, seul le gaz remontait.
+
+Un `RESIL` n'est désormais retenu que s'il est confirmé par un `poweredStatus` à `LIMI` (puissance limitée). Le filtre était appliqué à deux endroits — points de livraison et registres comptables — les deux sont corrigés et la règle est centralisée en un seul point. Merci à [@Payou6994](https://github.com/Payou6994).
+
+### 🐛 Correction — Cumul mensuel HP/HC bloqué à 0 (issue [#70](https://github.com/domodom30/ha-octopus-french/issues/70))
+
+Le nom de l'offre est interpolé dans le label de consommation renvoyé par l'API (`CONSUMPTION_<OFFRE>_HP_…`). Le mappage ne reconnaissait que l'offre Effacement : sur toute autre offre, les cumuls mensuels restaient à 0 alors que les relevés étaient correctement collectés — `readings_count` juste et capteur « dernier relevé » fonctionnel, ce qui rendait le diagnostic difficile.
+
+Le segment `HP` / `HC` est maintenant reconnu quelle que soit l'offre ; les labels OctoTempo conservent leur traitement propre. Un label non reconnu est désormais signalé au journal au lieu de laisser silencieusement un cumul à zéro. Merci à [@Maxxouille44](https://github.com/Maxxouille44).
+
+### 🐛 Correction — Heure et charge cibles identiques sur plusieurs véhicules (issue [#77](https://github.com/domodom30/ha-octopus-french/issues/77))
+
+Les préférences de recharge étaient lues via `vehicleChargingPreferences`, qui ne renvoie qu'un seul jeu **par compte**, alors que leur écriture se fait bien par appareil. Avec deux véhicules, l'heure cible et la charge cible affichées étaient donc les mêmes pour les deux.
+
+Elles proviennent maintenant du champ `preferences` de chaque appareil — un créneau par jour, converti en cibles semaine et week-end. Les comptes dont les appareils n'exposent pas de créneaux conservent les préférences du compte. Merci à [@Vincenzoz59](https://github.com/Vincenzoz59).
+
+---
+
 ## [4.1.4] - 2026-08-03
 
 ### 🚨 Correction bloquante — Plus aucune donnée récupérée en 4.1.3

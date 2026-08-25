@@ -25,6 +25,9 @@ mutation updateBoostCharge($deviceId: String!) {
 }
 """
 
+# `preferences` est porté par SmartFlexDeviceInterface : c'est la seule source
+# par appareil, vehicleChargingPreferences ne renvoyant qu'un jeu par compte —
+# tous les véhicules affichaient donc la même heure cible (issue #77).
 QUERY_DEVICES = """
 query devices($accountNumber: String!) {
   devices(accountNumber: $accountNumber) {
@@ -34,6 +37,17 @@ query devices($accountNumber: String!) {
       current
       currentState
       isSuspended
+    }
+    preferences {
+      mode
+      unit
+      targetType
+      schedules {
+        dayOfWeek
+        time
+        min
+        max
+      }
     }
   }
 }

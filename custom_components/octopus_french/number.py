@@ -79,13 +79,13 @@ class OctopusIntelligentTargetSocNumber(
 
     def _update_attrs(self) -> None:
         """Refresh the cached attribute values from coordinator data."""
-        preferences = self.coordinator.data.get("preferences", {})
+        preferences = self.coordinator.get_preferences(self._device_id)
         value = preferences.get("weekdayTargetSoc")
         self._attr_native_value = float(value) if value is not None else None
 
     async def async_set_native_value(self, value: float) -> None:
         """Set the target SOC."""
-        preferences = self.coordinator.data.get("preferences", {})
+        preferences = self.coordinator.get_preferences(self._device_id)
         current_time = preferences.get("weekdayTargetTime", "07:00")
 
         success = await self.coordinator.intelligent_client.set_target_soc(

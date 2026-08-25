@@ -21,6 +21,34 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+_WEEKEND_DAYS = frozenset({"SATURDAY", "SUNDAY"})
+
+
+def _normalise_target_time(value: Any) -> Any:
+    """Ramène une heure `Time` GraphQL au format HH:MM des options du select."""
+    if isinstance(value, str) and value.count(":") >= 2:
+        return value[:5]
+    return value
+
+
+def preferences_from_schedules(preferences: dict[str, Any] | None) -> dict[str, Any]:
+    """
+    Convertit les `schedules` d'un appareil en cibles semaine / week-end.
+
+    L'API expose un créneau par jour ; les entités raisonnent en semaine et
+    week-end, comme le faisait vehicleChargingPreferences. Le premier créneau
+    rencontré de chaque groupe fait foi.
+    """
+    result: dict[str, Any] = {}
+    for schedule in (preferences or {}).get("schedules") or []:
+        day = (schedule.get("dayOfWeek") or "").upper()
+        prefix = "weekend" if day in _WEEKEND_DAYS else "weekday"
+        if f"{prefix}TargetTime" in result:
+            continue
+        result[f"{prefix}TargetTime"] = _normalise_target_time(schedule.get("time"))
+        result[f"{prefix}TargetSoc"] = schedule.get("max")
+    return result
+
 
 class OctopusIntelligentDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching data from the Intelligent API."""
@@ -57,6 +85,21 @@ class OctopusIntelligentDataUpdateCoordinator(DataUpdateCoordinator):
             if device.get("id") == device_id:
                 return device
         return None
+
+    def get_preferences(self, device_id: str) -> dict[str, Any]:
+        """
+        Préférences de charge d'un appareil.
+
+        Les valeurs propres à l'appareil priment ; celles du compte servent de
+        repli pour les comptes dont les appareils n'exposent pas de `schedules`.
+        """
+        data = self.data or {}
+        account_preferences = data.get("preferences") or {}
+        device_preferences = (data.get("device_preferences") or {}).get(device_id) or {}
+        return {
+            **account_preferences,
+            **{k: v for k, v in device_preferences.items() if v is not None},
+        }
 
     def is_device_active(self, device_id: str) -> bool:
         """Return whether a device is currently charging."""
@@ -105,6 +148,11 @@ class OctopusIntelligentDataUpdateCoordinator(DataUpdateCoordinator):
             return {
                 "devices": devices,
                 "preferences": preferences,
+                "device_preferences": {
+                    device_id: preferences_from_schedules(device.get("preferences"))
+                    for device in devices
+                    if (device_id := device.get("id"))
+                },
                 "dispatches": dispatches,
                 "boost_refusal_reasons": [],
             }

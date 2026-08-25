@@ -39,6 +39,7 @@ from .sensors.electricity import (
 )
 from .sensors.gas import OctopusGasSensor
 from .sensors.ledger import OctopusLedgerSensor
+from .utils import is_electricity_meter_active
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,10 +67,7 @@ async def async_setup_entry(
         )
 
     for elec_meter in supply_points.get("electricity", []):
-        if (
-            elec_meter.get("distributorStatus") == "RESIL"
-            and elec_meter.get("poweredStatus") == "LIMI"
-        ):
+        if not is_electricity_meter_active(elec_meter):
             continue
 
         prm_id = elec_meter.get("prm")
@@ -322,7 +320,7 @@ class OctopusIntelligentWeekdayTargetSocSensor(
 
     def _update_attrs(self) -> None:
         """Refresh the cached attribute values from coordinator data."""
-        self._attr_native_value = self.coordinator.data.get("preferences", {}).get(
+        self._attr_native_value = self.coordinator.get_preferences(self._device_id).get(
             "weekdayTargetSoc"
         )
 
@@ -361,7 +359,7 @@ class OctopusIntelligentWeekdayTargetTimeSensor(
 
     def _update_attrs(self) -> None:
         """Refresh the cached attribute values from coordinator data."""
-        self._attr_native_value = self.coordinator.data.get("preferences", {}).get(
+        self._attr_native_value = self.coordinator.get_preferences(self._device_id).get(
             "weekdayTargetTime"
         )
 
@@ -402,7 +400,7 @@ class OctopusIntelligentWeekendTargetSocSensor(
 
     def _update_attrs(self) -> None:
         """Refresh the cached attribute values from coordinator data."""
-        self._attr_native_value = self.coordinator.data.get("preferences", {}).get(
+        self._attr_native_value = self.coordinator.get_preferences(self._device_id).get(
             "weekendTargetSoc"
         )
 
@@ -441,7 +439,7 @@ class OctopusIntelligentWeekendTargetTimeSensor(
 
     def _update_attrs(self) -> None:
         """Refresh the cached attribute values from coordinator data."""
-        self._attr_native_value = self.coordinator.data.get("preferences", {}).get(
+        self._attr_native_value = self.coordinator.get_preferences(self._device_id).get(
             "weekendTargetTime"
         )
 

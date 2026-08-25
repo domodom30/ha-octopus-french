@@ -15,6 +15,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DEFAULT_SCAN_INTERVAL, PREVIOUS_MONTH_OVERLAP_DAYS
 from .octopus_french import OctopusAuthError, OctopusConnectionError
+from .utils import is_electricity_meter_active
 
 if TYPE_CHECKING:
     from .octopus_french import OctopusFrenchApiClient
@@ -73,7 +74,7 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
         supply_points["electricity"] = [
             sp
             for sp in supply_points.get("electricity", [])
-            if sp.get("distributorStatus") != "RESIL"
+            if is_electricity_meter_active(sp)
         ]
 
         electricity_supply_points = supply_points["electricity"]

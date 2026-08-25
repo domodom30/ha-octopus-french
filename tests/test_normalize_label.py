@@ -36,6 +36,22 @@ _CONSUMPTION_MAPPING = {
             "HEURES_CREUSES",
             id="effacement_hc",
         ),
+        # Le nom de l'offre est interpolé dans le label : le segment HP/HC est
+        # reconnu quelle que soit l'offre, sinon le cumul mensuel reste à 0
+        # sur toute offre autre qu'Effacement (issue #70).
+        pytest.param(
+            "CONSUMPTION_AUTRE_OFFRE_HP_0.0_37.0",
+            "HEURES_PLEINES",
+            id="autre_offre_hp",
+        ),
+        pytest.param(
+            "CONSUMPTION_AUTRE_OFFRE_HC_0.0_37.0",
+            "HEURES_CREUSES",
+            id="autre_offre_hc",
+        ),
+        # Un label inconnu est renvoyé tel quel (et signalé dans les logs).
+        pytest.param("CONSUMPTION_MYSTERE_XX", "CONSUMPTION_MYSTERE_XX", id="inconnu"),
+        pytest.param("ABONNEMENT", "ABONNEMENT", id="abonnement"),
         # Labels Tempo OctoFlex → inchangés (ne commencent pas par EFFACEMENT).
         pytest.param(
             "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
