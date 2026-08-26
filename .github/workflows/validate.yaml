@@ -4,9 +4,9 @@ on:
   push:
     branches:
       - main
+  # Sans filtre de branche : une PR empilée sur une autre branche doit être
+  # validée elle aussi.
   pull_request:
-    branches:
-      - main
   schedule:
     - cron: "0 0 * * 1" # Tous les lundis à minuit
   workflow_dispatch:
@@ -17,8 +17,8 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  # On annule les runs redondants sur PR uniquement : interrompre un push sur main
-  # pourrait couper le job release entre la création du tag et celle de la release.
+  # On annule les runs redondants sur PR uniquement : interrompre un dispatch
+  # couperait le job release entre la création du tag et celle de la release.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -88,7 +88,10 @@ jobs:
     needs: [validate, hacs, lint-test]
     permissions:
       contents: write
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+    # Publication manuelle : un merge dans main ne doit pas taguer de lui-même.
+    # Sinon la première PR fusionnée fige la version, et celles qui suivent sous
+    # le même numéro restent hors du tag servi par HACS.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     steps:
       - name: ⤵️ Check out code from GitHub
         uses: actions/checkout@v7
@@ -119,6 +122,8 @@ jobs:
         if: steps.check_tag.outputs.exists == 'false'
         run: |
           VERSION="${{ steps.get_version.outputs.version }}"
+          # Toujours créer le fichier : action-gh-release lit body_path tel quel.
+          : > release_notes.md
           if [ -f CHANGELOG.md ]; then
             awk -v ver="$VERSION" '
               index($0, "## [" ver "]") == 1 { inrange=1; print; next }
@@ -129,18 +134,13 @@ jobs:
             sed -i -e :a -e '/^[[:space:]]*$/{$d;N;ba}' release_notes.md
             sed -i -e '$ { /^---$/d }' release_notes.md
             sed -i -e :a -e '/^[[:space:]]*$/{$d;N;ba}' release_notes.md
-            if [ -s release_notes.md ]; then
-              echo "notes<<EOF" >> $GITHUB_OUTPUT
-              cat release_notes.md >> $GITHUB_OUTPUT
-              echo "EOF" >> $GITHUB_OUTPUT
-              echo "📝 Changelog extrait pour v$VERSION"
-            else
-              echo "notes=" >> $GITHUB_OUTPUT
-              echo "⚠️ Aucune entrée trouvée dans CHANGELOG.md pour v$VERSION"
-            fi
           else
-            echo "notes=" >> $GITHUB_OUTPUT
             echo "⚠️ CHANGELOG.md introuvable"
+          fi
+          if [ -s release_notes.md ]; then
+            echo "📝 Changelog extrait pour v$VERSION"
+          else
+            echo "⚠️ Aucune entrée trouvée dans CHANGELOG.md pour v$VERSION"
           fi
 
       - name: 🚀 Create GitHub Release
@@ -149,6 +149,6 @@ jobs:
         with:
           tag_name: v${{ steps.get_version.outputs.version }}
           name: Release v${{ steps.get_version.outputs.version }}
-          body: ${{ steps.changelog.outputs.notes }}
+          body_path: release_notes.md
           draft: false
           prerelease: false
