@@ -479,21 +479,20 @@ def _spread_over_days(
 
 def gas_daily_values(gas_data: dict[str, Any]) -> dict[datetime, float]:
     """
-    Série journalière de consommation gaz (kWh) issue de la meilleure source.
+    Série journalière continue de consommation gaz (kWh).
 
-    Les relevés quotidiens ne sont publiés que pour les Gazpar communicants ; à
-    défaut on répartit les buckets mensuels, puis les relevés d'index — dont les
-    périodes sont irrégulières (issue #79).
+    Les sources se superposent du moins précis au plus précis : cumuls mensuels,
+    relevés d'index — dont les périodes sont irrégulières — puis mesures
+    quotidiennes, publiées pour les seuls Gazpar communicants (issue #79). La
+    série doit rester continue : c'est ce qui permet à l'import de statistiques
+    de recalculer ses sommes cumulées au lieu de les prolonger.
     """
     daily: dict[datetime, float] = {}
-    for reading in gas_data.get("daily") or []:
-        day = reading_local_day(reading.get("startAt"))
-        value = float(reading.get("value") or 0)
-        if day is not None and value > 0:
-            daily[day] = daily.get(day, 0.0) + value
-    if daily:
-        return daily
 
+    # Socle : les périodes étalées sur les jours qu'elles couvrent, du moins
+    # précis au plus précis. Une série continue est indispensable — un trou fait
+    # basculer l'import de statistiques sur son cumul incrémental, qui
+    # re-compte les périodes déjà importées sous une autre granularité.
     for source in ("monthly", "index"):
         for reading in gas_data.get(source) or []:
             for day, value in _spread_over_days(
@@ -502,8 +501,23 @@ def gas_daily_values(gas_data: dict[str, Any]) -> dict[datetime, float]:
                 float(reading.get("value") or 0),
             ).items():
                 daily[day] = daily.get(day, 0.0) + value
-        if daily:
-            return daily
+
+    # Les mesures quotidiennes sont les seules valeurs réelles : elles
+    # remplacent l'estimation sur les jours qu'elles couvrent.
+    measured: dict[datetime, float] = {}
+    for reading in gas_data.get("daily") or []:
+        day = reading_local_day(reading.get("startAt"))
+        value = reading.get("value")
+        # Un jour mesuré à 0 est une donnée ; un relevé sans valeur n'en est pas une.
+        if day is not None and value is not None:
+            measured[day] = measured.get(day, 0.0) + float(value)
+
+    if any(value > 0 for value in measured.values()):
+        daily |= measured
+        # Ne rien extrapoler après la dernière mesure : GrDF publie avec
+        # plusieurs jours de retard, et le mois en cours est encore incomplet.
+        last_measured = max(measured)
+        daily = {day: value for day, value in daily.items() if day <= last_measured}
 
     return daily
 

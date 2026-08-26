@@ -8,7 +8,33 @@ Elle redevient la source de repli : quand `measurements` ne renvoie rien, les re
 
 ### ✨ Amélioration — Statistiques gaz au jour le jour
 
-Les relevés quotidiens des compteurs communicants sont maintenant collectés en plus des cumuls mensuels. Le tableau de bord Énergie affiche donc une courbe journalière du gaz au lieu d'un unique pic au 1er du mois. Les compteurs sans relevé quotidien conservent une répartition calculée sur leurs périodes.
+Les relevés quotidiens des compteurs communicants sont maintenant collectés en plus des cumuls mensuels : la statistique `octopus_french:<PCE>_consumption` porte donc une courbe journalière au lieu d'un unique point au 1er du mois. Les compteurs sans relevé quotidien conservent une répartition calculée sur leurs périodes.
+
+Les jours mesurés à 0 kWh sont conservés au lieu d'être écartés : ils laissaient autant de trous dans la courbe — 52 relevés ne donnaient que 41 points sur un mois et demi — et empêchaient l'import de recalculer ses sommes cumulées sur une série continue.
+
+### ✨ Nouveau capteur — Dernier relevé gaz
+
+Les relevés journaliers n'étaient lisibles que dans les statistiques long terme, sans entité pour les exposer. Le compteur Gazpar dispose maintenant d'un capteur **Dernier relevé**, équivalent de celui du Linky : valeur du dernier relevé réel, avec sa période, sa source (mesure quotidienne, relevé d'index ou cumul mensuel), son coût et, pour les relevés d'index, les index de début et de fin. La valeur affichée est toujours un relevé réel, jamais une moyenne.
+
+Le README indique désormais quelle statistique choisir dans le tableau de bord Énergie pour obtenir une courbe journalière plutôt qu'un point par mois.
+
+### 🚨 Correction — Statistiques gaz faussées au changement de granularité
+
+Les relevés gaz n'étaient exposés que sous une seule granularité à la fois : les points déjà écrits sous l'ancienne restaient en base, la série n'était plus continue, et l'import prolongeait le cumul au lieu de le recalculer — en recomptant des périodes déjà importées. Sur un compte de test, la somme cumulée atteignait **67 402 kWh pour un compteur à 9 075 kWh/an**, avec un bond de 55 911 kWh sur un seul point. Le tableau de bord Énergie affichant des différences de somme, ce pic écrasait les consommations réelles, qui devenaient illisibles.
+
+Les sources se superposent désormais du moins précis au plus précis — cumuls mensuels, relevés d'index, puis mesures quotidiennes qui remplacent l'estimation sur les jours qu'elles couvrent — et la série ne s'étend jamais au-delà de la dernière mesure connue. Continue, elle permet à l'import de recalculer ses sommes : **les bases déjà faussées se corrigent d'elles-mêmes au premier rafraîchissement**, sans intervention.
+
+Deux défauts associés sont corrigés : le champ `endAt` n'était pas demandé à l'API, si bien qu'un cumul mensuel se retrouvait entièrement sur le 1er du mois au lieu d'être réparti ; et une erreur pendant l'import de l'électricité empêchait celui du gaz de démarrer.
+
+### 🔍 Journalisation de l'import des statistiques
+
+L'import ne laissait qu'une ligne de succès. Il journalise maintenant, en `debug`, la série calculée (nombre de jours, période, total, tarif appliqué et détail des dix derniers jours), la stratégie retenue — réécriture complète ou cumul incrémental — et les sommes d'ancrage et finale. Les sorties silencieuses (passe déjà en cours, série vide) laissent également une trace.
+
+```yaml
+logger:
+  logs:
+    custom_components.octopus_french: debug
+```
 
 ### 🐛 Correction — Comptes à plusieurs compteurs gaz
 

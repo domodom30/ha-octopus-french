@@ -12,7 +12,7 @@ from homeassistant.util import dt as dt_util
 
 from ..const import DOMAIN, LEDGER_TYPE_GAS
 from ..coordinator import OctopusFrenchDataUpdateCoordinator
-from ..utils import gas_month_total, get_tariff_rate_for_key
+from ..utils import convert_sensor_date, gas_month_total, get_tariff_rate_for_key
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -98,6 +98,21 @@ class OctopusGasSensor(
             len(gas_data.get(source) or []) for source in ("monthly", "daily", "index")
         )
 
+    def _latest_reading(self) -> tuple[str, dict[str, Any]] | None:
+        """
+        Dernier relevé réel du compteur, et la source dont il provient.
+
+        On ne passe pas par `gas_daily_values` : elle étale les cumuls mensuels
+        et les relevés d'index sur leurs jours, ce qui donnerait une moyenne
+        présentée comme un relevé.
+        """
+        gas_data = self._gas_data()
+        for source in ("daily", "index", "monthly"):
+            if readings := gas_data.get(source):
+                # L'API ne garantit pas l'ordre des relevés.
+                return source, max(readings, key=lambda r: r.get("startAt") or "")
+        return None
+
     def _calculate_monthly_total(self) -> float:
         """Calculate total for current month from all readings."""
         return gas_month_total(self._gas_data(), self._get_current_month())
@@ -153,6 +168,11 @@ class OctopusGasSensor(
             if self._current_month != current_month:
                 self._current_month = current_month
             return self._calculate_monthly_cost()
+
+        if key == "gas_latest_reading":
+            if latest := self._latest_reading():
+                return round(float(latest[1].get("value") or 0), 2)
+            return None
 
         return None
 
@@ -268,6 +288,27 @@ class OctopusGasSensor(
                         }
 
             return {"status": "No agreement found"}
+
+        if key == "gas_latest_reading":
+            latest = self._latest_reading()
+            if latest is None:
+                return {}
+
+            source, reading = latest
+            value = float(reading.get("value") or 0)
+            tariff_rate = self._get_tariff_rate()
+
+            attributes = {
+                "date_releve": convert_sensor_date(reading.get("startAt")),
+                "date_fin": convert_sensor_date(reading.get("endAt")),
+                "source": source,
+                "cout_euro": (round(value * tariff_rate, 2) if tariff_rate else None),
+            }
+            # Seuls les relevés gasReading portent les index du compteur.
+            if reading.get("indexStartValue") is not None:
+                attributes["index_debut"] = reading.get("indexStartValue")
+                attributes["index_fin"] = reading.get("indexEndValue")
+            return attributes
 
         return {}
 

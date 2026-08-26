@@ -77,6 +77,77 @@ def _cost_reading(
     return {"startAt": start_at, "metaData": {"statistics": [stat]}}
 
 
+def _make_gas_importer(gas_data: dict[str, Any]) -> OctopusStatisticsImporter:
+    """Importer monté sur un seul PCE, sans électricité."""
+    coordinator = SimpleNamespace(
+        data={
+            "electricity_by_prm": {},
+            "agreements": [
+                {
+                    "prm": "12345678901234",
+                    "is_active": True,
+                    "tariffs": {"consumption": {"base": {"price_ttc": 0.1}}},
+                }
+            ],
+            "gas_by_pce": {"12345678901234": gas_data},
+            "supply_points": {"gas": [{"prm": "12345678901234"}]},
+        }
+    )
+    return OctopusStatisticsImporter(MagicMock(), coordinator)
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("paris_tz")
+async def test_gas_partial_daily_coverage_does_not_double_count_month() -> None:
+    """Des mesures quotidiennes partielles ne se cumulent pas au mois déjà compté.
+
+    Reproduit la corruption observée en base : le cumul mensuel de juin restait
+    écrit, et les relevés quotidiens de la seconde moitié du mois s'ajoutaient
+    par-dessus au lieu de le remplacer.
+    """
+    store = _FakeStatsStore()
+    statistic_id = "octopus_french:12345678901234_consumption"
+    store.prefill(
+        statistic_id,
+        [
+            (datetime(2026, 5, 1, tzinfo=PARIS), 300.0, 300.0),
+            (datetime(2026, 6, 1, tzinfo=PARIS), 60.0, 360.0),
+        ],
+    )
+
+    importer = _make_gas_importer(
+        {
+            "monthly": [
+                {
+                    "startAt": "2026-06-01T00:00:00+02:00",
+                    "endAt": "2026-07-01T00:00:00+02:00",
+                    "value": "60",
+                }
+            ],
+            # L'API ne publie les mesures que depuis le 15.
+            "daily": [
+                {"startAt": f"2026-06-{day:02d}T02:00:00+02:00", "value": "1"}
+                for day in range(15, 31)
+            ],
+        }
+    )
+
+    await _run_import(importer, store)
+
+    states = store.states(statistic_id)
+    # Mai intact, puis les 30 jours de juin : prorata jusqu'au 14, mesures ensuite.
+    assert states == [300.0] + [2.0] * 14 + [1.0] * 16
+    # Le point du 1er juin ne porte plus le cumul mensuel de 60 kWh.
+    june_first = store.rows[statistic_id][
+        datetime(2026, 6, 1, tzinfo=PARIS).timestamp()
+    ]
+    assert june_first["state"] == 2.0
+    # Juin compté une seule fois : 28 kWh estimés + 16 kWh mesurés.
+    assert store.rows[statistic_id][datetime(2026, 6, 30, tzinfo=PARIS).timestamp()][
+        "sum"
+    ] == pytest.approx(344.0)
+
+
 def _make_importer(
     readings: list[dict], agreements: list[dict] | None = None
 ) -> OctopusStatisticsImporter:

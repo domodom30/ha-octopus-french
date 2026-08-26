@@ -357,6 +357,16 @@ GAS_SENSORS: tuple[SensorEntityDescription, ...] = (
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
+    # Sans state_class : la série longue passe par statistics_import, une
+    # state_class créerait une statistique HA concurrente.
+    SensorEntityDescription(
+        key="gas_latest_reading",
+        icon="mdi:calendar-clock",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=2,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
 )
 
 LEDGER_SENSORS: tuple[OctopusLedgerSensorDescription, ...] = (

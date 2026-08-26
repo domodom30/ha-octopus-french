@@ -472,6 +472,9 @@
           },
           "last_imported_date": {
             "name": "Dernière date importée"
+          },
+          "source": {
+            "name": "Source"
           }
         }
       },
@@ -492,6 +495,32 @@
           },
           "tariff_eur_kwh": {
             "name": "Tarif (€/kWh)"
+          },
+          "source": {
+            "name": "Source"
+          }
+        }
+      },
+      "gas_latest_reading": {
+        "name": "Dernier relevé",
+        "state_attributes": {
+          "date_releve": {
+            "name": "Date du relevé"
+          },
+          "date_fin": {
+            "name": "Date de fin"
+          },
+          "source": {
+            "name": "Source"
+          },
+          "cout_euro": {
+            "name": "Coût"
+          },
+          "index_debut": {
+            "name": "Index de début"
+          },
+          "index_fin": {
+            "name": "Index de fin"
           }
         }
       },

@@ -37,6 +37,33 @@ _LOGGER = logging.getLogger(__name__)
 _LABEL_TO_ENERGY_KEY = {label: key for key, label in ENERGY_KEY_TO_LABEL.items()}
 _LABEL_TO_COST_KEY = {label: key for key, label in COST_KEY_TO_LABEL.items()}
 
+# Nombre de jours détaillés dans le journal, pour ne pas le noyer.
+_LOGGED_DAYS = 10
+
+
+def _log_daily_series(
+    label: str, daily_values: dict[datetime, float], rate: float | None = None
+) -> None:
+    """Journalise la série calculée : c'est elle qui alimente les statistiques."""
+    if not _LOGGER.isEnabledFor(logging.DEBUG) or not daily_values:
+        return
+
+    days = sorted(daily_values)
+    detail = ", ".join(
+        f"{day:%Y-%m-%d}={daily_values[day]:.3f}" for day in days[-_LOGGED_DAYS:]
+    )
+    _LOGGER.debug(
+        "%s: %s jours du %s au %s, total %.3f, tarif %s — %s derniers jours : %s",
+        label,
+        len(days),
+        f"{days[0]:%Y-%m-%d}",
+        f"{days[-1]:%Y-%m-%d}",
+        sum(daily_values.values()),
+        rate if rate is not None else "n/a",
+        min(_LOGGED_DAYS, len(days)),
+        detail,
+    )
+
 
 class OctopusStatisticsImporter:
     """Importe les statistiques externes en une passe par cycle de coordinator."""
@@ -58,10 +85,16 @@ class OctopusStatisticsImporter:
     async def async_import_all(self) -> None:
         """Run a full import pass, skipping if one is already in progress."""
         if self._import_in_progress:
+            _LOGGER.debug("Statistics import already running, skipping this pass")
             return
         self._import_in_progress = True
         try:
-            await self._async_import_electricity()
+            # Isolées l'une de l'autre : une erreur côté électricité laissait le
+            # gaz sans statistiques, et la trace ne remontait que dans la tâche.
+            try:
+                await self._async_import_electricity()
+            except Exception:
+                _LOGGER.exception("Electricity statistics import failed")
             await self._async_import_gas()
         finally:
             self._import_in_progress = False
@@ -139,6 +172,7 @@ class OctopusStatisticsImporter:
                 data, prm_id, readings
             )
             for key, values in daily_values.items():
+                _log_daily_series(f"electricity {prm_id} {key}", values)
                 is_energy = key.startswith("energy_")
                 await self._async_import_statistic(
                     statistic_id=f"{DOMAIN}:{prm_id}_{key}",
@@ -156,10 +190,18 @@ class OctopusStatisticsImporter:
         for pce_ref, gas_data in gas_by_pce.items():
             consumption_values = gas_daily_values(gas_data)
             if not consumption_values:
-                _LOGGER.debug("No gas reading to import for PCE %s", pce_ref)
+                _LOGGER.debug(
+                    "No gas reading to import for PCE %s (%s monthly, %s daily, "
+                    "%s index)",
+                    pce_ref,
+                    len(gas_data.get("monthly") or []),
+                    len(gas_data.get("daily") or []),
+                    len(gas_data.get("index") or []),
+                )
                 continue
 
             rate = get_tariff_rate_for_key(data, pce_ref, "cost")
+            _log_daily_series(f"gas {pce_ref}", consumption_values, rate)
             if rate:
                 cost_values = {
                     day: value * rate for day, value in consumption_values.items()
@@ -196,6 +238,7 @@ class OctopusStatisticsImporter:
     ) -> None:
         """Import one statistic series (algorithme historique, inchangé)."""
         if not daily_values:
+            _LOGGER.debug("Nothing to import for %s: empty series", statistic_id)
             return
 
         last_imported_day, cumulative_sum = await self._async_get_last_stats(
@@ -209,6 +252,24 @@ class OctopusStatisticsImporter:
 
         if contiguous:
             cumulative_sum = await self._async_get_anchor_sum(statistic_id, days[0])
+            _LOGGER.debug(
+                "%s: série continue de %s jours, réécriture depuis l'ancre %.3f",
+                statistic_id,
+                len(days),
+                cumulative_sum,
+            )
+        else:
+            _LOGGER.debug(
+                "%s: série trouée (%s jours sur %s), cumul incrémental depuis "
+                "%.3f (dernier jour importé : %s)",
+                statistic_id,
+                len(days),
+                (days[-1] - days[0]).days + 1 if days else 0,
+                cumulative_sum,
+                last_imported_day,
+            )
+
+        if contiguous:
             for day in days:
                 reading_value = daily_values[day]
                 cumulative_sum += reading_value
@@ -244,10 +305,11 @@ class OctopusStatisticsImporter:
         try:
             async_add_external_statistics(self.hass, metadata, statistics)
             _LOGGER.debug(
-                "Imported %d statistics for %s (last date: %s)",
+                "Imported %d statistics for %s (last date: %s, cumulative sum: %.3f)",
                 len(statistics),
                 statistic_id,
                 self.last_imported.get(statistic_id),
+                cumulative_sum,
             )
         except Exception:
             _LOGGER.exception("Failed to import statistics for %s", statistic_id)

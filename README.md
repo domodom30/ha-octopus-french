@@ -20,7 +20,7 @@ Intégration Octopus Energy France (non officiel) pour Home Assistant.
   - **Mode OctoTempo** : consommation et coût mensuel par couleur × période (6 capteurs : Été HP/HC, Hiver HP/HC, Rouge HP/HC)
   - **Statistiques historiques** : Import automatique de l'historique dans le tableau de bord Énergie
   - **Dernier relevé** : Valeur et détails de la dernière lecture quotidienne (avec ventilation Tempo si applicable)
-- **Consommation de gaz** : cumulative mensuelle
+- **Consommation de gaz** : cumulative mensuelle, avec le **dernier relevé** du compteur et l'historique journalier importé dans le tableau de bord Énergie
 - **Abonnement** : Coût mensuel de l'abonnement électricité
 
 ### 🔢 Index des compteurs Linky
@@ -321,6 +321,7 @@ Les données sont rafraîchies automatiquement toutes les **60 minutes** (5 minu
 | Abonnement   | Capteur | Monetary | Total       | Coût mensuel de l'abonnement gaz     |
 | Tarif        | Capteur | -        | -           | Prix du kWh gaz (€/kWh, diagnostic)  |
 | Contrat      | Capteur | -        | -           | Type de contrat et informations      |
+| Dernier relevé | Capteur | Energy | -           | Valeur du dernier relevé du compteur (diagnostic) |
 
 **Attributs du contrat gaz :**
 
@@ -338,7 +339,17 @@ Les données sont rafraîchies automatiquement toutes les **60 minutes** (5 minu
 - `source` : Origine des relevés — `measurements` (mesures Gazpar) ou `gasReading` (relevés d'index)
 - `tariff_eur_kwh` : Prix du kWh appliqué (capteur Coût)
 
-> **Note :** les relevés quotidiens ne sont publiés que pour les compteurs Gazpar communicants. Pour les autres, l'intégration utilise les relevés d'index, dont les périodes sont irrégulières : leur consommation est répartie sur les jours qu'elles couvrent.
+> **Note :** la série journalière superpose les sources du moins précis au plus précis — cumuls mensuels, relevés d'index, puis mesures quotidiennes, publiées pour les seuls compteurs Gazpar communicants. Les périodes irrégulières sont réparties sur les jours qu'elles couvrent, un jour sans consommation est conservé à `0`, et rien n'est extrapolé au-delà de la dernière mesure connue (GrDF publie avec quelques jours de retard).
+
+**Attributs du dernier relevé :**
+
+- `date_releve` : Début de la période couverte par le relevé
+- `date_fin` : Fin de la période (relevés d'index et cumuls mensuels uniquement)
+- `source` : `daily` (mesure quotidienne), `index` (relevé d'index) ou `monthly` (cumul mensuel)
+- `cout_euro` : Coût du relevé au tarif en vigueur
+- `index_debut` / `index_fin` : Index du compteur (relevés d'index uniquement)
+
+> **Note :** ce capteur affiche le dernier relevé **réel**, jamais une moyenne. Une valeur à `0` signifie donc qu'aucune consommation n'a été mesurée sur cette période, et un compteur sans aucun relevé laisse le capteur vide.
 
 ---
 
@@ -485,7 +496,10 @@ L'intégration importe automatiquement l'historique de vos consommations et coû
 
 #### Pour le gaz :
 
-- **Consommation de gaz** : `sensor.gazpar_XXXXXX_consumption`
+- **Consommation de gaz** : `sensor.gazpar_XXXXXX_consumption` — attention, ce capteur est un **cumul mensuel** : le tableau de bord n'affichera qu'un seul point par mois.
+- **Pour une courbe au jour le jour**, sélectionnez plutôt la statistique importée `octopus_french:<PCE>_consumption` (et `octopus_french:<PCE>_cost` pour le coût). Elle porte le détail journalier : les mesures quotidiennes des compteurs communicants, ou la répartition des relevés d'index pour les autres.
+
+> Ces statistiques ne sont pas des entités : on les retrouve dans **Outils de développement** → **Statistiques**, et dans le sélecteur « Ajouter une consommation » du tableau de bord Énergie.
 
 ### Visualisation dans l'historique
 

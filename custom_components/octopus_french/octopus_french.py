@@ -55,6 +55,7 @@ fragment IntervalMeasurement on IntervalMeasurementType {
   __typename
   value
   startAt
+  endAt
   metaData {
     statistics {
       costInclTax {
