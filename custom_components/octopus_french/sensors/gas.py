@@ -12,7 +12,7 @@ from homeassistant.util import dt as dt_util
 
 from ..const import DOMAIN, LEDGER_TYPE_GAS
 from ..coordinator import OctopusFrenchDataUpdateCoordinator
-from ..utils import get_tariff_rate_for_key
+from ..utils import gas_month_total, get_tariff_rate_for_key
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -84,44 +84,23 @@ class OctopusGasSensor(
         _LOGGER.debug("No subscription found in agreements for PCE %s", self._pce_ref)
         return 0.0
 
+    def _gas_data(self) -> dict[str, Any]:
+        """Relevés du PCE, avec repli sur la clé historique `gas`."""
+        by_pce = self.coordinator.data.get("gas_by_pce") or {}
+        if gas_data := by_pce.get(self._pce_ref):
+            return gas_data
+        return {"monthly": self.coordinator.data.get("gas", [])}
+
+    def _readings_count(self) -> int:
+        """Nombre de relevés disponibles, toutes sources confondues."""
+        gas_data = self._gas_data()
+        return sum(
+            len(gas_data.get(source) or []) for source in ("monthly", "daily", "index")
+        )
+
     def _calculate_monthly_total(self) -> float:
         """Calculate total for current month from all readings."""
-        readings = self.coordinator.data.get("gas", [])
-
-        if not readings:
-            return 0.0
-
-        try:
-            sorted_readings = sorted(
-                readings, key=lambda x: x.get("startAt", ""), reverse=False
-            )
-        except (TypeError, KeyError) as e:
-            _LOGGER.warning("Error sorting gas readings: %s", e)
-            sorted_readings = readings
-
-        current_month = self._get_current_month()
-        total = 0.0
-
-        for reading in sorted_readings:
-            reading_date = reading.get("startAt")
-
-            if not reading_date:
-                continue
-
-            try:
-                date_obj = datetime.fromisoformat(reading_date)
-                reading_month = date_obj.strftime("%Y-%m")
-
-                if reading_month != current_month:
-                    continue
-
-            except (ValueError, TypeError, AttributeError) as e:
-                _LOGGER.warning("Error parsing gas date %s: %s", reading_date, e)
-                continue
-
-            total += float(reading.get("value", 0))
-
-        return round(total, 2)
+        return gas_month_total(self._gas_data(), self._get_current_month())
 
     def _calculate_monthly_cost(self) -> float:
         """Calculate monthly cost from consumption and tariff."""
@@ -250,25 +229,22 @@ class OctopusGasSensor(
             return attributes
 
         if key == "consumption":
-            readings = self.coordinator.data.get("gas", [])
-
             return {
                 "current_month": self._current_month,
-                "readings_count": len(readings),
+                "readings_count": self._readings_count(),
                 "calculation_method": "Cumulée / mois",
                 "last_imported_date": self._last_imported_date(),
+                "source": self._gas_data().get("source"),
             }
 
         if key == "cost":
-            readings = self.coordinator.data.get("gas", [])
-            tariff_rate = self._get_tariff_rate()
-
             return {
                 "current_month": self._current_month,
-                "readings_count": len(readings),
+                "readings_count": self._readings_count(),
                 "calculation_method": "Cumulée / mois",
                 "last_imported_date": self._last_imported_date(),
-                "tariff_eur_kwh": tariff_rate,
+                "tariff_eur_kwh": self._get_tariff_rate(),
+                "source": self._gas_data().get("source"),
             }
 
         if key == "rate_base":

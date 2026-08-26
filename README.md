@@ -331,6 +331,15 @@ Les données sont rafraîchies automatiquement toutes les **60 minutes** (5 minu
 - `is_smart_meter` : Compteur communicant (Gazpar)
 - `powered_status` : État de la connexion (En service/Coupé)
 
+**Attributs de la consommation et du coût :**
+
+- `current_month` : Mois cumulé (YYYY-MM)
+- `readings_count` : Nombre de relevés disponibles, toutes sources confondues
+- `source` : Origine des relevés — `measurements` (mesures Gazpar) ou `gasReading` (relevés d'index)
+- `tariff_eur_kwh` : Prix du kWh appliqué (capteur Coût)
+
+> **Note :** les relevés quotidiens ne sont publiés que pour les compteurs Gazpar communicants. Pour les autres, l'intégration utilise les relevés d'index, dont les périodes sont irrégulières : leur consommation est répartie sur les jours qu'elles couvrent.
+
 ---
 
 ### 🚗 Appareil Véhicule Électrique (Octopus Intelligent)

@@ -334,13 +334,13 @@ query GetPropertyMeasurements($propertyId: ID!, $startAt: DateTime!, $endAt: Dat
 """
 
 QUERY_GET_GAS_READINGS = """
-query getGasReadings($accountNumber: String!, $pceRef: String!, $periodStartAt: Date, $periodEndAt: Date, $first: Int, $after: String) {
+query getGasReadings($accountNumber: String!, $pceRef: String!, $periodStartAt: Date, $periodEndAt: Date, $first: Int, $after: String, $energyQualification: ReadingQualification) {
   gasReading(
     accountNumber: $accountNumber
     pceRef: $pceRef
     periodStartAt: $periodStartAt
     periodEndAt: $periodEndAt
-    energyQualification: M
+    energyQualification: $energyQualification
     first: $first
     after: $after
   ) {
@@ -1067,6 +1067,13 @@ class OctopusFrenchApiClient:
                 market_supply_point_id,
             )
 
+        _LOGGER.debug(
+            "%s measurements returned %s readings for %s (%s)",
+            utility_type,
+            len(all_nodes),
+            market_supply_point_id,
+            reading_frequency,
+        )
         return all_nodes
 
     async def get_gas_readings(
@@ -1076,8 +1083,16 @@ class OctopusFrenchApiClient:
         start_at: str,
         end_at: str,
         first: int = 100,
+        energy_qualification: str | None = None,
     ) -> list[dict[str, Any]]:
-        """Get gas readings using the dedicated gasReading query, fetching all pages."""
+        """
+        Get gas readings using the dedicated gasReading query, fetching all pages.
+
+        Ces relevés d'index restent disponibles quand le compteur ne publie
+        aucune mesure dans `property.measurements` (issue #79). Sans filtre
+        explicite, l'API renvoie toutes les qualifications : la valeur `M`,
+        longtemps codée en dur ici, ne remonte aucun relevé.
+        """
         period_start = start_at[:10]
         period_end = end_at[:10]
 
@@ -1092,6 +1107,7 @@ class OctopusFrenchApiClient:
                 "periodEndAt": period_end,
                 "first": first,
                 "after": after,
+                "energyQualification": energy_qualification,
             }
             result = await self.execute_with_auth(
                 query=QUERY_GET_GAS_READINGS, variables=variables
@@ -1122,6 +1138,9 @@ class OctopusFrenchApiClient:
                 pce_ref,
             )
 
+        _LOGGER.debug(
+            "gasReading returned %s readings for PCE %s", len(all_nodes), pce_ref
+        )
         return all_nodes
 
     async def get_payment_requests(self, ledger_number: str) -> dict[str, Any] | None:

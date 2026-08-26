@@ -1,3 +1,25 @@
+## [4.1.6] - 2026-08-26
+
+### 🐛 Correction — Consommation et coût gaz bloqués à 0 (issue [#79](https://github.com/domodom30/ha-octopus-french/issues/79))
+
+Les relevés gaz n'étaient demandés qu'à `property.measurements`. Cette source ne renvoie de mesures que pour les compteurs Gazpar qui en publient : ailleurs elle répond une liste vide, sans erreur, et la consommation comme le coût restaient à `0` — alors que le compteur, le contrat, l'abonnement et le tarif s'affichaient normalement, ce qui rendait le diagnostic trompeur. La requête `gasReading`, qui expose les relevés d'index de tous les compteurs, existait depuis la 1.6.0 mais n'était plus appelée depuis la 2.0.1.
+
+Elle redevient la source de repli : quand `measurements` ne renvoie rien, les relevés d'index prennent le relais et leur consommation est répartie sur les jours de leur période. Une absence totale de relevé est désormais signalée au journal au lieu d'afficher un zéro silencieux, et l'attribut `source` des capteurs Consommation et Coût indique quelle source alimente la valeur. Merci à [@gregory-03](https://github.com/gregory-03).
+
+### ✨ Amélioration — Statistiques gaz au jour le jour
+
+Les relevés quotidiens des compteurs communicants sont maintenant collectés en plus des cumuls mensuels. Le tableau de bord Énergie affiche donc une courbe journalière du gaz au lieu d'un unique pic au 1er du mois. Les compteurs sans relevé quotidien conservent une répartition calculée sur leurs périodes.
+
+### 🐛 Correction — Comptes à plusieurs compteurs gaz
+
+Seul le premier PCE était interrogé, alors que des entités étaient créées pour chacun : les compteurs suivants restaient à 0. Chaque PCE récupère désormais ses propres relevés et ses propres statistiques, sur sa propre propriété — comme l'électricité depuis la 4.0.1.
+
+### 🔒 Diagnostics
+
+Les identifiants de compteur (PRM, PCE) servaient de clés de dictionnaire et échappaient donc à l'anonymisation du fichier de diagnostic. Ils sont maintenant masqués.
+
+---
+
 ## [4.1.5] - 2026-08-25
 
 ### 🐛 Correction — Électricité absente quand le distributeur déclare le compteur résilié (issue [#75](https://github.com/domodom30/ha-octopus-french/issues/75))

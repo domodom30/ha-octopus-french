@@ -2,8 +2,10 @@
 
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
+
+from homeassistant.util import dt as dt_util
 
 from .const import (
     TARIFF_TYPE_TEMPO,
@@ -440,3 +442,87 @@ def convert_sensor_date(date_string: str | None) -> str | None:
     dt = datetime.fromisoformat(date_string)
 
     return dt.strftime("%Y-%m-%d")
+
+
+def reading_local_day(start_at: str | None) -> datetime | None:
+    """Minuit local du jour calendaire d'un relevé (fusionne les offsets UTC)."""
+    if not start_at:
+        return None
+    try:
+        return (
+            datetime.fromisoformat(start_at)
+            .astimezone(dt_util.DEFAULT_TIME_ZONE)
+            .replace(hour=0, minute=0, second=0, microsecond=0)
+        )
+    except (ValueError, TypeError, AttributeError) as err:
+        _LOGGER.warning("Error parsing date %s: %s", start_at, err)
+        return None
+
+
+def _spread_over_days(
+    start_at: str | None, end_at: str | None, value: float
+) -> dict[datetime, float]:
+    """Répartit uniformément la valeur d'une période sur ses jours calendaires."""
+    first_day = reading_local_day(start_at)
+    if first_day is None or value <= 0:
+        return {}
+
+    last_day = reading_local_day(end_at)
+    if last_day is None or last_day <= first_day:
+        return {first_day: value}
+
+    # La borne de fin est exclusive : un relevé 01/08→01/09 couvre le mois d'août.
+    day_count = (last_day - first_day).days
+    share = value / day_count
+    return {first_day + timedelta(days=offset): share for offset in range(day_count)}
+
+
+def gas_daily_values(gas_data: dict[str, Any]) -> dict[datetime, float]:
+    """
+    Série journalière de consommation gaz (kWh) issue de la meilleure source.
+
+    Les relevés quotidiens ne sont publiés que pour les Gazpar communicants ; à
+    défaut on répartit les buckets mensuels, puis les relevés d'index — dont les
+    périodes sont irrégulières (issue #79).
+    """
+    daily: dict[datetime, float] = {}
+    for reading in gas_data.get("daily") or []:
+        day = reading_local_day(reading.get("startAt"))
+        value = float(reading.get("value") or 0)
+        if day is not None and value > 0:
+            daily[day] = daily.get(day, 0.0) + value
+    if daily:
+        return daily
+
+    for source in ("monthly", "index"):
+        for reading in gas_data.get(source) or []:
+            for day, value in _spread_over_days(
+                reading.get("startAt"),
+                reading.get("endAt"),
+                float(reading.get("value") or 0),
+            ).items():
+                daily[day] = daily.get(day, 0.0) + value
+        if daily:
+            return daily
+
+    return daily
+
+
+def gas_month_total(gas_data: dict[str, Any], month: str) -> float:
+    """
+    Consommation gaz (kWh) du mois `YYYY-MM` local.
+
+    Le bucket mensuel de l'API fait foi quand il existe : c'est la valeur
+    consolidée qu'affiche Octopus. Sinon on somme la série journalière.
+    """
+    for reading in gas_data.get("monthly") or []:
+        day = reading_local_day(reading.get("startAt"))
+        if day is not None and day.strftime("%Y-%m") == month:
+            return round(float(reading.get("value") or 0), 2)
+
+    total = sum(
+        value
+        for day, value in gas_daily_values(gas_data).items()
+        if day.strftime("%Y-%m") == month
+    )
+    return round(total, 2)

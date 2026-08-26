@@ -22,7 +22,12 @@ from homeassistant.helpers.recorder import get_instance
 from homeassistant.util import dt as dt_util
 
 from .const import COST_KEY_TO_LABEL, DOMAIN, ENERGY_KEY_TO_LABEL
-from .utils import get_tariff_rate_for_key, normalize_consumption_label
+from .utils import (
+    gas_daily_values,
+    get_tariff_rate_for_key,
+    normalize_consumption_label,
+    reading_local_day,
+)
 
 if TYPE_CHECKING:
     from .coordinator import OctopusFrenchDataUpdateCoordinator
@@ -31,21 +36,6 @@ _LOGGER = logging.getLogger(__name__)
 
 _LABEL_TO_ENERGY_KEY = {label: key for key, label in ENERGY_KEY_TO_LABEL.items()}
 _LABEL_TO_COST_KEY = {label: key for key, label in COST_KEY_TO_LABEL.items()}
-
-
-def _reading_day(start_at: str | None) -> datetime | None:
-    """Minuit local du jour calendaire d'un relevé (fusionne les offsets UTC)."""
-    if not start_at:
-        return None
-    try:
-        return (
-            datetime.fromisoformat(start_at)
-            .astimezone(dt_util.DEFAULT_TIME_ZONE)
-            .replace(hour=0, minute=0, second=0, microsecond=0)
-        )
-    except (ValueError, TypeError, AttributeError) as err:
-        _LOGGER.warning("Error parsing date %s: %s", start_at, err)
-        return None
 
 
 class OctopusStatisticsImporter:
@@ -90,7 +80,7 @@ class OctopusStatisticsImporter:
             return daily_values
 
         for reading in sorted_readings:
-            day = _reading_day(reading.get("startAt"))
+            day = reading_local_day(reading.get("startAt"))
             if day is None:
                 continue
 
@@ -159,56 +149,42 @@ class OctopusStatisticsImporter:
                 )
 
     async def _async_import_gas(self) -> None:
-        """Import gas statistics for the metered PCE."""
+        """Import gas statistics for every metered PCE."""
         data = self.coordinator.data or {}
-        readings = data.get("gas", [])
-        if not readings:
-            return
+        gas_by_pce = data.get("gas_by_pce") or {}
 
-        gas_points = data.get("supply_points", {}).get("gas", [])
-        pce_ref = gas_points[0].get("prm") if gas_points else None
-        if not pce_ref:
-            return
-
-        try:
-            sorted_readings = sorted(readings, key=lambda x: x.get("startAt", ""))
-        except (TypeError, KeyError) as err:
-            _LOGGER.warning("Error sorting gas readings: %s", err)
-            return
-
-        rate = get_tariff_rate_for_key(data, pce_ref, "cost")
-        consumption_values: dict[datetime, float] = {}
-        cost_values: dict[datetime, float] = {}
-
-        for reading in sorted_readings:
-            day = _reading_day(reading.get("startAt"))
-            if day is None:
+        for pce_ref, gas_data in gas_by_pce.items():
+            consumption_values = gas_daily_values(gas_data)
+            if not consumption_values:
+                _LOGGER.debug("No gas reading to import for PCE %s", pce_ref)
                 continue
-            consumption = float(reading.get("value") or 0)
-            if consumption <= 0:
-                continue
-            consumption_values[day] = consumption
+
+            rate = get_tariff_rate_for_key(data, pce_ref, "cost")
             if rate:
-                cost_values[day] = consumption * rate
+                cost_values = {
+                    day: value * rate for day, value in consumption_values.items()
+                }
             else:
+                cost_values = {}
                 _LOGGER.warning(
-                    "No tariff rate found for gas meter %s, cost will be 0", pce_ref
+                    "No tariff rate found for gas meter %s, cost will not be imported",
+                    pce_ref,
                 )
 
-        await self._async_import_statistic(
-            statistic_id=f"{DOMAIN}:{pce_ref}_consumption",
-            name=f"Octopus Energy Gas Consumption {pce_ref}",
-            unit_class="energy",
-            unit=UnitOfEnergy.KILO_WATT_HOUR,
-            daily_values=consumption_values,
-        )
-        await self._async_import_statistic(
-            statistic_id=f"{DOMAIN}:{pce_ref}_cost",
-            name=f"Octopus Energy Gas Cost {pce_ref}",
-            unit_class=None,
-            unit=CURRENCY_EURO,
-            daily_values=cost_values,
-        )
+            await self._async_import_statistic(
+                statistic_id=f"{DOMAIN}:{pce_ref}_consumption",
+                name=f"Octopus Energy Gas Consumption {pce_ref}",
+                unit_class="energy",
+                unit=UnitOfEnergy.KILO_WATT_HOUR,
+                daily_values=consumption_values,
+            )
+            await self._async_import_statistic(
+                statistic_id=f"{DOMAIN}:{pce_ref}_cost",
+                name=f"Octopus Energy Gas Cost {pce_ref}",
+                unit_class=None,
+                unit=CURRENCY_EURO,
+                daily_values=cost_values,
+            )
 
     async def _async_import_statistic(
         self,
