@@ -496,25 +496,8 @@ L'intégration importe automatiquement l'historique de vos consommations et coû
 
 #### Pour le gaz :
 
-Deux configurations sont possibles. **Ne les mélangez pas** : une consommation prise dans l'une et un coût pris dans l'autre n'ont ni la même granularité ni la même origine, et le tableau de bord afficherait un coût sans rapport avec la consommation affichée.
-
-**A. Statistiques importées — recommandé, détail journalier**
-
-| Champ | Valeur |
-| ----- | ------ |
-| Consommation de gaz | `octopus_french:<PCE>_consumption` |
-| Coût | *Utiliser une entité qui suit le coût total* → `octopus_french:<PCE>_cost` |
-
-Les options *prix actuel* et *prix statique* sont alors **grisées** — voir le dépannage plus bas, c'est une limitation de Home Assistant, pas de l'intégration.
-
-**B. Entités de l'intégration — permet le prix live, mais granularité mensuelle**
-
-| Champ | Valeur |
-| ----- | ------ |
-| Consommation de gaz | `sensor.gazpar_<PCE>_consommation` (cumul remis à zéro le 1er du mois) |
-| Coût | *Utiliser une entité avec le prix actuel* → `sensor.gazpar_<PCE>_tarif` |
-
-Ici le tableau de bord n'affiche qu'un point par mois, mais Home Assistant calcule lui-même le coût à partir du prix du kWh.
+- **Consommation de gaz** : `sensor.gazpar_XXXXXX_consumption` — attention, ce capteur est un **cumul mensuel** : le tableau de bord n'affichera qu'un seul point par mois.
+- **Pour une courbe au jour le jour**, sélectionnez plutôt la statistique importée `octopus_french:<PCE>_consumption` (et `octopus_french:<PCE>_cost` pour le coût). Elle porte le détail journalier : les mesures quotidiennes des compteurs communicants, ou la répartition des relevés d'index pour les autres.
 
 > Ces statistiques ne sont pas des entités : on les retrouve dans **Outils de développement** → **Statistiques**, et dans le sélecteur « Ajouter une consommation » du tableau de bord Énergie.
 
