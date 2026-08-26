@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
+
 import pytest
 
+from custom_components.octopus_french import utils
 from custom_components.octopus_french.utils import (
     normalize_consumption_label,
     normalize_provider_calendar,
@@ -52,7 +55,8 @@ _CONSUMPTION_MAPPING = {
         # Un label inconnu est renvoyé tel quel (et signalé dans les logs).
         pytest.param("CONSUMPTION_MYSTERE_XX", "CONSUMPTION_MYSTERE_XX", id="inconnu"),
         pytest.param("ABONNEMENT", "ABONNEMENT", id="abonnement"),
-        # Labels Tempo OctoFlex → inchangés (ne commencent pas par EFFACEMENT).
+        # Labels Tempo OctoFlex → inchangés : leur code de classe temporelle
+        # (HPE/HCP/…) est reconnu avant la recherche du segment HP/HC.
         pytest.param(
             "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
             "CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0",
@@ -63,20 +67,70 @@ _CONSUMPTION_MAPPING = {
             "CONSUMPTION_OCTOFLEX_4_V4_HCP_0.0_37.0",
             id="tempo_octoflex_hcp",
         ),
-        # Labels Tempo courts → inchangés (pris en charge par leur propre branche).
+        # Labels Tempo courts → inchangés (TEMPO_SHORT_LABELS).
         pytest.param("TEMPO_ETE_HP", "TEMPO_ETE_HP", id="tempo_court_ete_hp"),
         pytest.param("TEMPO_ROUGE_HC", "TEMPO_ROUGE_HC", id="tempo_court_rouge_hc"),
-        # Labels génériques HP/HC non-Effacement → inchangés (heuristique restreinte).
-        pytest.param("SOME_TARIFF_HP_EXTRA", "SOME_TARIFF_HP_EXTRA", id="generic_hp"),
-        pytest.param("OTHER_HC", "OTHER_HC", id="generic_hc"),
+        # Le segment HP/HC n'est cherché que dans les labels CONSUMPTION_*.
+        pytest.param(
+            "SOME_TARIFF_HP_EXTRA",
+            "SOME_TARIFF_HP_EXTRA",
+            id="no_consumption_prefix_hp",
+        ),
+        pytest.param("OTHER_HC", "OTHER_HC", id="no_consumption_prefix_hc"),
         # Labels divers / vides → inchangés.
-        pytest.param("ABONNEMENT", "ABONNEMENT", id="abonnement"),
         pytest.param("", "", id="empty"),
     ],
 )
 def test_normalize_consumption_label(label: str, expected: str) -> None:
-    """La normalisation ne remappe que les labels Effacement explicites."""
+    """Le segment HP/HC est remappé quelle que soit l'offre, sauf sur Tempo."""
     assert normalize_consumption_label(label) == expected
+
+
+@pytest.fixture
+def fresh_warned_labels():
+    """Vide le cache d'avertissements, qui est global au module."""
+    utils._UNKNOWN_LABELS_WARNED.clear()
+    yield
+    utils._UNKNOWN_LABELS_WARNED.clear()
+
+
+@pytest.mark.usefixtures("fresh_warned_labels")
+@pytest.mark.parametrize(
+    "label",
+    [
+        pytest.param("HEURES_PLEINES", id="legacy_hp"),
+        pytest.param("ABONNEMENT", id="abonnement"),
+        pytest.param("CONSUMPTION_EFFACEMENT_HPHC_2_HP_0.0_37.0", id="effacement_hp"),
+        pytest.param("CONSUMPTION_AUTRE_OFFRE_HC_0.0_37.0", id="autre_offre_hc"),
+        pytest.param("CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0", id="tempo_octoflex_hpe"),
+        pytest.param("TEMPO_ETE_HP", id="tempo_court_ete_hp"),
+        pytest.param("TEMPO_ROUGE_HC", id="tempo_court_rouge_hc"),
+    ],
+)
+def test_supported_labels_emit_no_warning(
+    label: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Un label pris en charge ne doit pas être signalé comme non reconnu.
+
+    Les labels Tempo courts alimentent les attributs kWh du dernier relevé
+    (voir test_tempo.py) : les signaler invitait à remonter un label qui
+    fonctionne.
+    """
+    with caplog.at_level(logging.WARNING, logger=utils.__name__):
+        normalize_consumption_label(label)
+
+    assert caplog.records == []
+
+
+@pytest.mark.usefixtures("fresh_warned_labels")
+def test_unknown_label_emits_warning_once(caplog: pytest.LogCaptureFixture) -> None:
+    """Un label réellement inconnu est signalé, et une seule fois."""
+    with caplog.at_level(logging.WARNING, logger=utils.__name__):
+        normalize_consumption_label("CONSUMPTION_MYSTERE_XX")
+        normalize_consumption_label("CONSUMPTION_MYSTERE_XX")
+
+    assert len(caplog.records) == 1
+    assert "CONSUMPTION_MYSTERE_XX" in caplog.records[0].getMessage()
 
 
 def _run_label_matching(labels_and_values: list[tuple[str, float]], key: str) -> float:

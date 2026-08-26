@@ -16,6 +16,7 @@ from ..const import (
     DOMAIN,
     ENERGY_KEY_TO_LABEL,
     LEDGER_TYPE_ELECTRICITY,
+    TEMPO_SHORT_LABELS,
 )
 from ..coordinator import OctopusFrenchDataUpdateCoordinator
 from ..utils import (
@@ -522,14 +523,7 @@ class OctopusLatestReadingSensor(
                     if cost_incl_tax.get("estimatedAmount")
                     else None
                 )
-            elif label in (
-                "TEMPO_ETE_HP",
-                "TEMPO_ETE_HC",
-                "TEMPO_HIVER_HP",
-                "TEMPO_HIVER_HC",
-                "TEMPO_ROUGE_HP",
-                "TEMPO_ROUGE_HC",
-            ):
+            elif label in TEMPO_SHORT_LABELS:
                 attributes[label.lower()] = float(value) if value else None
 
         base_kwh = attributes.get("heures_base")

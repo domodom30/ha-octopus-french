@@ -349,6 +349,33 @@ async def test_gap_in_window_falls_back_to_append_only() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("paris_tz")
+async def test_zero_kwh_day_keeps_series_contiguous() -> None:
+    """Un jour mesuré à 0 kWh est importé au lieu d'être écarté (issue #79).
+
+    L'écarter trouait la série, ce qui faisait basculer l'import sur son cumul
+    incrémental : les sommes déjà écrites n'étaient plus recalculées et le
+    tableau de bord Énergie affichait un trou au lieu d'un jour à zéro.
+    """
+    store = _FakeStatsStore()
+    # Sommes déjà faussées sur le 14 : seule la réécriture les corrige.
+    store.prefill(STAT_ID, [(_paris_day(14), 5.0, 99.0)])
+
+    readings = [
+        _cost_reading("2026-06-14T00:00:00+02:00", kwh=5.0),
+        _cost_reading("2026-06-15T00:00:00+02:00", kwh=0.0),
+        _cost_reading("2026-06-16T00:00:00+02:00", kwh=7.0),
+    ]
+    await _run_import(_make_importer(readings, agreements=_AGREEMENT_HP), store)
+
+    assert store.states(STAT_ID) == [5.0, 0.0, 7.0]
+    # Série contiguë → réécriture depuis 0, les sommes faussées sont corrigées.
+    assert store.changes(STAT_ID) == [5.0, 0.0, 7.0]
+    # Le coût suit la même règle : 0 kWh x tarif = 0 €, pas une absence.
+    assert store.states(COST_STAT_ID) == [1.25, 0.0, 1.75]
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("paris_tz")
 async def test_mixed_offsets_across_cycles_do_not_double() -> None:
     """Régression 3.2.5 : même instant réémis avec un offset UTC différent, sans doubler."""
     store = _FakeStatsStore()

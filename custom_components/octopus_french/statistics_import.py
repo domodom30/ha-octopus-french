@@ -121,16 +121,17 @@ class OctopusStatisticsImporter:
                 label = normalize_consumption_label(stat.get("label", ""))
                 value = stat.get("value")
 
-                if (
-                    (energy_key := _LABEL_TO_ENERGY_KEY.get(label)) is not None
-                    and value is not None
-                    and float(value) > 0
-                ):
+                # Un jour mesuré à 0 est une donnée ; un relevé sans valeur n'en
+                # est pas une. Écarter les zéros trouait la série, ce qui fait
+                # basculer l'import sur son cumul incrémental au lieu de
+                # recalculer les sommes (même défaut que le gaz, issue #79).
+                energy_key = _LABEL_TO_ENERGY_KEY.get(label)
+                if energy_key is not None and value is not None:
                     daily_values.setdefault(energy_key, {})[day] = float(value)
 
                 if (cost_key := _LABEL_TO_COST_KEY.get(label)) is not None:
                     cost = self._compute_cost(data, prm_id, cost_key, stat, rates)
-                    if cost is not None and cost > 0:
+                    if cost is not None:
                         daily_values.setdefault(cost_key, {})[day] = cost
 
         return daily_values

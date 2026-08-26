@@ -10,6 +10,7 @@ from homeassistant.util import dt as dt_util
 from .const import (
     TARIFF_TYPE_TEMPO,
     TEMPO_PRODUCT_CODE_KEYWORDS,
+    TEMPO_SHORT_LABELS,
     TEMPO_STATISTICS_LABELS,
     TEMPO_TEMPORAL_CLASS_CODES,
 )
@@ -335,13 +336,19 @@ def normalize_consumption_label(label: str) -> str:
     mensuels à 0 sur les autres offres (issue #70).
 
     Les labels OctoTempo portent leur propre code (HPE/HCE/HPHI/HCHI/HPP/HCP) et
-    sont mappés ailleurs via ENERGY_KEY_TO_LABEL : ils sont renvoyés inchangés.
+    sont mappés ailleurs via ENERGY_KEY_TO_LABEL ; leur variante courte
+    (TEMPO_ETE_HP, …) alimente les attributs du dernier relevé. Les uns comme
+    les autres sont renvoyés inchangés, sans avertissement.
     """
     if not label:
         return label
     if label in ("HEURES_BASE", "BASE"):
         return "BASE"
-    if label in _CANONICAL_CONSUMPTION_LABELS or label in TEMPO_STATISTICS_LABELS:
+    if (
+        label in _CANONICAL_CONSUMPTION_LABELS
+        or label in TEMPO_STATISTICS_LABELS
+        or label in TEMPO_SHORT_LABELS
+    ):
         return label
 
     if label.startswith("CONSUMPTION_"):

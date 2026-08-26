@@ -31,6 +31,19 @@ TEMPO_STATISTICS_LABELS: frozenset[str] = frozenset(
     }
 )
 
+# Variante courte des labels Tempo, renvoyée par l'API à la place des labels
+# CONSUMPTION_OCTOFLEX_* : elle alimente les attributs kWh du dernier relevé.
+TEMPO_SHORT_LABELS: frozenset[str] = frozenset(
+    {
+        "TEMPO_ETE_HP",
+        "TEMPO_ETE_HC",
+        "TEMPO_HIVER_HP",
+        "TEMPO_HIVER_HC",
+        "TEMPO_ROUGE_HP",
+        "TEMPO_ROUGE_HC",
+    }
+)
+
 TEMPO_PRODUCT_CODE_KEYWORDS: tuple[str, ...] = ("TEMPO", "OCTOFLEX")
 
 TEMPO_TEMPORAL_CLASS_CODES: frozenset[str] = frozenset(

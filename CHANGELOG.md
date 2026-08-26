@@ -26,6 +26,18 @@ Les sources se superposent désormais du moins précis au plus précis — cumul
 
 Deux défauts associés sont corrigés : le champ `endAt` n'était pas demandé à l'API, si bien qu'un cumul mensuel se retrouvait entièrement sur le 1er du mois au lieu d'être réparti ; et une erreur pendant l'import de l'électricité empêchait celui du gaz de démarrer.
 
+### 🐛 Correction — Jours à 0 kWh écartés des statistiques électricité
+
+Le même défaut que celui corrigé côté gaz existait sur l'électricité : un jour mesuré à 0 kWh — absence, coupure, véhicule non rechargé — était écarté de la série au lieu d'y figurer. Chaque zéro laissait donc un trou, et une série trouée fait basculer l'import sur son cumul incrémental au lieu de recalculer ses sommes : les valeurs déjà écrites, même fausses, n'étaient plus corrigées.
+
+Les jours à 0 sont désormais conservés, pour l'énergie comme pour le coût. La série redevenue continue, **les sommes déjà faussées se corrigent d'elles-mêmes au premier rafraîchissement**. Un relevé sans valeur, lui, reste écarté : c'est une absence de mesure, pas une mesure à zéro.
+
+### 🐛 Correction — Faux avertissement de label non reconnu sur les comptes Tempo
+
+L'avertissement introduit en 4.1.5 pour signaler un label de consommation inconnu se déclenchait aussi sur les labels Tempo courts (`TEMPO_ETE_HP`, `TEMPO_ROUGE_HC`, …), alors qu'ils sont bien pris en charge et alimentent les attributs du capteur *dernier relevé*. Le message invitait donc à signaler un label qui fonctionne, et jetait le doute sur des capteurs corrects.
+
+Ces labels sont maintenant reconnus explicitement, et leur liste — jusqu'ici dupliquée entre la normalisation et les capteurs — est centralisée.
+
 ### 🔍 Journalisation de l'import des statistiques
 
 L'import ne laissait qu'une ligne de succès. Il journalise maintenant, en `debug`, la série calculée (nombre de jours, période, total, tarif appliqué et détail des dix derniers jours), la stratégie retenue — réécriture complète ou cumul incrémental — et les sommes d'ancrage et finale. Les sorties silencieuses (passe déjà en cours, série vide) laissent également une trace.
