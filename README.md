@@ -474,14 +474,14 @@ L'intégration importe automatiquement l'historique de vos consommations et coû
 #### Pour un contrat BASE :
 
 - **Consommation depuis le réseau** : `sensor.linky_XXXXXX_conso_base`
-- **Coût** (optionnel) : Utilisez les statistiques importées automatiquement
+- **Coût** (optionnel) : la statistique importée `octopus_french:<PRM>_cost_base`
 
 #### Pour un contrat HPHC :
 
 - **Consommation depuis le réseau** :
   - Heures pleines : `sensor.linky_XXXXXX_conso_hp`
   - Heures creuses : `sensor.linky_XXXXXX_conso_hc`
-- **Coût** (optionnel) : Utilisez les statistiques importées automatiquement
+- **Coût** (optionnel) : les statistiques importées `octopus_french:<PRM>_cost_peak_hours` et `octopus_french:<PRM>_cost_off_peak_hours`
 
 #### Pour un contrat OctoTempo :
 
@@ -492,12 +492,29 @@ L'intégration importe automatiquement l'historique de vos consommations et coû
   - `sensor.linky_XXXXXX_energy_tempo_hiver_hc`
   - `sensor.linky_XXXXXX_energy_tempo_rouge_hp`
   - `sensor.linky_XXXXXX_energy_tempo_rouge_hc`
-- **Coût** (optionnel) : Statistiques importées automatiquement pour chaque couleur-période
+- **Coût** (optionnel) : une statistique importée par couleur-période, `octopus_french:<PRM>_cost_tempo_<couleur>_<période>`
 
 #### Pour le gaz :
 
-- **Consommation de gaz** : `sensor.gazpar_XXXXXX_consumption` — attention, ce capteur est un **cumul mensuel** : le tableau de bord n'affichera qu'un seul point par mois.
-- **Pour une courbe au jour le jour**, sélectionnez plutôt la statistique importée `octopus_french:<PCE>_consumption` (et `octopus_french:<PCE>_cost` pour le coût). Elle porte le détail journalier : les mesures quotidiennes des compteurs communicants, ou la répartition des relevés d'index pour les autres.
+Deux configurations sont possibles. **Ne les mélangez pas** : une consommation prise dans l'une et un coût pris dans l'autre n'ont ni la même granularité ni la même origine, et le tableau de bord afficherait un coût sans rapport avec la consommation affichée.
+
+**A. Statistiques importées — recommandé, détail journalier**
+
+| Champ | Valeur |
+| ----- | ------ |
+| Consommation de gaz | `octopus_french:<PCE>_consumption` |
+| Coût | *Utiliser une entité qui suit le coût total* → `octopus_french:<PCE>_cost` |
+
+Les options *prix actuel* et *prix statique* sont alors **grisées** — voir le dépannage plus bas, c'est une limitation de Home Assistant, pas de l'intégration.
+
+**B. Entités de l'intégration — permet le prix live, mais granularité mensuelle**
+
+| Champ | Valeur |
+| ----- | ------ |
+| Consommation de gaz | `sensor.gazpar_<PCE>_consommation` (cumul remis à zéro le 1er du mois) |
+| Coût | *Utiliser une entité avec le prix actuel* → `sensor.gazpar_<PCE>_tarif` |
+
+Ici le tableau de bord n'affiche qu'un point par mois, mais Home Assistant calcule lui-même le coût à partir du prix du kWh.
 
 > Ces statistiques ne sont pas des entités : on les retrouve dans **Outils de développement** → **Statistiques**, et dans le sélecteur « Ajouter une consommation » du tableau de bord Énergie.
 
@@ -858,6 +875,19 @@ automation:
 - ✅ Patientez quelques minutes après l'installation (import en cours)
 - ✅ Consultez les logs pour d'éventuelles erreurs d'import
 - ✅ Forcez une mise à jour avec le service `force_update`
+
+### Les options de prix sont grisées dans la configuration du gaz
+
+Dans « Sélectionnez comment Home Assistant doit suivre les coûts du gaz consommé », les options *Utiliser une entité avec le prix actuel* et *Utiliser un prix statique* sont désactivées, et le capteur `sensor.gazpar_<PCE>_tarif` reste donc inaccessible.
+
+C'est le comportement normal de Home Assistant lorsque la consommation vient d'une **statistique importée** (`octopus_french:<PCE>_consumption`). Le coût à la volée est calculé par un capteur qui écoute les changements d'état de l'entité de consommation ; une statistique n'étant pas une entité, ce calcul est impossible et l'interface grise l'option plutôt que d'accepter un réglage sans effet.
+
+- 💡 Pour garder le détail journalier : choisissez *Utiliser une entité qui suit le coût total* et sélectionnez `octopus_french:<PCE>_cost`, qui suit exactement la même série.
+- 💡 Pour utiliser un prix : passez la consommation sur l'entité `sensor.gazpar_<PCE>_consommation` (configuration B ci-dessus), au prix d'une granularité mensuelle.
+
+### Le coût du gaz reste figé
+
+Vérifiez que le champ Coût ne pointe pas sur une statistique orpheline : renommer une entité laisse son ancienne statistique en base, toujours sélectionnable mais plus jamais alimentée. Dans **Outils de développement** → **Statistiques**, les entrées sans entité associée sont signalées.
 
 ### Problèmes d'authentification
 
