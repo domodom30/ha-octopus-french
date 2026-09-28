@@ -1451,7 +1451,7 @@
     },
     "unknown_consumption_label": {
       "title": "Unrecognised consumption label: {label}",
-      "description": "The API returns the consumption label '{label}', which the integration cannot map to any statistic. The matching kilowatt-hours appear neither in monthly totals nor in the Energy dashboard.\n\nPlease report this label on the repository so it can be supported."
+      "description": "The API returns the consumption label `{label}`, which the integration cannot map to any statistic. The matching kilowatt-hours appear neither in monthly totals nor in the Energy dashboard.\n\nPlease report this label on the repository so it can be supported."
     }
   }
 }
