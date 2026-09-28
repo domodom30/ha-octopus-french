@@ -1,5 +1,11 @@
 ## [4.1.7] - 2026-09-28
 
+### 🐛 Correction — Contrats HP/HC deux saisons : ni tarifs, ni coûts, ni index (issue [#85](https://github.com/domodom30/ha-octopus-french/issues/85))
+
+Un contrat HP/HC deux saisons publie quatre classes temporelles, `HPB`/`HCB` en été et `HPH`/`HCH` en hiver, et des labels de consommation `CONSUMPTION_HPHC_2_SAISONS_…`. Aucun n'était reconnu : le type de contrat n'était pas détecté, si bien qu'aucun capteur de tarif ni de coût n'était créé et que les index étaient ignorés.
+
+Ces contrats ont désormais leur propre type, `HPHC_2_SAISONS`, et des capteurs dédiés par saison et par période (consommation, coût, tarif), sans les capteurs HP/HC classiques qui resteraient à 0. Les quatre index sont conservés séparément. Les statistiques importées sont elles aussi séparées par saison : le registre de la saison inactive, publié à 0 par l'API, ne peut plus écraser la consommation réelle de la journée. Merci à [@interxis](https://github.com/interxis) pour le rapport et la proposition de correctif ([#86](https://github.com/domodom30/ha-octopus-french/pull/86)).
+
 ### 🐛 Correction — Derniers jours du mois perdus par les capteurs « mois en cours » (issue [#87](https://github.com/domodom30/ha-octopus-french/issues/87))
 
 Les capteurs de consommation et de coût du mois en cours se remettaient à 0 à minuit le 1er, alors que les relevés Linky arrivent avec un à deux jours de retard. Les relevés des 30 et 31, reçus après la bascule, n'étaient comptés dans aucun mois : le capteur restait à 0 pendant deux jours, et l'historique de l'entité sous-estimait chaque mois de ses derniers jours (1,91 € sur le coût HP d'août constaté sur un compte réel). Les statistiques importées `octopus_french:*` n'étaient pas touchées.
