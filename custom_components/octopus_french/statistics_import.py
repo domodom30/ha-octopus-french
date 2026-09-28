@@ -259,7 +259,7 @@ class OctopusStatisticsImporter:
                 continue
 
             readings = await self.coordinator.api_client.get_energy_readings(
-                meter.get("property_id") or data.get("account_id"),
+                meter.get("property_id") or data["account_id"],
                 start_date.isoformat(),
                 end.isoformat(),
                 meter_prm,

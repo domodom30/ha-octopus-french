@@ -29,6 +29,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.service import async_register_admin_service
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
+from homeassistant.util.json import JsonValueType
 
 from .const import (
     CONF_REFRESH_TOKEN,
@@ -125,7 +126,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         )
 
     async def handle_purge_orphan_statistics(call: ServiceCall) -> ServiceResponse:
-        orphans: list[str] = []
+        orphans: list[JsonValueType] = []
         for importer in _loaded_importers():
             found = await importer.async_find_orphan_statistic_ids()
             orphans.extend(found)
