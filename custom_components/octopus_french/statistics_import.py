@@ -13,7 +13,9 @@ from homeassistant.components.recorder.models import (
 )
 from homeassistant.components.recorder.statistics import (
     async_add_external_statistics,
+    clear_statistics,
     get_last_statistics,
+    list_statistic_ids,
     statistics_during_period,
 )
 from homeassistant.const import CURRENCY_EURO, UnitOfEnergy
@@ -228,6 +230,118 @@ class OctopusStatisticsImporter:
                 unit=CURRENCY_EURO,
                 daily_values=cost_values,
             )
+
+    async def async_recompute_electricity(
+        self, start_date: datetime, prm_id: str | None = None
+    ) -> dict[str, int]:
+        """
+        Recalcule les statistiques électriques depuis `start_date` jusqu'à maintenant.
+
+        Le cycle courant ne demande que le mois en cours plus une semaine
+        (`PREVIOUS_MONTH_OVERLAP_DAYS`) : les journées plus anciennes ne sont
+        jamais revisitées, et une série faussée le reste. Ce recalcul rejoue la
+        fenêtre demandée depuis l'API.
+
+        La fenêtre court toujours jusqu'à aujourd'hui : ne réécrire qu'un
+        intervalle fermé laisserait les sommes cumulées des jours suivants
+        décalées de la correction.
+
+        Le gaz n'en a pas besoin — ses relevés sont déjà redemandés sur une année
+        glissante à chaque rafraîchissement.
+        """
+        data = self.coordinator.data or {}
+        end = dt_util.now()
+        imported: dict[str, int] = {}
+
+        for meter in data.get("supply_points", {}).get("electricity", []):
+            meter_prm = meter.get("prm")
+            if not meter_prm or (prm_id is not None and meter_prm != prm_id):
+                continue
+
+            readings = await self.coordinator.api_client.get_energy_readings(
+                meter.get("property_id") or data.get("account_id"),
+                start_date.isoformat(),
+                end.isoformat(),
+                meter_prm,
+                utility_type="electricity",
+                reading_frequency="DAY_INTERVAL",
+                reading_quality="ACTUAL",
+            )
+            _LOGGER.info(
+                "Recalcul des statistiques du PRM %s : %s relevés du %s au %s",
+                meter_prm,
+                len(readings),
+                f"{start_date:%Y-%m-%d}",
+                f"{end:%Y-%m-%d}",
+            )
+
+            daily_values = self._collect_electricity_daily_values(
+                data, meter_prm, readings
+            )
+            for key, values in daily_values.items():
+                is_energy = key.startswith("energy_")
+                statistic_id = f"{DOMAIN}:{meter_prm}_{key}"
+                # Le dernier jour importé sert de garde-fou à l'import
+                # incrémental : le garder ferait ignorer les jours réécrits.
+                self.last_imported.pop(statistic_id, None)
+                await self._async_import_statistic(
+                    statistic_id=statistic_id,
+                    name=f"Octopus Energy {key}",
+                    unit_class="energy" if is_energy else None,
+                    unit=UnitOfEnergy.KILO_WATT_HOUR if is_energy else CURRENCY_EURO,
+                    daily_values=values,
+                )
+                imported[statistic_id] = len(values)
+
+        return imported
+
+    def _expected_statistic_ids(self) -> set[str]:
+        """Identifiants de statistiques que les compteurs actifs peuvent alimenter."""
+        data = self.coordinator.data or {}
+        expected: set[str] = set()
+
+        for meter in data.get("supply_points", {}).get("electricity", []):
+            if prm_id := meter.get("prm"):
+                expected.update(
+                    f"{DOMAIN}:{prm_id}_{key}"
+                    for key in (*ENERGY_KEY_TO_LABEL, *COST_KEY_TO_LABEL)
+                )
+
+        for pce_ref in data.get("gas_by_pce") or {}:
+            expected.add(f"{DOMAIN}:{pce_ref}_consumption")
+            expected.add(f"{DOMAIN}:{pce_ref}_cost")
+
+        return expected
+
+    async def async_find_orphan_statistic_ids(self) -> list[str]:
+        """
+        Statistiques du domaine qu'aucun compteur actif ne peut plus alimenter.
+
+        Un changement d'offre en laisse derrière lui : passer de BASE à OctoTempo
+        fige `energy_base` et `cost_base`, qui restent proposées au tableau de
+        bord Énergie sans plus jamais recevoir de valeur.
+        """
+        all_ids = await get_instance(self.hass).async_add_executor_job(
+            list_statistic_ids, self.hass
+        )
+        prefix = f"{DOMAIN}:"
+        expected = self._expected_statistic_ids()
+        return sorted(
+            statistic_id
+            for entry in all_ids
+            if (statistic_id := entry.get("statistic_id", "")).startswith(prefix)
+            and statistic_id not in expected
+        )
+
+    async def async_purge_orphan_statistics(self, statistic_ids: list[str]) -> None:
+        """Supprime définitivement les séries de statistiques listées."""
+        if not statistic_ids:
+            return
+        instance = get_instance(self.hass)
+        await instance.async_add_executor_job(
+            clear_statistics, instance, list(statistic_ids)
+        )
+        _LOGGER.info("Statistiques supprimées : %s", ", ".join(statistic_ids))
 
     async def _async_import_statistic(
         self,

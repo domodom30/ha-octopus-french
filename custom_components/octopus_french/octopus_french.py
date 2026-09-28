@@ -11,6 +11,7 @@ from typing import Any, ClassVar
 import aiohttp
 import jwt
 
+from .const import TARIFF_TYPE_HPHC_TWO_SEASON, TWO_SEASON_TEMPORAL_CLASS_CODES
 from .utils import is_electricity_meter_active
 
 _LOGGER = logging.getLogger(__name__)
@@ -872,6 +873,10 @@ class OctopusFrenchApiClient:
         "HCHI": "tempo_hiver_hc",
         "HPE": "tempo_ete_hp",
         "HCE": "tempo_ete_hc",
+        "HPB": "heures_pleines_ete",
+        "HCB": "heures_creuses_ete",
+        "HPH": "heures_pleines_hiver",
+        "HCH": "heures_creuses_hiver",
         "ETE_HP": "tempo_ete_hp",
         "ETE_HC": "tempo_ete_hc",
         "HIVER_HP": "tempo_hiver_hp",
@@ -1347,6 +1352,30 @@ class OctopusFrenchApiClient:
                     period_start = node.get("periodStartAt")
                     period_end = node.get("periodEndAt")
                 _LOGGER.debug("OctoTempo: code '%s' → clé '%s'", effective_code, key)
+
+            elif effective_code in TWO_SEASON_TEMPORAL_CLASS_CODES:
+                if tariff_type not in ("BASE", "TEMPO"):
+                    tariff_type = TARIFF_TYPE_HPHC_TWO_SEASON
+                key = {
+                    "HPB": "hp_ete",
+                    "HCB": "hc_ete",
+                    "HPH": "hp_hiver",
+                    "HCH": "hc_hiver",
+                }[effective_code]
+                index_data[key] = {
+                    "consumption": node.get("consumption"),
+                    "index_start": node.get("indexStartValue"),
+                    "index_end": node.get("indexEndValue"),
+                    "status": node.get("statusProcessed"),
+                    "consumption_reliability": node.get("consumptionReliability"),
+                    "index_reliability": node.get("indexReliability"),
+                    "temporal_class_code": tc_code,
+                    "temporal_class_label": temporal_class.get("label"),
+                    "temporal_class_register_id": temporal_class.get("registerId"),
+                }
+                if not period_start:
+                    period_start = node.get("periodStartAt")
+                    period_end = node.get("periodEndAt")
 
             elif effective_code in self._CALENDAR_COLOR_TO_COLOR:
                 tariff_type = "TEMPO"

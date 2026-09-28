@@ -20,15 +20,27 @@ from ..const import (
 )
 from ..coordinator import OctopusFrenchDataUpdateCoordinator
 from ..utils import (
+    RATE_KEY_TO_CONSUMPTION_KEY,
     get_tariff_rate_for_key,
     get_tempo_color_for_prm,
     normalize_consumption_label,
     normalize_provider_calendar,
+    reading_local_day,
     resolve_hc_schedule,
+    resolve_tempo_color,
 )
 from .descriptions import OctopusIndexSensorDescription
 
 _LOGGER = logging.getLogger(__name__)
+
+_LABEL_TO_KWH_ATTRIBUTE: dict[str, str] = {
+    "HEURES_PLEINES": "heures_pleines_kwh",
+    "HEURES_PLEINES_ETE": "heures_pleines_kwh",
+    "HEURES_PLEINES_HIVER": "heures_pleines_kwh",
+    "HEURES_CREUSES": "heures_creuses_kwh",
+    "HEURES_CREUSES_ETE": "heures_creuses_kwh",
+    "HEURES_CREUSES_HIVER": "heures_creuses_kwh",
+}
 
 
 class OctopusElectricitySensor(
@@ -123,9 +135,30 @@ class OctopusElectricitySensor(
 
         return 0.0
 
+    def _get_month_start(self) -> datetime:
+        """
+        Premier jour (minuit local) du mois affiché par les totaux mensuels.
+
+        Les relevés arrivent à J+1/J+2 : le mois ne bascule qu'avec le premier
+        relevé du nouveau mois, sinon ceux des derniers jours du précédent,
+        reçus après minuit le 1er, ne seraient comptés nulle part.
+        """
+        readings = (
+            self.coordinator.data.get("electricity_by_prm", {})
+            .get(self._prm_id, {})
+            .get("readings", [])
+        )
+        days = [
+            day
+            for reading in readings
+            if (day := reading_local_day(reading.get("startAt"))) is not None
+        ]
+        reference = max(days) if days else dt_util.start_of_local_day()
+        return reference.replace(day=1)
+
     def _get_current_month(self) -> str:
-        """Get current month in YYYY-MM format."""
-        return dt_util.now().strftime("%Y-%m")
+        """Get the displayed month in YYYY-MM format."""
+        return self._get_month_start().strftime("%Y-%m")
 
     def _calculate_monthly_total(self) -> float:
         """Calculate monthly total."""
@@ -151,20 +184,8 @@ class OctopusElectricitySensor(
         total = 0.0
 
         for reading in sorted_readings:
-            reading_date = reading.get("startAt")
-
-            if not reading_date:
-                continue
-
-            try:
-                date_obj = datetime.fromisoformat(reading_date)
-                reading_month = date_obj.strftime("%Y-%m")
-
-                if reading_month != current_month:
-                    continue
-
-            except (ValueError, TypeError, AttributeError) as e:
-                _LOGGER.warning("Error parsing date %s: %s", reading_date, e)
+            day = reading_local_day(reading.get("startAt"))
+            if day is None or day.strftime("%Y-%m") != current_month:
                 continue
 
             statistics = (reading.get("metaData") or {}).get("statistics", [])
@@ -197,7 +218,7 @@ class OctopusElectricitySensor(
         """Expose the monthly reset for the current-month total sensors."""
         key = self._sensor_config.key
         if key.startswith(("energy_", "cost_")) or key == "subscription":
-            return dt_util.start_of_local_day().replace(day=1)
+            return self._get_month_start()
         return None
 
     def _compute_native_value(self) -> float | str | None:
@@ -302,22 +323,12 @@ class OctopusElectricitySensor(
                 days_with_subscription = 0
 
                 for reading in readings:
-                    reading_date = reading.get("startAt")
-                    if reading_date:
-                        try:
-                            date_obj = datetime.fromisoformat(reading_date)
-                            if date_obj.strftime("%Y-%m") == self._current_month:
-                                statistics = (reading.get("metaData") or {}).get(
-                                    "statistics", []
-                                )
-                                if any(
-                                    s.get("label") == "ABONNEMENT" for s in statistics
-                                ):
-                                    days_with_subscription += 1
-                        except (ValueError, TypeError, AttributeError) as e:
-                            _LOGGER.warning(
-                                "Error parsing date %s: %s", reading_date, e
-                            )
+                    day = reading_local_day(reading.get("startAt"))
+                    if day is None or day.strftime("%Y-%m") != self._current_month:
+                        continue
+                    statistics = (reading.get("metaData") or {}).get("statistics", [])
+                    if any(s.get("label") == "ABONNEMENT" for s in statistics):
+                        days_with_subscription += 1
 
                 attributes.update(
                     {
@@ -393,6 +404,14 @@ class OctopusElectricitySensor(
 
                     elif key in _TEMPO_RATE_KEY_MAP:
                         rate = consumption.get(_TEMPO_RATE_KEY_MAP[key])
+                        if rate:
+                            attributes["price_ht_eur_kwh"] = rate.get("price_ht")
+                            attributes["price_ttc_eur_kwh"] = rate.get("price_ttc")
+
+                    elif key in RATE_KEY_TO_CONSUMPTION_KEY and key.startswith(
+                        ("rate_summer_", "rate_winter_")
+                    ):
+                        rate = consumption.get(RATE_KEY_TO_CONSUMPTION_KEY[key])
                         if rate:
                             attributes["price_ht_eur_kwh"] = rate.get("price_ht")
                             attributes["price_ttc_eur_kwh"] = rate.get("price_ttc")
@@ -513,10 +532,16 @@ class OctopusLatestReadingSensor(
             normalized = normalize_consumption_label(label)
             if normalized == "BASE":
                 attributes["heures_base"] = float(value) if value else None
-            elif normalized == "HEURES_PLEINES":
-                attributes["heures_pleines_kwh"] = float(value) if value else None
-            elif normalized == "HEURES_CREUSES":
-                attributes["heures_creuses_kwh"] = float(value) if value else None
+            elif kwh_attribute := _LABEL_TO_KWH_ATTRIBUTE.get(normalized):
+                # Un contrat deux saisons publie aussi le registre de la saison
+                # inactive, à zéro : il ne doit pas effacer la valeur réelle.
+                kwh = float(value) if value else None
+                if kwh is None:
+                    attributes.setdefault(kwh_attribute, None)
+                else:
+                    attributes[kwh_attribute] = (
+                        attributes.get(kwh_attribute) or 0.0
+                    ) + kwh
             elif label == "ABONNEMENT" and cost_incl_tax:
                 attributes["cout_abonnement_euro"] = (
                     float(cost_incl_tax.get("estimatedAmount")) / 100
@@ -711,17 +736,15 @@ class OctopusTempoColorSensor(
         self._attr_native_value = self._compute_native_value()
         self._attr_extra_state_attributes = self._compute_attributes()
 
-    def _compute_native_value(self) -> str | None:
-        """Return the Tempo color from the electricity index."""
-        index_data = (
-            self.coordinator.data.get("electricity_by_prm", {})
-            .get(self._prm_id, {})
-            .get("index")
+    def _resolve_color(self) -> dict[str, Any]:
+        """Return the Tempo color of the day this sensor covers, with its source."""
+        return resolve_tempo_color(
+            self.coordinator.data or {}, self._prm_id, 1 if self._is_tomorrow else 0
         )
-        if not index_data:
-            return None
-        color_key = "tempo_color_tomorrow" if self._is_tomorrow else "tempo_color"
-        return index_data.get(color_key)
+
+    def _compute_native_value(self) -> str | None:
+        """Return the Tempo color of the day this sensor covers."""
+        return self._resolve_color()["color"]
 
     def _compute_attributes(self) -> dict[str, Any]:
         """Return extra attributes."""
@@ -731,8 +754,15 @@ class OctopusTempoColorSensor(
             .get("index")
             or {}
         )
+        resolved = self._resolve_color()
         return {
             "prm_id": self._prm_id,
+            "date": resolved["date"],
+            "source": resolved["source"],
+            "reading_date": resolved["reading_date"],
+            # Aucun champ de l'API n'annonce les jours de pointe : ils ne sont
+            # reconnus qu'a posteriori, via les relevés journaliers.
+            "red_day_detectable": not self._is_tomorrow,
             "period_start": index_data.get("period_start"),
             "period_end": index_data.get("period_end"),
             "tariff_type": index_data.get("tariff_type"),
@@ -740,20 +770,10 @@ class OctopusTempoColorSensor(
 
     @property
     def available(self) -> bool:
-        """Return True only when coordinator data is fresh (and tomorrow's color is known)."""
-        if not (
+        """Return True when coordinator data is fresh."""
+        return (
             self.coordinator.last_update_success and self.coordinator.data is not None
-        ):
-            return False
-        if self._is_tomorrow:
-            index_data = (
-                self.coordinator.data.get("electricity_by_prm", {})
-                .get(self._prm_id, {})
-                .get("index")
-                or {}
-            )
-            return "tempo_color_tomorrow" in index_data
-        return True
+        )
 
 
 class OctopusTempoCurrentRateSensor(
@@ -809,13 +829,7 @@ class OctopusTempoCurrentRateSensor(
 
     def _compute_native_value(self) -> float | None:
         """Return the active Tempo rate (€/kWh) for the current color and HC/HP period."""
-        index_data = (
-            self.coordinator.data.get("electricity_by_prm", {})
-            .get(self._prm_id, {})
-            .get("index")
-            or {}
-        )
-        color = index_data.get("tempo_color")
+        color = get_tempo_color_for_prm(self.coordinator.data or {}, self._prm_id)
         if not color:
             return None
 
@@ -833,13 +847,7 @@ class OctopusTempoCurrentRateSensor(
 
     def _compute_attributes(self) -> dict[str, Any]:
         """Return current color and period information."""
-        index_data = (
-            self.coordinator.data.get("electricity_by_prm", {})
-            .get(self._prm_id, {})
-            .get("index")
-            or {}
-        )
-        color = index_data.get("tempo_color")
+        color = get_tempo_color_for_prm(self.coordinator.data or {}, self._prm_id)
         is_hc = self._is_currently_hc() if color else None
         return {
             "tempo_color": color,

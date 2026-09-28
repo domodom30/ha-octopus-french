@@ -31,3 +31,6 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Collectes de diagnostic (tools/octoflex.py)
+octoflex-diagnostic*.json

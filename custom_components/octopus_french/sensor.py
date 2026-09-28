@@ -15,10 +15,13 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     DOMAIN,
+    TARIFF_TYPE_HPHC_TWO_SEASON,
     TARIFF_TYPE_TEMPO,
     TEMPO_PRODUCT_CODE_KEYWORDS,
     TEMPO_STATISTICS_LABELS,
     TEMPO_TEMPORAL_CLASS_CODES,
+    TWO_SEASON_CANONICAL_LABELS,
+    TWO_SEASON_TEMPORAL_CLASS_CODES,
 )
 from .coordinator import OctopusFrenchDataUpdateCoordinator
 from .coordinator_intelligent import OctopusIntelligentDataUpdateCoordinator
@@ -39,7 +42,7 @@ from .sensors.electricity import (
 )
 from .sensors.gas import OctopusGasSensor
 from .sensors.ledger import OctopusLedgerSensor
-from .utils import is_electricity_meter_active
+from .utils import is_electricity_meter_active, normalize_consumption_label
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -94,6 +97,24 @@ async def async_setup_entry(
                         "rate_off_peak_hours",
                     ]
                 )
+                or (
+                    tariff_type == TARIFF_TYPE_HPHC_TWO_SEASON
+                    and sensor_key
+                    in [
+                        "energy_summer_peak_hours",
+                        "energy_summer_off_peak_hours",
+                        "energy_winter_peak_hours",
+                        "energy_winter_off_peak_hours",
+                        "cost_summer_peak_hours",
+                        "cost_summer_off_peak_hours",
+                        "cost_winter_peak_hours",
+                        "cost_winter_off_peak_hours",
+                        "rate_summer_peak_hours",
+                        "rate_summer_off_peak_hours",
+                        "rate_winter_peak_hours",
+                        "rate_winter_off_peak_hours",
+                    ]
+                )
             ):
                 entities.append(
                     OctopusElectricitySensor(coordinator, prm_id, sensor_config)
@@ -143,8 +164,13 @@ async def async_setup_entry(
                 if index_tariff_type == TARIFF_TYPE_TEMPO:
                     continue
 
-                if (index_tariff_type == "BASE" and index_type == "base") or (
-                    index_tariff_type == "HPHC" and index_type in ["hp", "hc"]
+                if (
+                    (index_tariff_type == "BASE" and index_type == "base")
+                    or (index_tariff_type == "HPHC" and index_type in ["hp", "hc"])
+                    or (
+                        index_tariff_type == TARIFF_TYPE_HPHC_TWO_SEASON
+                        and index_type in ["hp_ete", "hc_ete", "hp_hiver", "hc_hiver"]
+                    )
                 ):
                     entities.append(
                         OctopusElectricityIndexSensor(coordinator, prm_id, index_config)
@@ -199,6 +225,8 @@ def _detect_tariff_type_for_meter(data: dict, prm_id: str) -> str:
                 continue
             classes = meter.get("provider_temporal_classes") or []
             codes = {c.get("code") for c in classes if c.get("code")}
+            if codes & TWO_SEASON_TEMPORAL_CLASS_CODES:
+                return TARIFF_TYPE_HPHC_TWO_SEASON
             if codes & TEMPO_TEMPORAL_CLASS_CODES:
                 return TARIFF_TYPE_TEMPO
             if len(codes) == 2:
@@ -213,11 +241,16 @@ def _detect_tariff_type_for_meter(data: dict, prm_id: str) -> str:
             latest_reading = electricity_readings[-1]
             statistics = (latest_reading.get("metaData") or {}).get("statistics", [])
             if statistics:
-                labels = {stat.get("label", "") for stat in statistics}
+                labels = {
+                    normalize_consumption_label(stat.get("label", ""))
+                    for stat in statistics
+                }
                 if labels & TEMPO_STATISTICS_LABELS:
                     return TARIFF_TYPE_TEMPO
                 if "BASE" in labels:
                     return "BASE"
+                if labels & TWO_SEASON_CANONICAL_LABELS:
+                    return TARIFF_TYPE_HPHC_TWO_SEASON
                 if "HEURES_PLEINES" in labels and "HEURES_CREUSES" in labels:
                     return "HPHC"
 
@@ -229,7 +262,12 @@ def _detect_tariff_type_for_meter(data: dict, prm_id: str) -> str:
 
         index = data.get("electricity_by_prm", {}).get(prm_id, {}).get("index") or {}
         tariff_type = index.get("tariff_type")
-        if tariff_type in ("BASE", "HPHC", TARIFF_TYPE_TEMPO):
+        if tariff_type in (
+            "BASE",
+            "HPHC",
+            TARIFF_TYPE_HPHC_TWO_SEASON,
+            TARIFF_TYPE_TEMPO,
+        ):
             return tariff_type
 
     except (KeyError, IndexError, TypeError) as e:

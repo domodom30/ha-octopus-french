@@ -1,4 +1,10 @@
-## [Non publié]
+## [4.1.7] - 2026-09-28
+
+### 🐛 Correction — Derniers jours du mois perdus par les capteurs « mois en cours » (issue [#87](https://github.com/domodom30/ha-octopus-french/issues/87))
+
+Les capteurs de consommation et de coût du mois en cours se remettaient à 0 à minuit le 1er, alors que les relevés Linky arrivent avec un à deux jours de retard. Les relevés des 30 et 31, reçus après la bascule, n'étaient comptés dans aucun mois : le capteur restait à 0 pendant deux jours, et l'historique de l'entité sous-estimait chaque mois de ses derniers jours (1,91 € sur le coût HP d'août constaté sur un compte réel). Les statistiques importées `octopus_french:*` n'étaient pas touchées.
+
+Le mois affiché bascule désormais à l'arrivée du **premier relevé du nouveau mois** : d'ici là, le capteur continue de cumuler le mois précédent, et `last_reset` comme l'attribut `current_month` suivent ce mois. Pour cela, la récupération des relevés couvre le mois précédent en entier pendant la première semaine du mois. Les relevés sont aussi rattachés à leur mois dans le fuseau local, et non plus selon le décalage horaire fourni par l'API.
 
 ### 🐛 Correction — Couleur OctoTempo figée sur ROUGE (issue [#84](https://github.com/domodom30/ha-octopus-french/issues/84))
 
@@ -13,6 +19,42 @@ Deux défauts en découlaient et se corrigent d'eux-mêmes : le capteur **Tarif 
 La requête d'index ne demandait que 8 relevés, dimensionnement hérité des contrats Heures Pleines / Heures Creuses à deux registres. Sur un contrat OctoTempo à six registres, cela couvrait à peine une journée et le second jour arrivait toujours tronqué. La fenêtre passe à 60 relevés — dix jours en OctoTempo, le maximum accepté par l'API étant 100.
 
 Les valeurs d'index exposées sont maintenant restreintes à la journée la plus récente. Elles étaient jusqu'ici écrasées par chaque relevé plus ancien de la fenêtre, si bien que la période affichée et les index affichés ne décrivaient pas le même jour.
+
+### ✨ Amélioration — Couleur Tempo du lendemain enfin disponible (issue [#84](https://github.com/domodom30/ha-octopus-french/issues/84))
+
+Le capteur **Couleur Tempo demain** était `unavailable` depuis toujours : il n'était alimenté que si un relevé portait la date du lendemain, or la source utilisée ne renvoie que des relevés passés. Le code correspondant ne pouvait pas s'exécuter.
+
+La couleur se déduit désormais de la **saison**, lue dans les bornes du calendrier fournisseur (« Avril à octobre », « Novembre à mars ») : elle est donc connue pour n'importe quelle date, aujourd'hui comme demain. Les plages heures creuses différant entre l'été et l'hiver, cela suffit à anticiper leur changement.
+
+**Les jours de pointe restent hors de portée.** Aucun champ de l'API Octopus n'expose la couleur d'une journée ni l'annonce du lendemain — vérifié par introspection du schéma, puis recoupé avec une seconde instance Kraken. Un jour de pointe n'est reconnu qu'a posteriori, quand son relevé journalier arrive, environ deux jours plus tard. `Couleur Tempo demain` ne vaut donc jamais ROUGE, et la mention « annonce RTE » du README, qui n'a jamais correspondu à rien, disparaît.
+
+Les capteurs de couleur exposent deux nouveaux attributs : `source` (`season`, `measurements` ou `index`) et `reading_date`, pour savoir d'où vient la valeur affichée et à quelle date elle se rapporte.
+
+### ✨ Amélioration — Couleur du jour tirée des relevés journaliers
+
+La couleur venait de `electricityReading`, qui agrège des **périodes de facturation** pouvant couvrir un mois entier : un jour de pointe isolé y serait resté invisible, noyé dans la consommation du reste de la période. Les relevés journaliers portent, eux, la classe temporelle appliquée chaque jour ; ils servent maintenant à requalifier la couleur du jour en ROUGE. La reconnaissance ne dépend plus des identifiants de calendrier codés en dur, qui auraient cessé de fonctionner sans bruit sur une future version du calendrier OctoFlex.
+
+### ✨ Amélioration — Recalculer les statistiques passées
+
+Nos correctifs de consommation et de coût ne réparaient pas les statistiques déjà écrites : le cycle courant ne redemande que le mois en cours plus une semaine, si bien qu'une journée faussée le restait indéfiniment dans le tableau de bord Énergie.
+
+Nouveau service **Recalculer les statistiques** : il redemande les relevés électriques depuis une date au choix et réécrit tout ce qui suit. Réservé aux administrateurs, puisqu'il réécrit l'historique. Le gaz n'est pas concerné, ses relevés étant déjà redemandés sur une année glissante à chaque rafraîchissement.
+
+### ✨ Amélioration — Purger les statistiques orphelines
+
+Un changement d'offre laisse derrière lui des séries que plus rien n'alimente : passer de BASE à OctoTempo fige `energy_base` et `cost_base`, qui restent proposées au tableau de bord Énergie sans plus jamais recevoir de valeur.
+
+Nouveau service **Purger les statistiques orphelines**. Sans confirmation explicite, il se contente de lister : la suppression de statistiques est irréversible.
+
+### ✨ Amélioration — Anomalies visibles dans « Réparations »
+
+Deux situations n'étaient signalées qu'au journal, que personne ne lit, et remontaient ensuite en issue : les plages heures creuses retombées sur l'étiquette du compteur Linky alors que le contrat est Tempo, et un label de consommation non reconnu — dont les kilowattheures n'apparaissent alors nulle part. Elles deviennent des tickets de réparation, réévalués à chaque rafraîchissement et levés dès que la cause disparaît. L'identifiant du compteur y est haché : le registre des réparations est persisté sur disque et affiché dans l'interface.
+
+### ✨ Amélioration — État des entités dans le diagnostic
+
+Le diagnostic embarque désormais l'état et les attributs de chaque entité de l'intégration. Diagnostiquer une anomalie n'obligera plus à réclamer des copies d'écran ou des extraits de journal. Les identifiants de compteur y sont masqués par la même table de correspondance que le reste du fichier, y compris là où ils sont interpolés dans un `unique_id`.
+
+Ces quatre mécanismes sont repris de [BottlecapDave/HomeAssistant-OctopusEnergy](https://github.com/BottlecapDave/HomeAssistant-OctopusEnergy) (licence MIT), dont l'intégration britannique les avait déjà éprouvés.
 
 ### 🛠️ Outils — Collecte OctoTempo anonymisée
 

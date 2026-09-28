@@ -15,6 +15,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DEFAULT_SCAN_INTERVAL, PREVIOUS_MONTH_OVERLAP_DAYS
 from .octopus_french import OctopusAuthError, OctopusConnectionError
+from .repairs import async_update_issues
 from .utils import is_electricity_meter_active
 
 if TYPE_CHECKING:
@@ -49,7 +50,7 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from API."""
         try:
-            return await self._fetch_all_data()
+            data = await self._fetch_all_data()
         except OctopusAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except OctopusConnectionError as err:
@@ -58,6 +59,9 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
             raise
         except Exception as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
+
+        async_update_issues(self.hass, data)
+        return data
 
     async def _fetch_all_data(self) -> dict[str, Any]:
         """Fetch all data from API."""
@@ -93,9 +97,12 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
 
         now = dt_util.now()
         today_midnight = dt_util.start_of_local_day(now)
-        first_of_month = today_midnight.replace(day=1)
-        electricity_start = (
-            first_of_month - timedelta(days=PREVIOUS_MONTH_OVERLAP_DAYS)
+        overlap_start = today_midnight - timedelta(days=PREVIOUS_MONTH_OVERLAP_DAYS)
+        # Relevés à J+1/J+2 : tant que le 1er relevé du mois n'est pas arrivé,
+        # les capteurs mensuels affichent encore le mois précédent en entier.
+        electricity_start = min(
+            today_midnight.replace(day=1) - timedelta(days=PREVIOUS_MONTH_OVERLAP_DAYS),
+            overlap_start.replace(day=1),
         ).isoformat()
         date_end = now.isoformat()
         gas_start = (today_midnight - timedelta(days=365)).isoformat()

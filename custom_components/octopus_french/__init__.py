@@ -3,27 +3,40 @@
 import logging
 from contextlib import suppress
 from dataclasses import dataclass, field
+from datetime import datetime, time
 
 import voluptuous as vol
+from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import Platform, UnitOfApparentPower
-from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.core import (
+    HomeAssistant,
+    ServiceCall,
+    ServiceResponse,
+    SupportsResponse,
+    callback,
+)
 from homeassistant.exceptions import (
     ConfigEntryAuthFailed,
     ConfigEntryError,
     ConfigEntryNotReady,
+    ServiceValidationError,
 )
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.service import async_register_admin_service
 from homeassistant.helpers.typing import ConfigType
+from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_REFRESH_TOKEN,
     CONF_REFRESH_TOKEN_EXPIRY,
     DOMAIN,
     SERVICE_FORCE_UPDATE,
+    SERVICE_PURGE_ORPHAN_STATISTICS,
+    SERVICE_RECOMPUTE_STATISTICS,
 )
 from .coordinator import OctopusFrenchDataUpdateCoordinator
 from .coordinator_intelligent import OctopusIntelligentDataUpdateCoordinator
@@ -68,11 +81,86 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 if intelligent is not None:
                     await intelligent.async_request_refresh()
 
+    def _loaded_importers() -> list:
+        """Importeurs de statistiques des entrées chargées."""
+        return [
+            importer
+            for entry in hass.config_entries.async_entries(DOMAIN)
+            if entry.state is ConfigEntryState.LOADED
+            and (importer := entry.runtime_data.coordinator.statistics_importer)
+            is not None
+        ]
+
+    async def handle_recompute_statistics(call: ServiceCall) -> None:
+        start_date = dt_util.start_of_local_day(
+            datetime.combine(call.data["start_date"], time.min)
+        )
+        if start_date >= dt_util.now():
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="recompute_start_date_in_future",
+            )
+
+        prm_id = call.data.get("prm")
+        persistent_notification.async_create(
+            hass,
+            title="Recalcul des statistiques",
+            message=(
+                f"Recalcul démarré depuis le {start_date:%d/%m/%Y}. "
+                "L'opération interroge l'API et peut durer plusieurs minutes."
+            ),
+            notification_id=f"{DOMAIN}_recompute",
+        )
+
+        total = 0
+        for importer in _loaded_importers():
+            imported = await importer.async_recompute_electricity(start_date, prm_id)
+            total += sum(imported.values())
+
+        persistent_notification.async_create(
+            hass,
+            title="Recalcul des statistiques terminé",
+            message=f"{total} valeur(s) journalière(s) réécrite(s).",
+            notification_id=f"{DOMAIN}_recompute",
+        )
+
+    async def handle_purge_orphan_statistics(call: ServiceCall) -> ServiceResponse:
+        orphans: list[str] = []
+        for importer in _loaded_importers():
+            found = await importer.async_find_orphan_statistic_ids()
+            orphans.extend(found)
+            if call.data["confirm"]:
+                await importer.async_purge_orphan_statistics(found)
+
+        return {"statistic_ids": orphans, "deleted": call.data["confirm"]}
+
     hass.services.async_register(
         DOMAIN,
         SERVICE_FORCE_UPDATE,
         handle_force_update,
         schema=vol.Schema({}),
+    )
+    # Les deux suivants réécrivent ou suppriment l'historique du recorder :
+    # réservés aux administrateurs.
+    async_register_admin_service(
+        hass,
+        DOMAIN,
+        SERVICE_RECOMPUTE_STATISTICS,
+        handle_recompute_statistics,
+        schema=vol.Schema(
+            {
+                vol.Required("start_date"): cv.date,
+                vol.Optional("prm"): cv.string,
+            }
+        ),
+    )
+    async_register_admin_service(
+        hass,
+        DOMAIN,
+        SERVICE_PURGE_ORPHAN_STATISTICS,
+        handle_purge_orphan_statistics,
+        schema=vol.Schema({vol.Optional("confirm", default=False): cv.boolean}),
+        supports_response=SupportsResponse.OPTIONAL,
     )
     return True
 

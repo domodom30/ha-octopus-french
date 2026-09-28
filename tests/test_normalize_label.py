@@ -17,6 +17,10 @@ _CONSUMPTION_MAPPING = {
     "energy_base": "BASE",
     "energy_peak_hours": "HEURES_PLEINES",
     "energy_off_peak_hours": "HEURES_CREUSES",
+    "energy_summer_peak_hours": "HEURES_PLEINES_ETE",
+    "energy_summer_off_peak_hours": "HEURES_CREUSES_ETE",
+    "energy_winter_peak_hours": "HEURES_PLEINES_HIVER",
+    "energy_winter_off_peak_hours": "HEURES_CREUSES_HIVER",
 }
 
 
@@ -66,6 +70,28 @@ _CONSUMPTION_MAPPING = {
             "CONSUMPTION_OCTOFLEX_4_V4_HCP_0.0_37.0",
             "CONSUMPTION_OCTOFLEX_4_V4_HCP_0.0_37.0",
             id="tempo_octoflex_hcp",
+        ),
+        # Labels HP/HC deux saisons (issue #85) : reconnus quel que soit le
+        # palier de puissance souscrite interpolé dans le label.
+        pytest.param(
+            "CONSUMPTION_HPHC_2_SAISONS_HPB_6.0_7.0",
+            "HEURES_PLEINES_ETE",
+            id="two_season_hpb_6_7",
+        ),
+        pytest.param(
+            "CONSUMPTION_HPHC_2_SAISONS_HCB_6.0_7.0",
+            "HEURES_CREUSES_ETE",
+            id="two_season_hcb_6_7",
+        ),
+        pytest.param(
+            "CONSUMPTION_HPHC_2_SAISONS_HPH_9.0_10.0",
+            "HEURES_PLEINES_HIVER",
+            id="two_season_hph_9_10",
+        ),
+        pytest.param(
+            "CONSUMPTION_HPHC_2_SAISONS_HCH_36.0_37.0",
+            "HEURES_CREUSES_HIVER",
+            id="two_season_hch_36_37",
         ),
         # Labels Tempo courts → inchangés (TEMPO_SHORT_LABELS).
         pytest.param("TEMPO_ETE_HP", "TEMPO_ETE_HP", id="tempo_court_ete_hp"),
@@ -174,6 +200,40 @@ def test_no_cross_contamination() -> None:
 @pytest.mark.parametrize(
     ("key", "expected"),
     [
+        pytest.param("energy_summer_peak_hours", 5.0, id="summer_peak"),
+        pytest.param("energy_summer_off_peak_hours", 3.0, id="summer_off_peak"),
+        pytest.param("energy_winter_peak_hours", 8.0, id="winter_peak"),
+        pytest.param("energy_winter_off_peak_hours", 4.0, id="winter_off_peak"),
+    ],
+)
+def test_two_season_labels_match_seasonal_keys(key: str, expected: float) -> None:
+    """Chaque label deux saisons alimente la clé de sa saison et de sa période."""
+    stats = [
+        ("CONSUMPTION_HPHC_2_SAISONS_HPB_9.0_10.0", 5.0),
+        ("CONSUMPTION_HPHC_2_SAISONS_HCB_9.0_10.0", 3.0),
+        ("CONSUMPTION_HPHC_2_SAISONS_HPH_9.0_10.0", 8.0),
+        ("CONSUMPTION_HPHC_2_SAISONS_HCH_9.0_10.0", 4.0),
+    ]
+    assert _run_label_matching(stats, key) == pytest.approx(expected)
+
+
+def test_two_season_labels_do_not_feed_classic_keys() -> None:
+    """Un compte deux saisons n'alimente pas les clés HP/HC classiques.
+
+    Ses coûts seraient sinon comptés deux fois, sous la clé classique et sous la
+    clé saisonnière.
+    """
+    stats = [
+        ("CONSUMPTION_HPHC_2_SAISONS_HPB_6.0_7.0", 5.0),
+        ("CONSUMPTION_HPHC_2_SAISONS_HCB_6.0_7.0", 3.0),
+    ]
+    assert _run_label_matching(stats, "energy_peak_hours") == 0.0
+    assert _run_label_matching(stats, "energy_off_peak_hours") == 0.0
+
+
+@pytest.mark.parametrize(
+    ("key", "expected"),
+    [
         pytest.param("energy_peak_hours", 7.5, id="legacy_hp"),
         pytest.param("energy_off_peak_hours", 2.5, id="legacy_hc"),
     ],
@@ -219,6 +279,11 @@ def _meter(*, codes: list[str] | None = None, calendar_id: str | None = None) ->
         pytest.param(_meter(codes=["HP", "HC"]), "HPHC", id="classes_hphc"),
         pytest.param(_meter(codes=["BASE"]), "BASE", id="classes_base"),
         pytest.param(_meter(codes=["HPP", "HCP", "HPE"]), "TEMPO", id="classes_tempo"),
+        pytest.param(
+            _meter(codes=["HPB", "HCB", "HPH", "HCH"]),
+            "HPHC_2_SAISONS",
+            id="classes_two_season",
+        ),
         # Repli sur l'id brut quand aucune classe temporelle n'est exploitable.
         pytest.param(
             _meter(calendar_id="EFFACEMENT_HPHC_2"), "HPHC", id="fallback_effacement"

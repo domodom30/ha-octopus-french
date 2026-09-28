@@ -8,8 +8,12 @@ uniquement ceux du premier (bug de scoping mono-PRM).
 
 from __future__ import annotations
 
+from datetime import date, datetime
 from typing import Any
 from unittest.mock import AsyncMock
+
+import pytest
+from freezegun.api import FrozenDateTimeFactory
 
 from custom_components.octopus_french.coordinator import (
     OctopusFrenchDataUpdateCoordinator,
@@ -73,6 +77,42 @@ async def test_electricity_scoped_per_prm() -> None:
     assert by_prm["PRM_B"]["readings"][0]["prm"] == "PRM_B"
     assert by_prm["PRM_A"]["index"]["prm"] == "PRM_A"
     assert by_prm["PRM_B"]["index"]["prm"] == "PRM_B"
+
+
+@pytest.mark.parametrize(
+    ("today", "expected_start"),
+    [
+        pytest.param("2026-09-03T12:00:00", date(2026, 8, 1), id="early_month"),
+        pytest.param("2026-09-20T12:00:00", date(2026, 8, 25), id="mid_month"),
+    ],
+)
+async def test_electricity_window_covers_previous_month_at_rollover(
+    freezer: FrozenDateTimeFactory, today: str, expected_start: date
+) -> None:
+    """
+    Début de mois : le mois précédent est demandé en entier (issue #87).
+
+    Les capteurs mensuels l'affichent encore tant que le premier relevé du
+    nouveau mois n'est pas arrivé ; ensuite, seul le recouvrement d'une
+    semaine reste nécessaire à l'import des statistiques.
+    """
+    freezer.move_to(today)
+    account_data = {
+        "account_id": "ID-1",
+        "account_number": "ACC-123",
+        "supply_points": {
+            "electricity": [{"prm": "PRM_A", "distributorStatus": "SERVC"}],
+            "gas": [],
+        },
+        "agreements": [],
+        "ledgers": {},
+    }
+    coordinator = _make_coordinator(account_data)
+
+    await coordinator._fetch_all_data()
+
+    start = coordinator.api_client.get_energy_readings.call_args.args[1]
+    assert datetime.fromisoformat(start).date() == expected_start
 
 
 async def test_electricity_readings_use_own_property_id() -> None:

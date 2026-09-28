@@ -498,7 +498,14 @@ def main() -> None:
         bundle = json.loads(serialized)
 
     output = Path(args.output)
-    output.write_text(json.dumps(bundle, indent=2, ensure_ascii=False, default=str))
+    # `ensure_ascii=False` garde les descriptions accentuées du calendrier : sans
+    # encodage explicite, Windows les écrit dans la locale (cp1252) et le fichier
+    # produit n'est plus du JSON lisible ailleurs.
+    output.write_text(
+        json.dumps(bundle, indent=2, ensure_ascii=False, default=str),
+        encoding="utf-8",
+        newline="\n",
+    )
 
     print(hr())
     print(f"  ✅  Écrit dans {output.resolve()}")

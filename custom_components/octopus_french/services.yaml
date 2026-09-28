@@ -2,3 +2,24 @@
 # Les libellés viennent de strings.json / translations (clé `services`).
 
 force_update:
+
+recompute_statistics:
+  fields:
+    start_date:
+      required: true
+      example: "2026-07-01"
+      selector:
+        date:
+    prm:
+      required: false
+      example: "12345678901234"
+      selector:
+        text:
+
+purge_orphan_statistics:
+  fields:
+    confirm:
+      required: false
+      default: false
+      selector:
+        boolean:

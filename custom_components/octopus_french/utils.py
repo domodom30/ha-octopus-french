@@ -2,17 +2,25 @@
 
 import logging
 import re
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    FRENCH_MONTH_NUMBERS,
+    TARIFF_TYPE_HPHC_TWO_SEASON,
     TARIFF_TYPE_TEMPO,
+    TEMPO_CALENDAR_COLORS,
+    TEMPO_DEFAULT_SEASON_MONTHS,
     TEMPO_PRODUCT_CODE_KEYWORDS,
     TEMPO_SHORT_LABELS,
     TEMPO_STATISTICS_LABELS,
     TEMPO_TEMPORAL_CLASS_CODES,
+    TEMPO_TEMPORAL_CLASS_TO_COLOR,
+    TWO_SEASON_DEFAULT_SEASON_MONTHS,
+    TWO_SEASON_TEMPORAL_CLASS_CODES,
+    TWO_SEASON_TEMPORAL_CLASS_TO_SEASON,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -30,6 +38,23 @@ _TEMPO_COLOR_TO_HC_TEMPORAL_CODE = {
     "ROUGE": "HCP",
 }
 
+# Les jours rouges ne bornent aucune saison.
+_TEMPO_SEASON_BY_CODE = {
+    code: color
+    for code, color in TEMPO_TEMPORAL_CLASS_TO_COLOR.items()
+    if color != "ROUGE"
+}
+
+_TWO_SEASON_TO_HC_KEY = {
+    "ETE": "heures_creuses_ete",
+    "HIVER": "heures_creuses_hiver",
+}
+
+_TWO_SEASON_TO_HC_TEMPORAL_CODE = {
+    "ETE": "HCB",
+    "HIVER": "HCH",
+}
+
 # PRM pour lesquels le repli sur offPeakLabel a déjà été signalé, pour ne pas
 # répéter l'avertissement à chaque rafraîchissement du coordinator.
 _LINKY_FALLBACK_WARNED: set[str] = set()
@@ -45,9 +70,22 @@ _LABEL_SEGMENT_TO_CANONICAL: dict[str, str] = {
     "HC": "HEURES_CREUSES",
 }
 
+# Segment de classe temporelle deux saisons d'un label CONSUMPTION_* → forme
+# canonique (voir TWO_SEASON_TEMPORAL_CLASS_TO_SEASON pour les saisons B et H).
+_TWO_SEASON_LABEL_ALIASES: dict[str, str] = {
+    "HPB": "HEURES_PLEINES_ETE",
+    "HCB": "HEURES_CREUSES_ETE",
+    "HPH": "HEURES_PLEINES_HIVER",
+    "HCH": "HEURES_CREUSES_HIVER",
+}
+
 # Labels déjà signalés comme non reconnus, pour ne pas répéter l'avertissement
 # à chaque relevé de chaque rafraîchissement.
 _UNKNOWN_LABELS_WARNED: set[str] = set()
+
+_MONTH_PATTERN = re.compile(
+    "|".join(sorted(FRENCH_MONTH_NUMBERS, key=len, reverse=True)), re.IGNORECASE
+)
 
 
 def parse_off_peak_hours(off_peak_label: str | None) -> dict[str, Any]:
@@ -171,19 +209,24 @@ def find_contract_hc_slots(
     data: dict[str, Any], prm_id: str, tempo_color: str | None = None
 ) -> list[dict[str, Any]] | None:
     """Return the HC timeSlots from the active contract for a given PRM, or None."""
+    if tempo_color:
+        hc_key = _TEMPO_COLOR_TO_HC_KEY.get(tempo_color.upper())
+    elif season := resolve_two_season(data, prm_id):
+        hc_key = _TWO_SEASON_TO_HC_KEY[season]
+    else:
+        hc_key = None
+
     for agreement in data.get("agreements", []):
         if agreement.get("prm") != prm_id or not agreement.get("is_active"):
             continue
         consumption = (agreement.get("tariffs") or {}).get("consumption", {})
 
-        if tempo_color:
-            hc_key = _TEMPO_COLOR_TO_HC_KEY.get(tempo_color.upper())
-            if (
-                hc_key
-                and (rate := consumption.get(hc_key))
-                and (slots := rate.get("time_slots"))
-            ):
-                return slots
+        if (
+            hc_key
+            and (rate := consumption.get(hc_key))
+            and (slots := rate.get("time_slots"))
+        ):
+            return slots
 
         hc_rate = consumption.get("heures_creuses") or {}
         if slots := hc_rate.get("time_slots"):
@@ -191,7 +234,7 @@ def find_contract_hc_slots(
 
         for key, rate in consumption.items():
             if (
-                key.endswith("_hc")
+                (key.endswith("_hc") or key.startswith("heures_creuses_"))
                 and isinstance(rate, dict)
                 and (slots := rate.get("time_slots"))
             ):
@@ -216,8 +259,9 @@ def find_calendar_hc_ranges(
 
     Chaque classe temporelle de `providerCalendar` porte ses horaires dans son
     champ `description` (ex. `"0H50-6H50;14H50-16H50"`). Un contrat OctoTempo
-    expose une classe HC par couleur (HCE / HCHI / HCP), ce qui donne la plage
-    réellement souscrite sans avoir à la deviner.
+    expose une classe HC par couleur (HCE / HCHI / HCP), un contrat deux saisons
+    une par saison (HCB / HCH), ce qui donne la plage réellement souscrite sans
+    avoir à la deviner.
 
     Renvoie None si la description est absente ou illisible.
     """
@@ -225,7 +269,12 @@ def find_calendar_hc_ranges(
     if not meter:
         return None
 
-    wanted = _TEMPO_COLOR_TO_HC_TEMPORAL_CODE.get((tempo_color or "").upper(), "HC")
+    if tempo_color:
+        wanted = _TEMPO_COLOR_TO_HC_TEMPORAL_CODE.get(tempo_color.upper(), "HC")
+    elif season := resolve_two_season(data, prm_id):
+        wanted = _TWO_SEASON_TO_HC_TEMPORAL_CODE[season]
+    else:
+        wanted = "HC"
     for temporal_class in meter.get("provider_temporal_classes") or []:
         if (temporal_class.get("code") or "").upper() != wanted:
             continue
@@ -299,11 +348,215 @@ def resolve_hc_schedule(
     }
 
 
-def get_tempo_color_for_prm(data: dict[str, Any], prm_id: str) -> str | None:
-    """Return the current Tempo color for a PRM from index data."""
+def _parse_season_months(description: str | None) -> tuple[int, int] | None:
+    """Bornes de mois d'une description de classe temporelle, ou None.
+
+    « Avril à octobre, de 7h à 11h et de 17h à 21h » → (4, 10). Les descriptions
+    des classes rouges ne nomment aucun mois et renvoient donc None.
+    """
+    if not description:
+        return None
+    months = _MONTH_PATTERN.findall(description)
+    if len(months) < 2:
+        return None
+    return (
+        FRENCH_MONTH_NUMBERS[months[0].lower()],
+        FRENCH_MONTH_NUMBERS[months[1].lower()],
+    )
+
+
+def _month_in_range(month: int, bounds: tuple[int, int]) -> bool:
+    """Indique si un mois tombe dans un intervalle, hiver à cheval sur l'année."""
+    start, end = bounds
+    if start <= end:
+        return start <= month <= end
+    return month >= start or month <= end
+
+
+def _season_for_day(
+    meter: dict[str, Any],
+    season_by_code: dict[str, str],
+    default_months: dict[str, tuple[int, int]],
+    day: date,
+) -> str | None:
+    """Saison d'une date, bornée par les mois nommés dans le calendrier du compteur."""
+    bounds: dict[str, tuple[int, int]] = {}
+    for temporal_class in meter.get("provider_temporal_classes") or []:
+        season = season_by_code.get((temporal_class.get("code") or "").upper())
+        if season is None or season in bounds:
+            continue
+        if months := _parse_season_months(temporal_class.get("description")):
+            bounds[season] = months
+
+    for season, months in (bounds or default_months).items():
+        if _month_in_range(day.month, months):
+            return season
+
+    return None
+
+
+def resolve_tempo_season(
+    data: dict[str, Any], prm_id: str, day: date | None = None
+) -> str | None:
+    """
+    Retourne la saison OctoTempo (`ETE` / `HIVER`) applicable à une date.
+
+    Les bornes viennent de la description des classes temporelles du calendrier
+    fournisseur, seule source disponible : `offPeakValues` renvoie une liste vide
+    sur OctoFlex et `ProviderTemporalClassType` ne porte pas de champ de saison.
+
+    La saison est déterministe par la date, donc connue pour n'importe quel jour,
+    passé ou futur — contrairement aux jours de pointe (`ROUGE`), qu'aucun champ
+    de l'API n'expose.
+    """
+    if not _is_tempo_contract(data, prm_id):
+        return None
+
+    return _season_for_day(
+        _find_electricity_meter(data, prm_id) or {},
+        _TEMPO_SEASON_BY_CODE,
+        TEMPO_DEFAULT_SEASON_MONTHS,
+        day or dt_util.now().date(),
+    )
+
+
+def _is_two_season_contract(data: dict[str, Any], prm_id: str) -> bool:
+    """Indique si le PRM est sur un contrat HP/HC deux saisons."""
+    meter = _find_electricity_meter(data, prm_id) or {}
+    codes = {
+        (tc.get("code") or "").upper()
+        for tc in meter.get("provider_temporal_classes") or []
+    }
+    if codes & TWO_SEASON_TEMPORAL_CLASS_CODES:
+        return True
+
+    # Les taux du contrat portent aussi ces codes, que le calendrier du compteur
+    # les expose ou non.
+    for agreement in data.get("agreements", []):
+        if agreement.get("prm") != prm_id or not agreement.get("is_active"):
+            continue
+        consumption = (agreement.get("tariffs") or {}).get("consumption") or {}
+        if any(key in consumption for key in _TWO_SEASON_TO_HC_KEY.values()):
+            return True
+
+    return False
+
+
+def resolve_two_season(
+    data: dict[str, Any], prm_id: str, day: date | None = None
+) -> str | None:
+    """Saison (`ETE` / `HIVER`) d'un contrat HP/HC deux saisons à une date, ou None."""
+    if not _is_two_season_contract(data, prm_id):
+        return None
+
+    return _season_for_day(
+        _find_electricity_meter(data, prm_id) or {},
+        TWO_SEASON_TEMPORAL_CLASS_TO_SEASON,
+        TWO_SEASON_DEFAULT_SEASON_MONTHS,
+        day or dt_util.now().date(),
+    )
+
+
+def _measurement_color(label: str) -> str | None:
+    """Couleur Tempo portée par un label de statistique, ou None.
+
+    Le label interpole la version du calendrier et la tranche de puissance
+    (`CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0`) : on reconnaît le segment de classe
+    temporelle, pour ne pas dépendre des chaînes figées de `ENERGY_KEY_TO_LABEL`.
+    """
+    segments = {segment.upper() for segment in (label or "").split("_")}
+    for code in segments & TEMPO_TEMPORAL_CLASS_CODES:
+        return TEMPO_TEMPORAL_CLASS_TO_COLOR[code]
+    for color in segments & TEMPO_CALENDAR_COLORS:
+        return color
+    return None
+
+
+def tempo_color_from_measurements(
+    readings: list[dict[str, Any]], day: date | None = None
+) -> tuple[str | None, str | None]:
+    """
+    Couleur Tempo tirée des relevés journaliers, et le jour qu'elle décrit.
+
+    `metaData.statistics[].label` porte la classe temporelle réellement appliquée
+    ce jour-là, ce qui donne une granularité à la journée là où `electricityReading`
+    agrège des périodes de facturation entières. Sans `day`, la journée consommée
+    la plus récente est retenue.
+    """
+    totals: dict[date, dict[str, float]] = {}
+
+    for reading in readings or []:
+        local_day = reading_local_day(reading.get("startAt"))
+        if local_day is None or (day is not None and local_day.date() != day):
+            continue
+        for stat in (reading.get("metaData") or {}).get("statistics", []):
+            color = _measurement_color(stat.get("label", ""))
+            if color is None:
+                continue
+            # Convertir avant d'ouvrir la journée : une valeur illisible y
+            # laisserait un total vide, sur lequel `max` échouerait plus bas.
+            try:
+                value = float(stat.get("value"))
+            except (TypeError, ValueError):
+                continue
+            bucket = totals.setdefault(local_day.date(), {})
+            bucket[color] = bucket.get(color, 0.0) + value
+
+    for measured_day in sorted(totals, reverse=True):
+        color, consumed = max(totals[measured_day].items(), key=lambda item: item[1])
+        if consumed > 0:
+            return color, measured_day.isoformat()
+
+    return None, None
+
+
+def resolve_tempo_color(
+    data: dict[str, Any], prm_id: str, days_ahead: int = 0
+) -> dict[str, Any]:
+    """
+    Couleur Tempo d'une journée, avec sa provenance.
+
+    La saison sert de base : elle est exacte pour toute date, aujourd'hui comme
+    demain. Un jour de pointe ne peut la requalifier en `ROUGE` que si un relevé
+    journalier le confirme, ce que l'API ne fournit qu'avec environ deux jours de
+    retard — un jour rouge n'est donc jamais connu le jour même, et jamais à
+    l'avance.
+    """
+    target = dt_util.now().date() + timedelta(days=days_ahead)
+    result: dict[str, Any] = {
+        "color": None,
+        "source": None,
+        "date": target.isoformat(),
+        "reading_date": None,
+    }
+
+    if days_ahead == 0:
+        readings = (
+            data.get("electricity_by_prm", {}).get(prm_id, {}).get("readings") or []
+        )
+        color, reading_date = tempo_color_from_measurements(readings, target)
+        result["reading_date"] = reading_date
+        if color == "ROUGE":
+            return result | {"color": color, "source": "measurements"}
+
+    if season := resolve_tempo_season(data, prm_id, target):
+        return result | {"color": season, "source": "season"}
+
     index_data = data.get("electricity_by_prm", {}).get(prm_id, {}).get("index") or {}
     color = index_data.get("tempo_color")
-    return color if isinstance(color, str) else None
+    if isinstance(color, str):
+        return result | {
+            "color": color,
+            "source": "index",
+            "reading_date": index_data.get("tempo_color_date"),
+        }
+
+    return result
+
+
+def get_tempo_color_for_prm(data: dict[str, Any], prm_id: str) -> str | None:
+    """Return the current Tempo color for a PRM."""
+    return resolve_tempo_color(data, prm_id)["color"]
 
 
 def is_electricity_meter_active(meter: dict[str, Any]) -> bool:
@@ -353,6 +606,9 @@ def normalize_consumption_label(label: str) -> str:
 
     if label.startswith("CONSUMPTION_"):
         segments = set(label.split("_"))
+        for temporal_code, canonical in _TWO_SEASON_LABEL_ALIASES.items():
+            if temporal_code in segments:
+                return canonical
         if segments & TEMPO_TEMPORAL_CLASS_CODES:
             return label
         for segment, canonical in _LABEL_SEGMENT_TO_CANONICAL.items():
@@ -382,6 +638,8 @@ def normalize_provider_calendar(meter: dict) -> str:
     codes = {c.get("code") for c in classes if c.get("code")}
     if codes & TEMPO_TEMPORAL_CLASS_CODES:
         return TARIFF_TYPE_TEMPO
+    if codes & TWO_SEASON_TEMPORAL_CLASS_CODES:
+        return TARIFF_TYPE_HPHC_TWO_SEASON
     if len(codes) >= 2:
         return "HPHC"
     if len(codes) == 1:
@@ -398,7 +656,7 @@ def normalize_provider_calendar(meter: dict) -> str:
     return calendar_id
 
 
-_RATE_KEY_TO_CONSUMPTION_KEY: dict[str, str] = {
+RATE_KEY_TO_CONSUMPTION_KEY: dict[str, str] = {
     "rate_base": "base",
     "cost_base": "base",
     "cost": "base",
@@ -406,6 +664,14 @@ _RATE_KEY_TO_CONSUMPTION_KEY: dict[str, str] = {
     "cost_peak_hours": "heures_pleines",
     "rate_off_peak_hours": "heures_creuses",
     "cost_off_peak_hours": "heures_creuses",
+    "rate_summer_peak_hours": "heures_pleines_ete",
+    "cost_summer_peak_hours": "heures_pleines_ete",
+    "rate_summer_off_peak_hours": "heures_creuses_ete",
+    "cost_summer_off_peak_hours": "heures_creuses_ete",
+    "rate_winter_peak_hours": "heures_pleines_hiver",
+    "cost_winter_peak_hours": "heures_pleines_hiver",
+    "rate_winter_off_peak_hours": "heures_creuses_hiver",
+    "cost_winter_off_peak_hours": "heures_creuses_hiver",
     "rate_tempo_ete_hp": "tempo_ete_hp",
     "cost_tempo_ete_hp": "tempo_ete_hp",
     "rate_tempo_ete_hc": "tempo_ete_hc",
@@ -426,7 +692,7 @@ def get_tariff_rate_for_key(
 ) -> float | None:
     """Retourne le prix TTC (€/kWh) du contrat actif pour une clé de sensor."""
 
-    consumption_key = _RATE_KEY_TO_CONSUMPTION_KEY.get(key)
+    consumption_key = RATE_KEY_TO_CONSUMPTION_KEY.get(key)
     if not consumption_key:
         return None
 

@@ -14,9 +14,10 @@ import zoneinfo
 from datetime import datetime
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from freezegun.api import FrozenDateTimeFactory
 from homeassistant.util import dt as dt_util
 
 from custom_components.octopus_french import statistics_import
@@ -376,6 +377,45 @@ async def test_zero_kwh_day_keeps_series_contiguous() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("paris_tz")
+async def test_two_season_readings_route_to_seasonal_statistics() -> None:
+    """Les relevés deux saisons alimentent les séries saisonnières (issue #85).
+
+    Ni les séries HP/HC classiques, ni un seul palier de puissance : le palier
+    interpolé dans le label brut varie d'un abonnement à l'autre.
+    """
+    store = _FakeStatsStore()
+    agreement = [
+        {
+            "prm": "PRM1",
+            "is_active": True,
+            "tariffs": {"consumption": {"heures_pleines_ete": {"price_ttc": 0.22}}},
+        }
+    ]
+    readings = [
+        _cost_reading(
+            "2026-06-14T00:00:00+02:00",
+            kwh=4.0,
+            label="CONSUMPTION_HPHC_2_SAISONS_HPB_9.0_10.0",
+        ),
+        _cost_reading(
+            "2026-06-15T00:00:00+02:00",
+            kwh=6.0,
+            label="CONSUMPTION_HPHC_2_SAISONS_HPB_36.0_37.0",
+        ),
+    ]
+    await _run_import(_make_importer(readings, agreements=agreement), store)
+
+    energy_summer_id = "octopus_french:PRM1_energy_summer_peak_hours"
+    cost_summer_id = "octopus_french:PRM1_cost_summer_peak_hours"
+
+    assert store.states(energy_summer_id) == [4.0, 6.0]
+    assert store.states(cost_summer_id) == [pytest.approx(0.88), pytest.approx(1.32)]
+    assert STAT_ID not in store.rows
+    assert COST_STAT_ID not in store.rows
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("paris_tz")
 async def test_mixed_offsets_across_cycles_do_not_double() -> None:
     """Régression 3.2.5 : même instant réémis avec un offset UTC différent, sans doubler."""
     store = _FakeStatsStore()
@@ -563,3 +603,199 @@ def test_last_reset_only_on_monthly_total_sensors(
         assert last_reset.tzinfo is not None
     else:
         assert last_reset is None
+
+
+@pytest.mark.usefixtures("paris_tz")
+@pytest.mark.parametrize(
+    ("readings", "expected_total", "expected_month"),
+    [
+        pytest.param(
+            [
+                _cost_reading("2026-08-30T00:00:00+02:00", cents=90),
+                _cost_reading("2026-08-31T00:00:00+02:00", cents=97),
+            ],
+            1.87,
+            "2026-08",
+            id="before_first_reading_of_month",
+        ),
+        pytest.param(
+            [
+                _cost_reading("2026-08-30T00:00:00+02:00", cents=90),
+                _cost_reading("2026-08-31T00:00:00+02:00", cents=97),
+                _cost_reading("2026-09-01T00:00:00+02:00", cents=196),
+            ],
+            1.96,
+            "2026-09",
+            id="after_first_reading_of_month",
+        ),
+        pytest.param(
+            [_cost_reading("2026-08-31T22:00:00+00:00", cents=100)],
+            1.0,
+            "2026-09",
+            id="utc_start_at_classified_in_local_month",
+        ),
+        pytest.param([], 0.0, "2026-09", id="no_readings_uses_wall_clock"),
+    ],
+)
+def test_monthly_total_follows_data_month(
+    freezer: FrozenDateTimeFactory,
+    readings: list[dict],
+    expected_total: float,
+    expected_month: str,
+) -> None:
+    """
+    Le mois affiché bascule au premier relevé du nouveau mois (issue #87).
+
+    Le 2 septembre, les relevés des 30 et 31 août viennent d'arriver (J+2) :
+    ils doivent compter dans le total d'août au lieu d'être perdus.
+    """
+    freezer.move_to("2026-09-02T10:00:00+02:00")
+    sensor = _make_slim_sensor("cost_peak_hours", readings)
+
+    assert sensor._compute_native_value() == expected_total
+    assert sensor._current_month == expected_month
+    year, month = map(int, expected_month.split("-"))
+    assert sensor._compute_last_reset() == datetime(year, month, 1, tzinfo=PARIS)
+
+
+def _make_recompute_importer(
+    readings: list[dict], prm_id: str = "PRM1"
+) -> tuple[OctopusStatisticsImporter, AsyncMock]:
+    """Importer branché sur un client d'API factice, pour le recalcul."""
+    api_client = AsyncMock()
+    api_client.get_energy_readings.return_value = readings
+    coordinator = SimpleNamespace(
+        api_client=api_client,
+        data={
+            "account_id": "ACC1",
+            "electricity_by_prm": {prm_id: {"readings": []}},
+            "agreements": _AGREEMENT_HP,
+            "gas": [],
+            "gas_by_pce": {},
+            "supply_points": {
+                "electricity": [{"prm": prm_id, "property_id": "PROP1"}],
+                "gas": [],
+            },
+        },
+    )
+    return OctopusStatisticsImporter(MagicMock(), coordinator), api_client
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("paris_tz")
+async def test_recompute_rewrites_days_outside_the_routine_window() -> None:
+    """Le recalcul réécrit des journées que le cycle courant ne redemande plus."""
+    store = _FakeStatsStore()
+    # Sommes fausses déjà écrites, comme après un défaut de calcul corrigé depuis.
+    store.prefill(
+        STAT_ID,
+        [
+            (_paris_day(1), 99.0, 99.0),
+            (_paris_day(2), 99.0, 198.0),
+            (_paris_day(3), 99.0, 297.0),
+        ],
+    )
+
+    readings = [
+        _reading("2026-06-01T00:00:00+02:00", 10.0),
+        _reading("2026-06-02T00:00:00+02:00", 20.0),
+        _reading("2026-06-03T00:00:00+02:00", 30.0),
+    ]
+    importer, api_client = _make_recompute_importer(readings)
+
+    fake_instance = SimpleNamespace(async_add_executor_job=store.executor)
+    with (
+        patch.object(statistics_import, "get_instance", return_value=fake_instance),
+        patch.object(
+            statistics_import, "async_add_external_statistics", side_effect=store.add
+        ),
+    ):
+        imported = await importer.async_recompute_electricity(_paris_day(1))
+
+    assert imported[STAT_ID] == 3
+    assert store.states(STAT_ID) == [10.0, 20.0, 30.0]
+    assert store.changes(STAT_ID) == [10.0, 20.0, 30.0]
+
+    # La fenêtre demandée à l'API part bien de la date fournie.
+    start_at = api_client.get_energy_readings.call_args.args[1]
+    assert start_at.startswith("2026-06-01")
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("paris_tz")
+async def test_recompute_ignores_the_last_imported_guard() -> None:
+    """Le garde-fou de l'import incrémental ne doit pas bloquer une réécriture."""
+    store = _FakeStatsStore()
+    readings = [
+        _reading("2026-06-01T00:00:00+02:00", 10.0),
+        _reading("2026-06-02T00:00:00+02:00", 20.0),
+    ]
+    importer, _ = _make_recompute_importer(readings)
+    importer.last_imported[STAT_ID] = _paris_day(5).isoformat()
+
+    fake_instance = SimpleNamespace(async_add_executor_job=store.executor)
+    with (
+        patch.object(statistics_import, "get_instance", return_value=fake_instance),
+        patch.object(
+            statistics_import, "async_add_external_statistics", side_effect=store.add
+        ),
+    ):
+        await importer.async_recompute_electricity(_paris_day(1))
+
+    assert store.states(STAT_ID) == [10.0, 20.0]
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("paris_tz")
+async def test_recompute_targets_a_single_prm_when_asked() -> None:
+    """Le paramètre PRM restreint le recalcul à un compteur."""
+    importer, api_client = _make_recompute_importer([])
+
+    await importer.async_recompute_electricity(_paris_day(1), prm_id="PRM_AUTRE")
+
+    api_client.get_energy_readings.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_orphan_statistics_spare_the_active_meters() -> None:
+    """Seules les séries qu'aucun compteur actif ne peut alimenter sont listées."""
+    importer, _ = _make_recompute_importer([])
+    importer.coordinator.data["gas_by_pce"] = {"PCE1": {}}
+
+    listed = [
+        {"statistic_id": "octopus_french:PRM1_energy_peak_hours"},
+        {"statistic_id": "octopus_french:PRM1_cost_peak_hours"},
+        {"statistic_id": "octopus_french:PCE1_consumption"},
+        # Vestige d'un contrat BASE abandonné, et compteur qui n'existe plus.
+        {"statistic_id": "octopus_french:PRM_PARTI_energy_base"},
+        {"statistic_id": "octopus_french:PRM1_energy_inconnu"},
+        # Série d'une autre intégration : jamais touchée.
+        {"statistic_id": "sensor.autre_integration"},
+    ]
+
+    fake_instance = SimpleNamespace(
+        async_add_executor_job=AsyncMock(return_value=listed)
+    )
+    with patch.object(statistics_import, "get_instance", return_value=fake_instance):
+        orphans = await importer.async_find_orphan_statistic_ids()
+
+    assert orphans == [
+        "octopus_french:PRM1_energy_inconnu",
+        "octopus_french:PRM_PARTI_energy_base",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_purge_without_ids_touches_nothing() -> None:
+    """Une purge sans identifiant ne doit pas appeler le recorder."""
+    importer, _ = _make_recompute_importer([])
+    executor = AsyncMock()
+
+    with patch.object(
+        statistics_import,
+        "get_instance",
+        return_value=SimpleNamespace(async_add_executor_job=executor),
+    ):
+        await importer.async_purge_orphan_statistics([])
+
+    executor.assert_not_called()

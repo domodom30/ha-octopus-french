@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+from datetime import UTC, date, datetime
+from unittest.mock import patch
+
+import pytest
+
+from custom_components.octopus_french import utils
 from custom_components.octopus_french.utils import (
     find_calendar_hc_ranges,
     find_contract_hc_slots,
     parse_time_slots,
     resolve_hc_schedule,
+    resolve_two_season,
 )
 
 
@@ -323,3 +330,137 @@ class TestResolveHcSchedule:
         schedule = resolve_hc_schedule(data, "PRM1", tempo_color="ETE")
         assert schedule["source"] == "none"
         assert schedule["range_count"] == 0
+
+
+# Plages HC distinctes par saison, pour savoir laquelle a été retenue.
+_TWO_SEASON_CLASSES = [
+    {"code": "HPB", "description": "Avril à octobre, de 6h à 22h"},
+    {"code": "HCB", "description": "Avril à octobre, de 22h à 6h"},
+    {"code": "HPH", "description": "Novembre à mars, de 7h à 23h"},
+    {"code": "HCH", "description": "Novembre à mars, de 23h à 7h"},
+]
+
+_TWO_SEASON_CONSUMPTION = {
+    "heures_pleines": None,
+    "heures_creuses": None,
+    "heures_creuses_ete": {"time_slots": [{"start": "22:00:00", "end": "06:00:00"}]},
+    "heures_creuses_hiver": {"time_slots": [{"start": "23:00:00", "end": "07:00:00"}]},
+}
+
+_SUMMER_NOW = datetime(2026, 7, 14, 12, tzinfo=UTC)
+_WINTER_NOW = datetime(2026, 1, 15, 12, tzinfo=UTC)
+
+
+def _make_two_season_data(
+    temporal_classes: list[dict] | None = None,
+    consumption: dict | None = None,
+) -> dict:
+    """coordinator.data d'un contrat HP/HC deux saisons, sans offPeakLabel."""
+    return {
+        "supply_points": {
+            "electricity": [
+                {
+                    "prm": "PRM1",
+                    "offPeakLabel": None,
+                    "provider_temporal_classes": temporal_classes or [],
+                }
+            ]
+        },
+        "agreements": [
+            {
+                "prm": "PRM1",
+                "is_active": True,
+                "tariffs": {"consumption": consumption or {}},
+            }
+        ],
+    }
+
+
+class TestTwoSeasonHcSchedule:
+    """Plages HC d'un contrat HP/HC deux saisons (issue #85)."""
+
+    @pytest.mark.parametrize(
+        ("now", "expected_start"),
+        [
+            pytest.param(_SUMMER_NOW, "22:00", id="ete"),
+            pytest.param(_WINTER_NOW, "23:00", id="hiver"),
+        ],
+    )
+    def test_contract_slots_follow_season(
+        self, now: datetime, expected_start: str
+    ) -> None:
+        """Les créneaux du taux HC de la saison en cours sont retenus.
+
+        Le compteur n'expose ici aucune classe temporelle : le contrat seul
+        doit suffire à reconnaître un contrat deux saisons.
+        """
+        data = _make_two_season_data(consumption=_TWO_SEASON_CONSUMPTION)
+
+        with patch.object(utils.dt_util, "now", return_value=now):
+            schedule = resolve_hc_schedule(data, "PRM1")
+
+        assert schedule["source"] == "contract"
+        assert schedule["ranges"][0]["start"] == expected_start
+
+    @pytest.mark.parametrize(
+        ("now", "expected_start"),
+        [
+            pytest.param(_SUMMER_NOW, "22:00", id="ete"),
+            pytest.param(_WINTER_NOW, "23:00", id="hiver"),
+        ],
+    )
+    def test_calendar_class_follows_season(
+        self, now: datetime, expected_start: str
+    ) -> None:
+        """Sans créneaux au contrat, la classe HC de la saison est lue au calendrier."""
+        data = _make_two_season_data(temporal_classes=_TWO_SEASON_CLASSES)
+
+        with patch.object(utils.dt_util, "now", return_value=now):
+            schedule = resolve_hc_schedule(data, "PRM1")
+
+        assert schedule["source"] == "calendar"
+        assert schedule["ranges"][0]["start"] == expected_start
+
+    def test_other_season_slots_when_current_season_has_none(self) -> None:
+        """Faute de créneaux pour la saison en cours, ceux de l'autre saison servent."""
+        summer_slots = [{"start": "22:00:00", "end": "06:00:00"}]
+        data = _make_two_season_data(
+            consumption={
+                "heures_creuses_ete": {"time_slots": summer_slots},
+                "heures_creuses_hiver": {"time_slots": []},
+            }
+        )
+
+        with patch.object(utils.dt_util, "now", return_value=_WINTER_NOW):
+            assert find_contract_hc_slots(data, "PRM1") == summer_slots
+
+    @pytest.mark.parametrize(
+        ("day", "expected"),
+        [
+            pytest.param(date(2026, 3, 31), "HIVER", id="fin-mars"),
+            pytest.param(date(2026, 4, 1), "ETE", id="debut-avril"),
+            pytest.param(date(2026, 10, 31), "ETE", id="fin-octobre"),
+            pytest.param(date(2026, 11, 1), "HIVER", id="debut-novembre"),
+        ],
+    )
+    def test_season_bounds(self, day: date, expected: str) -> None:
+        """La saison haute court de novembre à mars."""
+        data = _make_two_season_data(temporal_classes=_TWO_SEASON_CLASSES)
+        assert resolve_two_season(data, "PRM1", day) == expected
+
+    def test_bounds_read_from_calendar_description(self) -> None:
+        """Les mois nommés par le calendrier priment sur les bornes par défaut."""
+        classes = [
+            {"code": "HCB", "description": "Mars à octobre, de 22h à 6h"},
+            {"code": "HCH", "description": "Novembre à février, de 23h à 7h"},
+        ]
+        data = _make_two_season_data(temporal_classes=classes)
+        assert resolve_two_season(data, "PRM1", date(2026, 3, 15)) == "ETE"
+
+    def test_classic_contract_has_no_season(self) -> None:
+        """Un contrat HP/HC classique n'a pas de saison."""
+        data = _make_two_season_data(
+            temporal_classes=[{"code": "HP"}, {"code": "HC"}],
+            consumption={"heures_creuses": {"time_slots": []}},
+        )
+        assert resolve_two_season(data, "PRM1", date(2026, 1, 15)) is None

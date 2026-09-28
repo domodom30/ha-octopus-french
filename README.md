@@ -183,9 +183,22 @@ Les données sont rafraîchies automatiquement toutes les **60 minutes** (5 minu
 | Tarif hiver HC           | Capteur | -      | Tarif Hiver Heures Creuses (€/kWh)                                                       |
 | Tarif rouge HP           | Capteur | -      | Tarif Rouge Heures Pleines (€/kWh)                                                       |
 | Tarif rouge HC           | Capteur | -      | Tarif Rouge Heures Creuses (€/kWh)                                                       |
-| Couleur Tempo aujourd'hui| Capteur | -      | Couleur du jour (ETE / HIVER / ROUGE)                                                    |
-| Couleur Tempo demain     | Capteur | -      | Couleur de demain — disponible après ~11h (annonce RTE) ; `unavailable` avant l'annonce  |
+| Couleur Tempo aujourd'hui| Capteur | -      | Couleur du jour : saison (ETE / HIVER), requalifiée en ROUGE une fois le relevé arrivé   |
+| Couleur Tempo demain     | Capteur | -      | Saison de demain (ETE / HIVER) — ne vaut jamais ROUGE, voir la limite ci-dessous          |
 | Tarif Tempo en cours     | Capteur | -      | €/kWh actif à l'instant (couleur du jour × HC/HP), mis à jour chaque minute              |
+
+> **Les jours de pointe (ROUGE) ne sont pas annoncés à l'avance.**
+> L'API Octopus n'expose aucun calendrier de couleurs : la saison se déduit des
+> bornes du calendrier fournisseur (« Avril à octobre », « Novembre à mars »),
+> mais un jour de pointe n'est reconnaissable qu'a posteriori, quand le relevé
+> journalier correspondant arrive — environ deux jours plus tard. Octopus annonce
+> les jours de pointe hors API (courriel, application).
+>
+> Conséquences : `Couleur Tempo demain` ne vaut jamais ROUGE, et
+> `Tarif Tempo en cours` affiche le tarif de la saison un jour de pointe.
+> L'attribut `source` de chaque capteur indique d'où vient la couleur
+> (`season`, `measurements` ou `index`), et `reading_date` la date du relevé
+> qui l'a confirmée.
 
 ---
 
@@ -509,6 +522,14 @@ Grâce à l'import automatique des statistiques :
 - L'historique complet est disponible depuis le **début du mois en cours**
 - Les **coûts** sont également importés et visibles dans le tableau de bord
 
+> **Relevés à J+2** : Enedis transmet la consommation avec un à deux jours de retard, d'où l'écart entre l'attribut « Dernière date importée » et la date de dernière mise à jour du capteur. Les capteurs « mois en cours » (électricité) ne passent au mois suivant qu'à l'arrivée du premier relevé de ce mois : les premiers jours, ils affichent encore le mois précédent, indiqué par l'attribut `current_month`.
+>
+> Pour un graphique mensuel (carte **Graphique de statistiques**, ApexCharts…), préférez les statistiques importées `octopus_french:<PRM>_cost_*` / `_energy_*` avec une période **mois** et le type **variation** : chaque jour y est daté précisément.
+
+> **Relevés à J+2** : Enedis transmet la consommation avec un à deux jours de retard, d'où l'écart entre l'attribut « Dernière date importée » et la date de dernière mise à jour du capteur. Les capteurs « mois en cours » (électricité) ne passent au mois suivant qu'à l'arrivée du premier relevé de ce mois : les premiers jours, ils affichent encore le mois précédent, indiqué par l'attribut `current_month`.
+>
+> Pour un graphique mensuel (carte **Graphique de statistiques**, ApexCharts…), préférez les statistiques importées `octopus_french:<PRM>_cost_*` / `_energy_*` avec une période **mois** et le type **variation** : chaque jour y est daté précisément.
+
 ---
 
 ## 🤖 Services
@@ -573,24 +594,34 @@ automation:
                state_attr('sensor.linky_XXXXXX_latest_reading', 'cout_heures_creuses_euro') | float(0) }} €
 ```
 
-### OctoTempo — Alerte jour rouge demain
+### OctoTempo — Changement de saison
+
+Le capteur `tempo_color_tomorrow` porte la saison du lendemain, jamais ROUGE : les
+jours de pointe ne sont pas exposés par l'API. Il sert donc à anticiper le
+changement de plages horaires, qui diffèrent entre l'été et l'hiver.
 
 ```yaml
 automation:
-  - alias: "OctoTempo — Alerte jour rouge demain"
+  - alias: "OctoTempo — Changement de saison demain"
     trigger:
       - platform: state
         entity_id: sensor.linky_XXXXXX_tempo_color_tomorrow
-        to: "ROUGE"
+    condition:
+      - condition: template
+        value_template: >
+          {{ trigger.from_state.state not in ['unknown', 'unavailable']
+             and trigger.to_state.state != trigger.from_state.state }}
     action:
       - service: notify.mobile_app_votre_telephone
         data:
-          title: "🔴 Jour Rouge demain !"
+          title: "OctoTempo — changement de saison"
           message: >
-            Demain est un jour Rouge OctoTempo.
-            Tarif HP : {{ states('sensor.linky_XXXXXX_rate_tempo_rouge_hp') }} €/kWh.
-            Pensez à décaler vos usages énergivores.
+            Demain passe en {{ trigger.to_state.state }}.
+            Les plages heures creuses changent en conséquence.
 ```
+
+Pour être alerté d'un jour de pointe, appuyez-vous sur les notifications
+d'Octopus : l'intégration ne peut que le constater après coup.
 
 ### OctoTempo — Suivi du tarif en cours
 

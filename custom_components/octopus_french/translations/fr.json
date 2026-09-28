@@ -98,6 +98,74 @@
           }
         }
       },
+      "energy_summer_peak_hours": {
+        "name": "Consommation HP été",
+        "state_attributes": {
+          "current_month": {
+            "name": "Mois en cours"
+          },
+          "readings_count": {
+            "name": "Nombre de relevés"
+          },
+          "calculation_method": {
+            "name": "Méthode de calcul"
+          },
+          "last_imported_date": {
+            "name": "Dernière date importée"
+          }
+        }
+      },
+      "energy_summer_off_peak_hours": {
+        "name": "Consommation HC été",
+        "state_attributes": {
+          "current_month": {
+            "name": "Mois en cours"
+          },
+          "readings_count": {
+            "name": "Nombre de relevés"
+          },
+          "calculation_method": {
+            "name": "Méthode de calcul"
+          },
+          "last_imported_date": {
+            "name": "Dernière date importée"
+          }
+        }
+      },
+      "energy_winter_peak_hours": {
+        "name": "Consommation HP hiver",
+        "state_attributes": {
+          "current_month": {
+            "name": "Mois en cours"
+          },
+          "readings_count": {
+            "name": "Nombre de relevés"
+          },
+          "calculation_method": {
+            "name": "Méthode de calcul"
+          },
+          "last_imported_date": {
+            "name": "Dernière date importée"
+          }
+        }
+      },
+      "energy_winter_off_peak_hours": {
+        "name": "Consommation HC hiver",
+        "state_attributes": {
+          "current_month": {
+            "name": "Mois en cours"
+          },
+          "readings_count": {
+            "name": "Nombre de relevés"
+          },
+          "calculation_method": {
+            "name": "Méthode de calcul"
+          },
+          "last_imported_date": {
+            "name": "Dernière date importée"
+          }
+        }
+      },
       "cost_base": {
         "name": "Coût",
         "state_attributes": {
@@ -134,6 +202,74 @@
       },
       "cost_off_peak_hours": {
         "name": "Coût HC",
+        "state_attributes": {
+          "current_month": {
+            "name": "Mois en cours"
+          },
+          "readings_count": {
+            "name": "Nombre de relevés"
+          },
+          "calculation_method": {
+            "name": "Méthode de calcul"
+          },
+          "last_imported_date": {
+            "name": "Dernière date importée"
+          }
+        }
+      },
+      "cost_summer_peak_hours": {
+        "name": "Coût HP été",
+        "state_attributes": {
+          "current_month": {
+            "name": "Mois en cours"
+          },
+          "readings_count": {
+            "name": "Nombre de relevés"
+          },
+          "calculation_method": {
+            "name": "Méthode de calcul"
+          },
+          "last_imported_date": {
+            "name": "Dernière date importée"
+          }
+        }
+      },
+      "cost_summer_off_peak_hours": {
+        "name": "Coût HC été",
+        "state_attributes": {
+          "current_month": {
+            "name": "Mois en cours"
+          },
+          "readings_count": {
+            "name": "Nombre de relevés"
+          },
+          "calculation_method": {
+            "name": "Méthode de calcul"
+          },
+          "last_imported_date": {
+            "name": "Dernière date importée"
+          }
+        }
+      },
+      "cost_winter_peak_hours": {
+        "name": "Coût HP hiver",
+        "state_attributes": {
+          "current_month": {
+            "name": "Mois en cours"
+          },
+          "readings_count": {
+            "name": "Nombre de relevés"
+          },
+          "calculation_method": {
+            "name": "Méthode de calcul"
+          },
+          "last_imported_date": {
+            "name": "Dernière date importée"
+          }
+        }
+      },
+      "cost_winter_off_peak_hours": {
+        "name": "Coût HC hiver",
         "state_attributes": {
           "current_month": {
             "name": "Mois en cours"
@@ -215,6 +351,134 @@
       },
       "meter_index_off_peak_hours": {
         "name": "Index HC",
+        "state_attributes": {
+          "index_start": {
+            "name": "Index de départ"
+          },
+          "consumption": {
+            "name": "Consommation"
+          },
+          "period_start": {
+            "name": "Début de période"
+          },
+          "period_end": {
+            "name": "Fin de période"
+          },
+          "status": {
+            "name": "Statut"
+          },
+          "consumption_reliability": {
+            "name": "Fiabilité consommation"
+          },
+          "index_reliability": {
+            "name": "Fiabilité index"
+          },
+          "tariff_type": {
+            "name": "Type de tarif"
+          },
+          "prm_id": {
+            "name": "Référence PRM"
+          }
+        }
+      },
+      "meter_index_summer_peak_hours": {
+        "name": "Index HP été",
+        "state_attributes": {
+          "index_start": {
+            "name": "Index de départ"
+          },
+          "consumption": {
+            "name": "Consommation"
+          },
+          "period_start": {
+            "name": "Début de période"
+          },
+          "period_end": {
+            "name": "Fin de période"
+          },
+          "status": {
+            "name": "Statut"
+          },
+          "consumption_reliability": {
+            "name": "Fiabilité consommation"
+          },
+          "index_reliability": {
+            "name": "Fiabilité index"
+          },
+          "tariff_type": {
+            "name": "Type de tarif"
+          },
+          "prm_id": {
+            "name": "Référence PRM"
+          }
+        }
+      },
+      "meter_index_summer_off_peak_hours": {
+        "name": "Index HC été",
+        "state_attributes": {
+          "index_start": {
+            "name": "Index de départ"
+          },
+          "consumption": {
+            "name": "Consommation"
+          },
+          "period_start": {
+            "name": "Début de période"
+          },
+          "period_end": {
+            "name": "Fin de période"
+          },
+          "status": {
+            "name": "Statut"
+          },
+          "consumption_reliability": {
+            "name": "Fiabilité consommation"
+          },
+          "index_reliability": {
+            "name": "Fiabilité index"
+          },
+          "tariff_type": {
+            "name": "Type de tarif"
+          },
+          "prm_id": {
+            "name": "Référence PRM"
+          }
+        }
+      },
+      "meter_index_winter_peak_hours": {
+        "name": "Index HP hiver",
+        "state_attributes": {
+          "index_start": {
+            "name": "Index de départ"
+          },
+          "consumption": {
+            "name": "Consommation"
+          },
+          "period_start": {
+            "name": "Début de période"
+          },
+          "period_end": {
+            "name": "Fin de période"
+          },
+          "status": {
+            "name": "Statut"
+          },
+          "consumption_reliability": {
+            "name": "Fiabilité consommation"
+          },
+          "index_reliability": {
+            "name": "Fiabilité index"
+          },
+          "tariff_type": {
+            "name": "Type de tarif"
+          },
+          "prm_id": {
+            "name": "Référence PRM"
+          }
+        }
+      },
+      "meter_index_winter_off_peak_hours": {
+        "name": "Index HC hiver",
         "state_attributes": {
           "index_start": {
             "name": "Index de départ"
@@ -375,6 +639,86 @@
       },
       "rate_off_peak_hours": {
         "name": "Tarif HC",
+        "state_attributes": {
+          "contract_number": {
+            "name": "Numéro de contrat"
+          },
+          "product_name": {
+            "name": "Nom du produit"
+          },
+          "valid_from": {
+            "name": "Valide depuis"
+          },
+          "price_ht_eur_kwh": {
+            "name": "Prix (HT)"
+          },
+          "price_ttc_eur_kwh": {
+            "name": "Prix (TTC)"
+          }
+        }
+      },
+      "rate_summer_peak_hours": {
+        "name": "Tarif HP été",
+        "state_attributes": {
+          "contract_number": {
+            "name": "Numéro de contrat"
+          },
+          "product_name": {
+            "name": "Nom du produit"
+          },
+          "valid_from": {
+            "name": "Valide depuis"
+          },
+          "price_ht_eur_kwh": {
+            "name": "Prix (HT)"
+          },
+          "price_ttc_eur_kwh": {
+            "name": "Prix (TTC)"
+          }
+        }
+      },
+      "rate_summer_off_peak_hours": {
+        "name": "Tarif HC été",
+        "state_attributes": {
+          "contract_number": {
+            "name": "Numéro de contrat"
+          },
+          "product_name": {
+            "name": "Nom du produit"
+          },
+          "valid_from": {
+            "name": "Valide depuis"
+          },
+          "price_ht_eur_kwh": {
+            "name": "Prix (HT)"
+          },
+          "price_ttc_eur_kwh": {
+            "name": "Prix (TTC)"
+          }
+        }
+      },
+      "rate_winter_peak_hours": {
+        "name": "Tarif HP hiver",
+        "state_attributes": {
+          "contract_number": {
+            "name": "Numéro de contrat"
+          },
+          "product_name": {
+            "name": "Nom du produit"
+          },
+          "valid_from": {
+            "name": "Valide depuis"
+          },
+          "price_ht_eur_kwh": {
+            "name": "Prix (HT)"
+          },
+          "price_ttc_eur_kwh": {
+            "name": "Prix (TTC)"
+          }
+        }
+      },
+      "rate_winter_off_peak_hours": {
+        "name": "Tarif HC hiver",
         "state_attributes": {
           "contract_number": {
             "name": "Numéro de contrat"
@@ -1054,6 +1398,30 @@
     "force_update": {
       "name": "Forcer la mise à jour",
       "description": "Forcer une mise à jour immédiate des données depuis l'API Octopus Energy"
+    },
+    "recompute_statistics": {
+      "name": "Recalculer les statistiques",
+      "description": "Redemande les relevés électriques depuis une date et réécrit les statistiques correspondantes. À utiliser après une mise à jour corrigeant un calcul de consommation ou de coût. Le gaz n'est pas concerné : ses relevés sont déjà redemandés sur un an à chaque rafraîchissement.",
+      "fields": {
+        "start_date": {
+          "name": "Date de début",
+          "description": "Premier jour à recalculer. Tout ce qui suit cette date est réécrit jusqu'à aujourd'hui."
+        },
+        "prm": {
+          "name": "PRM",
+          "description": "Limiter à un compteur. Vide = tous les compteurs."
+        }
+      }
+    },
+    "purge_orphan_statistics": {
+      "name": "Purger les statistiques orphelines",
+      "description": "Liste les séries de statistiques qu'aucun compteur actif ne peut plus alimenter, par exemple après un changement d'offre. Sans confirmation, rien n'est supprimé.",
+      "fields": {
+        "confirm": {
+          "name": "Confirmer la suppression",
+          "description": "Supprime définitivement les séries listées. Irréversible."
+        }
+      }
     }
   },
   "exceptions": {
@@ -1071,6 +1439,19 @@
     },
     "update_smart_control_failed": {
       "message": "Impossible de mettre à jour le contrôle intelligent pour l'appareil {device_id}."
+    },
+    "recompute_start_date_in_future": {
+      "message": "La date de début doit être antérieure à aujourd'hui."
+    }
+  },
+  "issues": {
+    "hc_fallback_linky": {
+      "title": "Plages heures creuses incomplètes sur un contrat Tempo",
+      "description": "Le contrat OctoTempo de ce compteur n'expose ni créneaux horaires côté contrat, ni description exploitable dans le calendrier fournisseur. Les plages heures creuses retombent sur l'étiquette du compteur Linky, qui ne connaît qu'un seul jeu de plages : la plage de journée propre à l'été (11h-17h) est donc ignorée, et le capteur binaire Heures Creuses peut se tromper.\n\nMerci de signaler ce cas sur le dépôt avec un diagnostic de l'intégration, pour que la lecture du calendrier soit complétée."
+    },
+    "unknown_consumption_label": {
+      "title": "Label de consommation non reconnu : {label}",
+      "description": "L'API renvoie le label de consommation « {label} », auquel l'intégration ne sait associer aucune statistique. Les kilowattheures correspondants n'apparaissent donc ni dans les cumuls mensuels, ni dans le tableau de bord Énergie.\n\nMerci de signaler ce label sur le dépôt pour qu'il soit pris en charge."
     }
   }
 }

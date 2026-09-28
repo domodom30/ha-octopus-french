@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from collections.abc import Generator
+from datetime import date, datetime
 from unittest.mock import MagicMock, patch
 from zoneinfo import ZoneInfo
 
@@ -11,6 +12,7 @@ from homeassistant.util import dt as dt_util
 
 from custom_components.octopus_french.const import (
     COST_KEY_TO_LABEL,
+    TARIFF_TYPE_HPHC_TWO_SEASON,
     TARIFF_TYPE_TEMPO,
     TEMPO_STATISTICS_LABELS,
 )
@@ -21,7 +23,12 @@ from custom_components.octopus_french.octopus_french import (
 from custom_components.octopus_french.sensor import _detect_tariff_type_for_meter
 from custom_components.octopus_french.sensors.descriptions import TEMPO_SENSORS
 from custom_components.octopus_french.sensors.electricity import (
+    OctopusTempoColorSensor,
     OctopusTempoCurrentRateSensor,
+)
+from custom_components.octopus_french.utils import (
+    resolve_tempo_season,
+    tempo_color_from_measurements,
 )
 
 _TEMPO_ENERGY_KEYS = {
@@ -162,6 +169,31 @@ class TestDetectTariffTypeTempo:
         result = _detect_tariff_type_for_meter(data, "TEST_PRM")
         assert result == TARIFF_TYPE_TEMPO
 
+    def test_detection_via_two_season_labels(self) -> None:
+        """Des labels HPB/HCB/HPH/HCH désignent un contrat HP/HC deux saisons."""
+        data = self._make_data(
+            [
+                "CONSUMPTION_HPHC_2_SAISONS_HPB_6.0_7.0",
+                "CONSUMPTION_HPHC_2_SAISONS_HCB_6.0_7.0",
+            ]
+        )
+        result = _detect_tariff_type_for_meter(data, "TEST_PRM")
+        assert result == TARIFF_TYPE_HPHC_TWO_SEASON
+
+    def test_no_readings_fallback_to_index_two_season(self) -> None:
+        """Sans readings, l'index électrique distingue aussi le deux-saisons."""
+        data = {
+            "electricity_by_prm": {
+                "TEST_PRM": {
+                    "readings": [],
+                    "index": {"tariff_type": TARIFF_TYPE_HPHC_TWO_SEASON},
+                }
+            },
+            "agreements": [],
+        }
+        result = _detect_tariff_type_for_meter(data, "TEST_PRM")
+        assert result == TARIFF_TYPE_HPHC_TWO_SEASON
+
 
 class TestExtractTariffsTempo:
     """Tests pour l'extraction des 6 taux OctoTempo depuis l'API."""
@@ -262,6 +294,24 @@ class TestExtractTariffsTempo:
         assert consumption["tempo_ete_hc"]["price_ttc"] == pytest.approx(0.10)
         assert consumption["tempo_rouge_hc"]["price_ttc"] == pytest.approx(0.40)
         assert consumption["tempo_hiver_hc"]["price_ttc"] == pytest.approx(0.12)
+
+    def test_rates_map_two_season_keys_by_code(self) -> None:
+        """Les 4 taux HP/HC deux-saisons sont mappés par temporalClass.code."""
+        client = self._make_api_client()
+        energy_rate = self._make_rates(
+            [
+                (0.20, "HPB", ""),
+                (0.10, "HCB", ""),
+                (0.30, "HPH", ""),
+                (0.15, "HCH", ""),
+            ]
+        )
+        consumption = client._extract_tariffs(energy_rate)["consumption"]
+
+        assert consumption["heures_pleines_ete"]["price_ttc"] == pytest.approx(0.20)
+        assert consumption["heures_creuses_ete"]["price_ttc"] == pytest.approx(0.10)
+        assert consumption["heures_pleines_hiver"]["price_ttc"] == pytest.approx(0.30)
+        assert consumption["heures_creuses_hiver"]["price_ttc"] == pytest.approx(0.15)
 
     def test_rates_carry_temporal_class_description(self) -> None:
         """La description horaire de la classe est conservée sur le taux."""
@@ -534,6 +584,115 @@ class TestElectricityIndexTempo:
         assert result is not None
         assert result["tariff_type"] == "HPHC"
         assert "tempo_color" not in result
+
+    @pytest.mark.asyncio
+    async def test_two_season_class_detected_as_hphc_two_season(self) -> None:
+        """Une classe deux saisons a son propre tariff_type (issue #85).
+
+        Confondue avec HPHC, elle ferait créer les capteurs des deux sous-types.
+        """
+        from custom_components.octopus_french.octopus_french import (
+            OctopusFrenchApiClient,
+        )
+
+        client = OctopusFrenchApiClient.__new__(OctopusFrenchApiClient)
+
+        with patch.object(
+            client, "execute_with_auth", return_value=self._make_index_response("HPB")
+        ):
+            result = await client.get_electricity_index("ACC123", "PRM456")
+
+        assert result is not None
+        assert result["tariff_type"] == TARIFF_TYPE_HPHC_TWO_SEASON
+
+    @pytest.mark.asyncio
+    async def test_two_season_indexes_are_kept_separately(self) -> None:
+        """Les quatre index deux-saisons ne s'écrasent pas entre eux."""
+        from custom_components.octopus_french.octopus_french import (
+            OctopusFrenchApiClient,
+        )
+
+        client = OctopusFrenchApiClient.__new__(OctopusFrenchApiClient)
+        codes = {
+            "HPB": (1000, 1010),
+            "HCB": (2000, 2020),
+            "HPH": (3000, 3030),
+            "HCH": (4000, 4040),
+        }
+        response = {
+            "data": {
+                "electricityReading": {
+                    "edges": [
+                        {
+                            "node": {
+                                "temporalClass": {"code": code},
+                                "consumption": str(end - start),
+                                "indexStartValue": str(start),
+                                "indexEndValue": str(end),
+                                "periodStartAt": "2026-05-22T00:00:00+00:00",
+                                "periodEndAt": "2026-05-22T23:59:59+00:00",
+                            }
+                        }
+                        for code, (start, end) in codes.items()
+                    ]
+                }
+            }
+        }
+
+        with patch.object(client, "execute_with_auth", return_value=response):
+            result = await client.get_electricity_index("ACC123", "PRM456")
+
+        assert result is not None
+        assert result["tariff_type"] == TARIFF_TYPE_HPHC_TWO_SEASON
+        assert result["hp_ete"]["index_end"] == "1010"
+        assert result["hc_ete"]["index_end"] == "2020"
+        assert result["hp_hiver"]["index_end"] == "3030"
+        assert result["hc_hiver"]["index_end"] == "4040"
+
+    @pytest.mark.asyncio
+    async def test_two_season_node_does_not_overwrite_resolved_tariff_type(
+        self,
+    ) -> None:
+        """Un nœud deux saisons n'écrase pas un tariff_type déjà résolu en BASE."""
+        from custom_components.octopus_french.octopus_french import (
+            OctopusFrenchApiClient,
+        )
+
+        client = OctopusFrenchApiClient.__new__(OctopusFrenchApiClient)
+        response = {
+            "data": {
+                "electricityReading": {
+                    "edges": [
+                        {
+                            "node": {
+                                "temporalClass": {"code": "BASE"},
+                                "consumption": "5",
+                                "indexStartValue": "100",
+                                "indexEndValue": "105",
+                                "periodStartAt": "2026-05-22T00:00:00+00:00",
+                                "periodEndAt": "2026-05-22T23:59:59+00:00",
+                            }
+                        },
+                        {
+                            "node": {
+                                "temporalClass": {"code": "HPB"},
+                                "consumption": "3",
+                                "indexStartValue": "200",
+                                "indexEndValue": "203",
+                                "periodStartAt": "2026-05-22T00:00:00+00:00",
+                                "periodEndAt": "2026-05-22T23:59:59+00:00",
+                            }
+                        },
+                    ]
+                }
+            }
+        }
+
+        with patch.object(client, "execute_with_auth", return_value=response):
+            result = await client.get_electricity_index("ACC123", "PRM456")
+
+        assert result is not None
+        assert result["tariff_type"] == "BASE"
 
     def _make_index_response_with_date(self, temp_class: str, period_date: str) -> dict:
         """Construit une fausse réponse API avec une date de période explicite."""
@@ -929,6 +1088,44 @@ class TestLatestReadingTempoAttributes:
         assert attrs.get("tempo_ete_hp") == pytest.approx(5.0)
         assert attrs.get("tempo_rouge_hc") == pytest.approx(2.3)
 
+    @pytest.mark.parametrize(
+        "codes",
+        [
+            pytest.param(("HCB", "HCH", "HPB", "HPH"), id="ordre_issue_85"),
+            pytest.param(("HCH", "HCB", "HPH", "HPB"), id="saison_inactive_d_abord"),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "inactive_value",
+        [pytest.param("0.0", id="zero_texte"), pytest.param(0, id="zero_numerique")],
+    )
+    def test_two_season_kwh_attributes_keep_active_season(
+        self, codes: tuple[str, ...], inactive_value: str | int
+    ) -> None:
+        """Le registre de la saison inactive, publié à zéro, n'efface pas l'autre.
+
+        Chaque relevé d'un contrat deux saisons porte les quatre registres.
+        """
+        values = {
+            "HCB": "4.0",
+            "HPB": "9.0",
+            "HCH": inactive_value,
+            "HPH": inactive_value,
+        }
+        stats = [
+            {
+                "label": f"CONSUMPTION_HPHC_2_SAISONS_{code}_6.0_7.0",
+                "value": values[code],
+            }
+            for code in codes
+        ]
+        coordinator = self._make_coordinator(stats)
+        sensor = self._make_sensor(coordinator)
+
+        attrs = sensor._compute_attributes()
+        assert attrs["heures_pleines_kwh"] == pytest.approx(9.0)
+        assert attrs["heures_creuses_kwh"] == pytest.approx(4.0)
+
     def test_tempo_cost_computed(self) -> None:
         """Avec un tarif disponible, le coût €/kWh doit être calculé."""
         stats = [{"label": "TEMPO_ETE_HP", "value": "10.0", "costInclTax": None}]
@@ -951,3 +1148,283 @@ class TestLatestReadingTempoAttributes:
         attrs = sensor._compute_attributes()
         assert attrs.get("heures_base") == pytest.approx(8.0)
         assert "tempo_ete_hp" not in attrs
+
+
+# Descriptions relevées telles quelles sur un contrat OctoFlex réel
+# (providerCalendar OCTOFLEX_4_V4) : elles portent les bornes de saison.
+_OCTOFLEX_TEMPORAL_CLASSES = [
+    {"code": "HPP", "description": "Heures pleines en jour rouge, de 7h à 21h"},
+    {"code": "HPHI", "description": "Novembre à mars, de 7h à 21h"},
+    {"code": "HCHI", "description": "Novembre à mars, de 21h à 7h"},
+    {"code": "HCP", "description": "Heures creuses en jour rouge, de 21h à 7h"},
+    {"code": "HPE", "description": "Avril à octobre, de 7h à 11h et de 17h à 21h"},
+    {"code": "HCE", "description": "Avril à octobre, 21h à 7h et de 11h à 17h"},
+]
+
+_OCTOFLEX_PRM = "PRM_OCTOFLEX"
+
+
+def _octoflex_data(
+    readings: list[dict] | None = None,
+    index: dict | None = None,
+    temporal_classes: list[dict] | None = None,
+) -> dict:
+    """Données de coordinateur pour un contrat OctoFlex."""
+    return {
+        "supply_points": {
+            "electricity": [
+                {
+                    "prm": _OCTOFLEX_PRM,
+                    "provider_temporal_classes": (
+                        _OCTOFLEX_TEMPORAL_CLASSES
+                        if temporal_classes is None
+                        else temporal_classes
+                    ),
+                }
+            ]
+        },
+        "agreements": [
+            {
+                "prm": _OCTOFLEX_PRM,
+                "is_active": True,
+                "product": {"code": "OCTOFLEX_4"},
+                "tariffs": {"consumption": {}},
+            }
+        ],
+        "electricity_by_prm": {
+            _OCTOFLEX_PRM: {"readings": readings or [], "index": index or {}}
+        },
+    }
+
+
+def _measurement(day: str, labels: dict[str, str | None]) -> dict:
+    """Un relevé journalier avec ses statistiques par classe temporelle."""
+    return {
+        "startAt": f"{day}T00:00:00+01:00",
+        "metaData": {
+            "statistics": [
+                {"label": label, "value": value} for label, value in labels.items()
+            ]
+        },
+    }
+
+
+class TestTempoSeason:
+    """Saison OctoTempo déduite du calendrier fournisseur."""
+
+    @pytest.mark.parametrize(
+        ("day", "expected"),
+        [
+            pytest.param(date(2026, 1, 15), "HIVER", id="janvier"),
+            pytest.param(date(2026, 3, 31), "HIVER", id="fin-mars"),
+            pytest.param(date(2026, 4, 1), "ETE", id="debut-avril"),
+            pytest.param(date(2026, 6, 15), "ETE", id="juin"),
+            pytest.param(date(2026, 10, 31), "ETE", id="fin-octobre"),
+            pytest.param(date(2026, 11, 1), "HIVER", id="debut-novembre"),
+            pytest.param(date(2026, 12, 25), "HIVER", id="decembre"),
+        ],
+    )
+    def test_season_from_calendar_description(self, day: date, expected: str) -> None:
+        """Les bornes viennent des descriptions « Avril à octobre » / « Novembre à mars »."""
+        assert resolve_tempo_season(_octoflex_data(), _OCTOFLEX_PRM, day) == expected
+
+    def test_falls_back_when_descriptions_name_no_month(self) -> None:
+        """Sans mois exploitable, les bornes par défaut prennent le relais."""
+        classes = [
+            {"code": code, "description": "de 7h à 21h"}
+            for code in ("HPE", "HCE", "HPHI", "HCHI", "HPP", "HCP")
+        ]
+        data = _octoflex_data(temporal_classes=classes)
+
+        assert resolve_tempo_season(data, _OCTOFLEX_PRM, date(2026, 6, 15)) == "ETE"
+        assert resolve_tempo_season(data, _OCTOFLEX_PRM, date(2026, 1, 15)) == "HIVER"
+
+    def test_non_tempo_contract_has_no_season(self) -> None:
+        """Un contrat HP/HC ne doit pas se voir attribuer de saison Tempo."""
+        data = {
+            "supply_points": {
+                "electricity": [
+                    {
+                        "prm": "PRM_HPHC",
+                        "provider_temporal_classes": [
+                            {"code": "HP", "description": "de 7h à 21h"},
+                            {"code": "HC", "description": "de 21h à 7h"},
+                        ],
+                    }
+                ]
+            },
+            "agreements": [],
+            "electricity_by_prm": {},
+        }
+
+        assert resolve_tempo_season(data, "PRM_HPHC", date(2026, 6, 15)) is None
+
+
+class TestTempoColorFromMeasurements:
+    """Couleur journalière tirée de metaData.statistics[].label."""
+
+    @pytest.fixture(autouse=True)
+    def _paris_timezone(self) -> Generator[None]:
+        """Les relevés portent minuit local : la journée dépend du fuseau de HA."""
+        with patch.object(dt_util, "DEFAULT_TIME_ZONE", ZoneInfo("Europe/Paris")):
+            yield
+
+    def test_red_day_detected(self) -> None:
+        """Une journée dont seuls HPP/HCP consomment est un jour rouge."""
+        readings = [
+            _measurement(
+                "2026-01-14",
+                {
+                    "CONSUMPTION_OCTOFLEX_4_V4_HPHI_0.0_37.0": "12.0",
+                    "CONSUMPTION_OCTOFLEX_4_V4_HCHI_0.0_37.0": "8.0",
+                    "ABONNEMENT": None,
+                },
+            ),
+            _measurement(
+                "2026-01-15",
+                {
+                    "CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0": "9.0",
+                    "CONSUMPTION_OCTOFLEX_4_V4_HCP_0.0_37.0": "4.0",
+                },
+            ),
+        ]
+
+        assert tempo_color_from_measurements(readings) == ("ROUGE", "2026-01-15")
+        assert tempo_color_from_measurements(readings, date(2026, 1, 14)) == (
+            "HIVER",
+            "2026-01-14",
+        )
+
+    @pytest.mark.parametrize(
+        "label",
+        [
+            pytest.param("CONSUMPTION_OCTOFLEX_5_V1_HPP_0.0_36.0", id="autre-version"),
+            pytest.param("TEMPO_ROUGE_HP", id="label-court"),
+        ],
+    )
+    def test_label_variants_are_recognised(self, label: str) -> None:
+        """Le code temporel est reconnu sans dépendre des chaînes figées de const.py."""
+        readings = [_measurement("2026-01-15", {label: "9.0"})]
+
+        assert tempo_color_from_measurements(readings) == ("ROUGE", "2026-01-15")
+
+    @pytest.mark.parametrize(
+        "labels",
+        [
+            pytest.param({"ABONNEMENT": None, "BASE": "16.2"}, id="aucun-label-tempo"),
+            pytest.param(
+                {"CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0": None}, id="valeur-absente"
+            ),
+            pytest.param(
+                {"CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0": "n/a"}, id="valeur-illisible"
+            ),
+        ],
+    )
+    def test_unusable_statistics_yield_no_color(
+        self, labels: dict[str, str | None]
+    ) -> None:
+        """Un compte récent n'a que des labels ABONNEMENT : aucune couleur exploitable."""
+        assert tempo_color_from_measurements([_measurement("2026-01-15", labels)]) == (
+            None,
+            None,
+        )
+
+
+class TestTempoColorSensor:
+    """Couleur du jour et du lendemain exposées par OctopusTempoColorSensor."""
+
+    @pytest.fixture(autouse=True)
+    def _paris_timezone(self) -> Generator[None]:
+        """Les relevés portent minuit local : la journée dépend du fuseau de HA."""
+        with patch.object(dt_util, "DEFAULT_TIME_ZONE", ZoneInfo("Europe/Paris")):
+            yield
+
+    def _make_sensor(self, data: dict, is_tomorrow: bool) -> OctopusTempoColorSensor:
+        """Instancie le capteur sans passer par HA."""
+        coordinator = MagicMock()
+        coordinator.last_update_success = True
+        coordinator.data = data
+
+        sensor = OctopusTempoColorSensor.__new__(OctopusTempoColorSensor)
+        sensor.coordinator = coordinator
+        sensor._prm_id = _OCTOFLEX_PRM
+        sensor._is_tomorrow = is_tomorrow
+        return sensor
+
+    def test_tomorrow_is_available_and_follows_the_season(self) -> None:
+        """La couleur du lendemain vient de la saison, plus d'un relevé daté du futur."""
+        sensor = self._make_sensor(_octoflex_data(), is_tomorrow=True)
+
+        with patch(
+            "custom_components.octopus_french.utils.dt_util.now",
+            return_value=datetime(2026, 6, 15, 12, 0, tzinfo=ZoneInfo("Europe/Paris")),
+        ):
+            assert sensor.available is True
+            assert sensor._compute_native_value() == "ETE"
+            attrs = sensor._compute_attributes()
+
+        assert attrs["date"] == "2026-06-16"
+        assert attrs["source"] == "season"
+        assert attrs["red_day_detectable"] is False
+
+    def test_today_is_requalified_red_by_a_daily_reading(self) -> None:
+        """Un relevé du jour sur HPP/HCP l'emporte sur la saison."""
+        readings = [
+            _measurement(
+                "2026-01-15", {"CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0": "9.0"}
+            )
+        ]
+        sensor = self._make_sensor(_octoflex_data(readings), is_tomorrow=False)
+
+        with patch(
+            "custom_components.octopus_french.utils.dt_util.now",
+            return_value=datetime(2026, 1, 15, 12, 0, tzinfo=ZoneInfo("Europe/Paris")),
+        ):
+            assert sensor._compute_native_value() == "ROUGE"
+            attrs = sensor._compute_attributes()
+
+        assert attrs["source"] == "measurements"
+        assert attrs["reading_date"] == "2026-01-15"
+
+    def test_today_falls_back_to_the_season_without_readings(self) -> None:
+        """Sans relevé exploitable, la saison reste la source de la couleur du jour."""
+        sensor = self._make_sensor(_octoflex_data(), is_tomorrow=False)
+
+        with patch(
+            "custom_components.octopus_french.utils.dt_util.now",
+            return_value=datetime(2026, 1, 15, 12, 0, tzinfo=ZoneInfo("Europe/Paris")),
+        ):
+            assert sensor._compute_native_value() == "HIVER"
+            assert sensor._compute_attributes()["source"] == "season"
+
+
+class TestTempoRateFollowsResolvedColor:
+    """Le tarif en cours suit la couleur résolue, pas la couleur d'index (issue #84)."""
+
+    def test_rate_uses_the_season_not_the_stale_index_color(self) -> None:
+        """Un index resté sur ROUGE ne doit plus imposer le tarif Rouge en hiver."""
+        data = _octoflex_data(index={"tempo_color": "ROUGE"})
+        data["agreements"][0]["tariffs"]["consumption"] = {
+            "tempo_hiver_hp": {"price_ttc": 0.1921, "price_ht": 0.1295},
+            "tempo_rouge_hp": {"price_ttc": 0.6465, "price_ht": 0.5082},
+        }
+
+        coordinator = MagicMock()
+        coordinator.last_update_success = True
+        coordinator.data = data
+
+        sensor = OctopusTempoCurrentRateSensor.__new__(OctopusTempoCurrentRateSensor)
+        sensor.coordinator = coordinator
+        sensor._prm_id = _OCTOFLEX_PRM
+
+        with (
+            patch(
+                "custom_components.octopus_french.utils.dt_util.now",
+                return_value=datetime(
+                    2026, 1, 15, 12, 0, tzinfo=ZoneInfo("Europe/Paris")
+                ),
+            ),
+            patch.object(sensor, "_is_currently_hc", return_value=False),
+        ):
+            assert sensor._compute_native_value() == pytest.approx(0.1921)
+            assert sensor._compute_attributes()["tempo_color"] == "HIVER"

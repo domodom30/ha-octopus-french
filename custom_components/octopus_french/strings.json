@@ -98,6 +98,74 @@
           }
         }
       },
+      "energy_summer_peak_hours": {
+        "name": "Summer peak hours consumption",
+        "state_attributes": {
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          }
+        }
+      },
+      "energy_summer_off_peak_hours": {
+        "name": "Summer off-peak hours consumption",
+        "state_attributes": {
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          }
+        }
+      },
+      "energy_winter_peak_hours": {
+        "name": "Winter peak hours consumption",
+        "state_attributes": {
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          }
+        }
+      },
+      "energy_winter_off_peak_hours": {
+        "name": "Winter off-peak hours consumption",
+        "state_attributes": {
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          }
+        }
+      },
       "cost_base": {
         "name": "Cost",
         "state_attributes": {
@@ -134,6 +202,74 @@
       },
       "cost_off_peak_hours": {
         "name": "Off-peak hours cost",
+        "state_attributes": {
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          }
+        }
+      },
+      "cost_summer_peak_hours": {
+        "name": "Summer peak hours cost",
+        "state_attributes": {
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          }
+        }
+      },
+      "cost_summer_off_peak_hours": {
+        "name": "Summer off-peak hours cost",
+        "state_attributes": {
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          }
+        }
+      },
+      "cost_winter_peak_hours": {
+        "name": "Winter peak hours cost",
+        "state_attributes": {
+          "current_month": {
+            "name": "Current month"
+          },
+          "readings_count": {
+            "name": "Number of readings"
+          },
+          "calculation_method": {
+            "name": "Calculation method"
+          },
+          "last_imported_date": {
+            "name": "Last imported date"
+          }
+        }
+      },
+      "cost_winter_off_peak_hours": {
+        "name": "Winter off-peak hours cost",
         "state_attributes": {
           "current_month": {
             "name": "Current month"
@@ -215,6 +351,134 @@
       },
       "meter_index_off_peak_hours": {
         "name": "Off-peak hours meter index",
+        "state_attributes": {
+          "index_start": {
+            "name": "Starting index"
+          },
+          "consumption": {
+            "name": "Consumption"
+          },
+          "period_start": {
+            "name": "Period start"
+          },
+          "period_end": {
+            "name": "Period end"
+          },
+          "status": {
+            "name": "Status"
+          },
+          "consumption_reliability": {
+            "name": "Consumption reliability"
+          },
+          "index_reliability": {
+            "name": "Index reliability"
+          },
+          "tariff_type": {
+            "name": "Tariff type"
+          },
+          "prm_id": {
+            "name": "PRM reference"
+          }
+        }
+      },
+      "meter_index_summer_peak_hours": {
+        "name": "Summer peak hours meter index",
+        "state_attributes": {
+          "index_start": {
+            "name": "Starting index"
+          },
+          "consumption": {
+            "name": "Consumption"
+          },
+          "period_start": {
+            "name": "Period start"
+          },
+          "period_end": {
+            "name": "Period end"
+          },
+          "status": {
+            "name": "Status"
+          },
+          "consumption_reliability": {
+            "name": "Consumption reliability"
+          },
+          "index_reliability": {
+            "name": "Index reliability"
+          },
+          "tariff_type": {
+            "name": "Tariff type"
+          },
+          "prm_id": {
+            "name": "PRM reference"
+          }
+        }
+      },
+      "meter_index_summer_off_peak_hours": {
+        "name": "Summer off-peak hours meter index",
+        "state_attributes": {
+          "index_start": {
+            "name": "Starting index"
+          },
+          "consumption": {
+            "name": "Consumption"
+          },
+          "period_start": {
+            "name": "Period start"
+          },
+          "period_end": {
+            "name": "Period end"
+          },
+          "status": {
+            "name": "Status"
+          },
+          "consumption_reliability": {
+            "name": "Consumption reliability"
+          },
+          "index_reliability": {
+            "name": "Index reliability"
+          },
+          "tariff_type": {
+            "name": "Tariff type"
+          },
+          "prm_id": {
+            "name": "PRM reference"
+          }
+        }
+      },
+      "meter_index_winter_peak_hours": {
+        "name": "Winter peak hours meter index",
+        "state_attributes": {
+          "index_start": {
+            "name": "Starting index"
+          },
+          "consumption": {
+            "name": "Consumption"
+          },
+          "period_start": {
+            "name": "Period start"
+          },
+          "period_end": {
+            "name": "Period end"
+          },
+          "status": {
+            "name": "Status"
+          },
+          "consumption_reliability": {
+            "name": "Consumption reliability"
+          },
+          "index_reliability": {
+            "name": "Index reliability"
+          },
+          "tariff_type": {
+            "name": "Tariff type"
+          },
+          "prm_id": {
+            "name": "PRM reference"
+          }
+        }
+      },
+      "meter_index_winter_off_peak_hours": {
+        "name": "Winter off-peak hours meter index",
         "state_attributes": {
           "index_start": {
             "name": "Starting index"
@@ -375,6 +639,86 @@
       },
       "rate_off_peak_hours": {
         "name": "Off-peak hours rate",
+        "state_attributes": {
+          "contract_number": {
+            "name": "Contract number"
+          },
+          "product_name": {
+            "name": "Product name"
+          },
+          "valid_from": {
+            "name": "Valid from"
+          },
+          "price_ht_eur_kwh": {
+            "name": "Price (excl. tax)"
+          },
+          "price_ttc_eur_kwh": {
+            "name": "Price (incl. tax)"
+          }
+        }
+      },
+      "rate_summer_peak_hours": {
+        "name": "Summer peak hours rate",
+        "state_attributes": {
+          "contract_number": {
+            "name": "Contract number"
+          },
+          "product_name": {
+            "name": "Product name"
+          },
+          "valid_from": {
+            "name": "Valid from"
+          },
+          "price_ht_eur_kwh": {
+            "name": "Price (excl. tax)"
+          },
+          "price_ttc_eur_kwh": {
+            "name": "Price (incl. tax)"
+          }
+        }
+      },
+      "rate_summer_off_peak_hours": {
+        "name": "Summer off-peak hours rate",
+        "state_attributes": {
+          "contract_number": {
+            "name": "Contract number"
+          },
+          "product_name": {
+            "name": "Product name"
+          },
+          "valid_from": {
+            "name": "Valid from"
+          },
+          "price_ht_eur_kwh": {
+            "name": "Price (excl. tax)"
+          },
+          "price_ttc_eur_kwh": {
+            "name": "Price (incl. tax)"
+          }
+        }
+      },
+      "rate_winter_peak_hours": {
+        "name": "Winter peak hours rate",
+        "state_attributes": {
+          "contract_number": {
+            "name": "Contract number"
+          },
+          "product_name": {
+            "name": "Product name"
+          },
+          "valid_from": {
+            "name": "Valid from"
+          },
+          "price_ht_eur_kwh": {
+            "name": "Price (excl. tax)"
+          },
+          "price_ttc_eur_kwh": {
+            "name": "Price (incl. tax)"
+          }
+        }
+      },
+      "rate_winter_off_peak_hours": {
+        "name": "Winter off-peak hours rate",
         "state_attributes": {
           "contract_number": {
             "name": "Contract number"
@@ -1054,6 +1398,30 @@
     "force_update": {
       "name": "Force update",
       "description": "Force an immediate data refresh from the Octopus Energy API"
+    },
+    "recompute_statistics": {
+      "name": "Recompute statistics",
+      "description": "Re-fetches electricity readings from a given date and rewrites the matching statistics. Use after an update that fixes a consumption or cost calculation. Gas is unaffected: its readings are already re-fetched over a rolling year on every refresh.",
+      "fields": {
+        "start_date": {
+          "name": "Start date",
+          "description": "First day to recompute. Everything from that date up to today is rewritten."
+        },
+        "prm": {
+          "name": "PRM",
+          "description": "Restrict to one meter. Empty means every meter."
+        }
+      }
+    },
+    "purge_orphan_statistics": {
+      "name": "Purge orphan statistics",
+      "description": "Lists the statistic series no active meter can feed any more, for instance after a tariff change. Nothing is deleted without confirmation.",
+      "fields": {
+        "confirm": {
+          "name": "Confirm deletion",
+          "description": "Permanently deletes the listed series. This cannot be undone."
+        }
+      }
     }
   },
   "exceptions": {
@@ -1071,6 +1439,19 @@
     },
     "update_smart_control_failed": {
       "message": "Failed to update smart control for device {device_id}."
+    },
+    "recompute_start_date_in_future": {
+      "message": "The start date must be in the past."
+    }
+  },
+  "issues": {
+    "hc_fallback_linky": {
+      "title": "Incomplete off-peak hours on a Tempo contract",
+      "description": "This meter's OctoTempo contract exposes neither contract time slots nor a usable provider calendar description. Off-peak hours fall back to the Linky meter label, which only knows one set of ranges: the summer midday range (11:00-17:00) is therefore ignored, and the off-peak binary sensor may be wrong.\n\nPlease report this case on the repository with an integration diagnostic so calendar parsing can be completed."
+    },
+    "unknown_consumption_label": {
+      "title": "Unrecognised consumption label: {label}",
+      "description": "The API returns the consumption label '{label}', which the integration cannot map to any statistic. The matching kilowatt-hours appear neither in monthly totals nor in the Energy dashboard.\n\nPlease report this label on the repository so it can be supported."
     }
   }
 }
