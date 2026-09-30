@@ -1,8 +1,16 @@
-## [4.1.8] - 2026-09-28
+## [4.1.8] - 2026-09-30
 
 ### 🐛 Correction — Label de consommation Effacement BASE non reconnu (issue [#85](https://github.com/domodom30/ha-octopus-french/issues/85))
 
 Les offres Effacement BASE publient des labels `CONSUMPTION_EFFACEMENT_BASE_1_BASE_…` dont la classe temporelle `BASE` n'était pas reconnue, seuls `HP` et `HC` l'étant. Leurs valeurs n'alimentaient ni les cumuls du mois en cours, ni les statistiques `energy_base` / `cost_base` du tableau de bord Énergie. Le segment `BASE` est désormais reconnu quelle que soit l'offre. Pour combler les jours déjà importés, lancer le service **Recalculer les statistiques**. Merci à [@lenny005](https://github.com/lenny005) pour le signalement.
+
+### 🐛 Correction — Octopus Intelligent absent après une erreur au démarrage
+
+Une erreur réseau ou une limite de requêtes de l'API Octopus au démarrage de Home Assistant désactivait Octopus Intelligent jusqu'au redémarrage suivant : aucune entité du véhicule n'était créée et rien ne l'indiquait hors du journal en mode debug. Home Assistant réessaie désormais la configuration de l'intégration jusqu'à ce que l'API réponde. Un compte sans appareil Intelligent n'est pas concerné.
+
+### 🛠️ Maintenance — PyJWT retiré du manifest
+
+PyJWT est déjà fourni par Home Assistant, dont la validation (hassfest) refuse désormais qu'une intégration custom le déclare. Aucun effet sur le fonctionnement.
 
 ## [4.1.7] - 2026-09-28
 
