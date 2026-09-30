@@ -11,8 +11,7 @@ LEDGER_TYPE_GAS = "FRA_GAS_LEDGER"
 LEDGER_TYPE_POT = "POT_LEDGER"
 
 DEFAULT_SCAN_INTERVAL = 60
-# Kraken applique un rate-limit dynamique (KT-CT-1199) : un polling à la minute
-# du portefeuille Intelligent (devices + préférences + dispatches) le déclenche.
+
 INTELLIGENT_SCAN_INTERVAL = 5
 PREVIOUS_MONTH_OVERLAP_DAYS = 7
 
@@ -20,8 +19,6 @@ SERVICE_FORCE_UPDATE = "force_update"
 SERVICE_RECOMPUTE_STATISTICS = "recompute_statistics"
 SERVICE_PURGE_ORPHAN_STATISTICS = "purge_orphan_statistics"
 
-# Identifiants de tickets de réparation. Le PRM y est haché : le registre des
-# issues est persisté et affiché dans l'interface.
 ISSUE_HC_FALLBACK_LINKY = "hc_fallback_linky_{}"
 ISSUE_UNKNOWN_CONSUMPTION_LABEL = "unknown_consumption_label_{}"
 
@@ -39,8 +36,6 @@ TEMPO_STATISTICS_LABELS: frozenset[str] = frozenset(
     }
 )
 
-# Variante courte des labels Tempo, renvoyée par l'API à la place des labels
-# CONSUMPTION_OCTOFLEX_* : elle alimente les attributs kWh du dernier relevé.
 TEMPO_SHORT_LABELS: frozenset[str] = frozenset(
     {
         "TEMPO_ETE_HP",
@@ -58,7 +53,6 @@ TEMPO_TEMPORAL_CLASS_CODES: frozenset[str] = frozenset(
     {"HPP", "HCP", "HPHI", "HCHI", "HPE", "HCE"}
 )
 
-# B et H désignent la saison basse (été) et la saison haute (hiver) du TURPE.
 TWO_SEASON_TEMPORAL_CLASS_TO_SEASON: dict[str, str] = {
     "HPB": "ETE",
     "HCB": "ETE",
@@ -81,7 +75,6 @@ TWO_SEASON_CANONICAL_LABELS: frozenset[str] = frozenset(
 
 TEMPO_CALENDAR_COLORS: frozenset[str] = frozenset({"ETE", "HIVER", "ROUGE"})
 
-# Classe temporelle du calendrier fournisseur → couleur OctoTempo.
 TEMPO_TEMPORAL_CLASS_TO_COLOR: dict[str, str] = {
     "HPP": "ROUGE",
     "HCP": "ROUGE",
@@ -91,10 +84,6 @@ TEMPO_TEMPORAL_CLASS_TO_COLOR: dict[str, str] = {
     "HCE": "ETE",
 }
 
-# Les bornes de saison ne sont lisibles que dans la description en clair de la
-# classe temporelle : `offPeakValues`, qui les exposerait sous forme structurée,
-# renvoie une liste vide sur les contrats OctoFlex, et `ProviderTemporalClassType`
-# ne porte aucun champ de saison.
 FRENCH_MONTH_NUMBERS: dict[str, int] = {
     "janvier": 1,
     "février": 2,
@@ -110,20 +99,16 @@ FRENCH_MONTH_NUMBERS: dict[str, int] = {
     "décembre": 12,
 }
 
-# Repli quand aucune description n'est exploitable : bornes constatées sur les
-# contrats OctoFlex (« Avril à octobre » / « Novembre à mars »).
 TEMPO_DEFAULT_SEASON_MONTHS: dict[str, tuple[int, int]] = {
     "ETE": (4, 10),
     "HIVER": (11, 3),
 }
 
-# Repli des contrats HP/HC deux saisons : saison haute du TURPE de novembre à mars.
 TWO_SEASON_DEFAULT_SEASON_MONTHS: dict[str, tuple[int, int]] = {
     "ETE": (4, 10),
     "HIVER": (11, 3),
 }
 
-# Clé de sensor energy_* → label de consommation renvoyé par l'API.
 ENERGY_KEY_TO_LABEL: dict[str, str] = {
     "energy_base": "BASE",
     "energy_peak_hours": "HEURES_PLEINES",
@@ -140,7 +125,6 @@ ENERGY_KEY_TO_LABEL: dict[str, str] = {
     "energy_winter_off_peak_hours": "HEURES_CREUSES_HIVER",
 }
 
-# Clé de sensor cost_* → label de consommation dont dérive le coût.
 COST_KEY_TO_LABEL: dict[str, str] = {
     "cost_base": "BASE",
     "cost_peak_hours": "HEURES_PLEINES",

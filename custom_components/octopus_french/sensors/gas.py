@@ -85,31 +85,24 @@ class OctopusGasSensor(
         return 0.0
 
     def _gas_data(self) -> dict[str, Any]:
-        """Relevés du PCE, avec repli sur la clé historique `gas`."""
+        """Return the PCE readings, falling back to the legacy `gas` key."""
         by_pce = self.coordinator.data.get("gas_by_pce") or {}
         if gas_data := by_pce.get(self._pce_ref):
             return gas_data
         return {"monthly": self.coordinator.data.get("gas", [])}
 
     def _readings_count(self) -> int:
-        """Nombre de relevés disponibles, toutes sources confondues."""
+        """Return the number of readings across all sources."""
         gas_data = self._gas_data()
         return sum(
             len(gas_data.get(source) or []) for source in ("monthly", "daily", "index")
         )
 
     def _latest_reading(self) -> tuple[str, dict[str, Any]] | None:
-        """
-        Dernier relevé réel du compteur, et la source dont il provient.
-
-        On ne passe pas par `gas_daily_values` : elle étale les cumuls mensuels
-        et les relevés d'index sur leurs jours, ce qui donnerait une moyenne
-        présentée comme un relevé.
-        """
+        """Return the latest actual meter reading and its source."""
         gas_data = self._gas_data()
         for source in ("daily", "index", "monthly"):
             if readings := gas_data.get(source):
-                # L'API ne garantit pas l'ordre des relevés.
                 return source, max(readings, key=lambda r: r.get("startAt") or "")
         return None
 
@@ -304,7 +297,6 @@ class OctopusGasSensor(
                 "source": source,
                 "cout_euro": (round(value * tariff_rate, 2) if tariff_rate else None),
             }
-            # Seuls les relevés gasReading portent les index du compteur.
             if reading.get("indexStartValue") is not None:
                 attributes["index_debut"] = reading.get("indexStartValue")
                 attributes["index_fin"] = reading.get("indexEndValue")
@@ -313,7 +305,7 @@ class OctopusGasSensor(
         return {}
 
     def _last_imported_date(self) -> str | None:
-        """Dernière date importée dans les statistiques pour ce sensor."""
+        """Return the last date imported into statistics for this sensor."""
         importer = getattr(self.coordinator, "statistics_importer", None)
         if importer is None:
             return None

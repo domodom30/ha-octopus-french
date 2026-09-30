@@ -1,9 +1,4 @@
-"""Tickets de réparation : rendre visibles les anomalies qui restaient au journal.
-
-Les avertissements du journal ne sont jamais lus par les utilisateurs, et ce sont
-pourtant eux qui finissent en issue GitHub. Les mêmes constats deviennent ici des
-tickets de réparation, réévalués à chaque rafraîchissement.
-"""
+"""Repair issues for Octopus French data anomalies."""
 
 import hashlib
 import logging
@@ -28,7 +23,6 @@ from .utils import (
 
 _LOGGER = logging.getLogger(__name__)
 
-# Labels canoniques sans série de statistiques : leur absence est normale.
 _LABELS_WITHOUT_STATISTIC = frozenset({"ABONNEMENT"})
 
 _KNOWN_LABELS = frozenset(ENERGY_KEY_TO_LABEL.values()) | frozenset(
@@ -37,25 +31,18 @@ _KNOWN_LABELS = frozenset(ENERGY_KEY_TO_LABEL.values()) | frozenset(
 
 
 def _safe_key(template: str, identifier: str) -> str:
-    """Clé d'issue dont l'identifiant de compteur est haché.
-
-    Le registre des issues est persisté sur disque et affiché dans l'interface :
-    un PRM en clair y resterait indéfiniment.
-    """
+    """Return an issue key with a hashed meter ID."""
     digest = hashlib.sha256(identifier.encode("utf-8")).hexdigest()[:12]
     return template.format(digest)
 
 
 def _meters_on_linky_fallback(data: dict[str, Any]) -> list[str]:
-    """PRM Tempo dont les plages HC retombent sur l'étiquette du compteur."""
+    """Return Tempo PRMs whose off-peak ranges fall back to the meter label."""
     fallbacks = []
     for meter in data.get("supply_points", {}).get("electricity", []):
         prm_id = meter.get("prm")
         if not prm_id:
             continue
-        # Résoudre la couleur d'abord : sans elle, la recherche porte sur une
-        # classe « HC » qu'un contrat Tempo n'expose pas, et tout compteur Tempo
-        # paraîtrait retombé sur l'étiquette Linky.
         color = get_tempo_color_for_prm(data, prm_id)
         if resolve_hc_schedule(data, prm_id, color).get("source") == "linky":
             classes = {
@@ -68,7 +55,7 @@ def _meters_on_linky_fallback(data: dict[str, Any]) -> list[str]:
 
 
 def _unknown_consumption_labels(data: dict[str, Any]) -> set[str]:
-    """Labels de consommation qui n'alimentent aucune statistique."""
+    """Return consumption labels that feed no statistic."""
     unknown = set()
     for prm_data in (data.get("electricity_by_prm") or {}).values():
         for reading in prm_data.get("readings") or []:
@@ -84,7 +71,7 @@ def _unknown_consumption_labels(data: dict[str, Any]) -> set[str]:
 
 
 def async_update_issues(hass: HomeAssistant, data: dict[str, Any]) -> None:
-    """Crée ou lève les tickets de réparation d'après les données courantes."""
+    """Create or delete repair issues from the current data."""
     active: set[str] = set()
 
     for prm_id in _meters_on_linky_fallback(data):

@@ -218,7 +218,7 @@ async def async_setup_entry(
 
 
 def _detect_tariff_type_for_meter(data: dict, prm_id: str) -> str:
-    """Détecte le type de tarif pour un compteur spécifique."""
+    """Detect the tariff type of a meter."""
     try:
         for meter in data.get("supply_points", {}).get("electricity", []):
             if meter.get("prm") != prm_id:
@@ -271,7 +271,9 @@ def _detect_tariff_type_for_meter(data: dict, prm_id: str) -> str:
             return tariff_type
 
     except (KeyError, IndexError, TypeError) as e:
-        _LOGGER.debug("Erreur détection tarif %s: %s", prm_id, e)
+        _LOGGER.debug(
+            "Could not detect tariff type for PRM %s, using UNKNOWN: %s", prm_id, e
+        )
     return "UNKNOWN"
 
 

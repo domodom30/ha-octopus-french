@@ -64,13 +64,7 @@ async def async_setup_entry(
 class OctopusFrenchHcBinarySensor(
     CoordinatorEntity[OctopusFrenchDataUpdateCoordinator], BinarySensorEntity
 ):
-    """
-    Binary sensor indicating if current time is in HC (Heures Creuses) period.
-
-    Priorité des sources d'horaires (ordre décroissant de fiabilité) :
-      1. timeSlots du contrat actif (données structurées, API)
-      2. offPeakLabel du compteur Linky (parsing regex, moins fiable)
-    """
+    """Binary sensor indicating if current time is in HC (Heures Creuses) period."""
 
     _attr_has_entity_name = True
     _attr_should_poll = False
@@ -115,12 +109,7 @@ class OctopusFrenchHcBinarySensor(
         self._attr_extra_state_attributes = self._compute_attributes()
 
     def _resolve_hc_schedule(self) -> dict[str, Any]:
-        """
-        Return the best available HC schedule from coordinator data.
-
-        Returns a dict with keys: ranges, total_hours, range_count, source, type.
-        'source' is 'contract', 'calendar', 'linky' or 'none'.
-        """
+        """Return the best available HC schedule from coordinator data."""
         data = self.coordinator.data or {}
         tempo_color = get_tempo_color_for_prm(data, self._prm_id)
         return resolve_hc_schedule(data, self._prm_id, tempo_color)

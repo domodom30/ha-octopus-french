@@ -1,11 +1,9 @@
 """API client for Octopus Intelligent features."""
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ..octopus_french import OctopusFrenchApiClient
+    from octopus_french.octopus_french import OctopusFrenchApiClient
 
 MUTATION_TRIGGER_BOOST_CHARGE = """
 mutation updateBoostCharge($deviceId: String!) {
@@ -25,9 +23,6 @@ mutation updateBoostCharge($deviceId: String!) {
 }
 """
 
-# `preferences` est porté par SmartFlexDeviceInterface : c'est la seule source
-# par appareil, vehicleChargingPreferences ne renvoyant qu'un jeu par compte —
-# tous les véhicules affichaient donc la même heure cible (issue #77).
 QUERY_DEVICES = """
 query devices($accountNumber: String!) {
   devices(accountNumber: $accountNumber) {
@@ -85,8 +80,6 @@ query flexPlannedDispatches($deviceId: String!) {
 }
 """
 
-# Les 7 jours sont écrits en littéral : ce sont des enums GraphQL (pas des valeurs
-# interpolées). Seuls time/max varient et passent par des variables réutilisées.
 MUTATION_SET_DEVICE_PREFERENCES = """
 mutation setDevicePreferences($deviceId: ID!, $time: Time!, $max: Decimal!) {
   setDevicePreferences(input: {

@@ -27,8 +27,6 @@ TO_REDACT = {
 }
 
 
-# Attributs présents sur toutes les entités : ils alourdissent le diagnostic
-# sans rien apprendre sur le défaut signalé.
 _ENTITY_ATTRIBUTES_TO_SKIP = frozenset(
     {
         "attribution",
@@ -44,13 +42,7 @@ _ENTITY_ATTRIBUTES_TO_SKIP = frozenset(
 def _redact_meter_keys(
     coordinator_data: dict[str, Any] | None,
 ) -> tuple[dict[str, Any], dict[str, str]]:
-    """Masque les identifiants de compteur qui servent de clés de dictionnaire.
-
-    `async_redact_data` ne remplace que des valeurs : un PRM ou un PCE utilisé
-    comme clé resterait en clair dans le diagnostic partagé. La table de
-    correspondance est renvoyée pour masquer les mêmes identifiants là où ils
-    sont interpolés, notamment dans les `unique_id` d'entités.
-    """
+    """Redact meter IDs used as dict keys and return the token mapping."""
     redacted = dict(coordinator_data or {})
     mapping: dict[str, str] = {}
     for key in ("electricity_by_prm", "gas_by_pce"):
@@ -66,7 +58,7 @@ def _redact_meter_keys(
 
 
 def _redact_identifiers(text: str, mapping: dict[str, str]) -> str:
-    """Remplace chaque identifiant de compteur connu par son jeton."""
+    """Replace each known meter ID with its token."""
     for meter_id, token in mapping.items():
         text = text.replace(meter_id, token)
     return text
@@ -75,12 +67,7 @@ def _redact_identifiers(text: str, mapping: dict[str, str]) -> str:
 def _entity_states(
     hass: HomeAssistant, entry: OctopusFrenchConfigEntry, mapping: dict[str, str]
 ) -> dict[str, Any]:
-    """État et attributs de chaque entité de l'entrée, identifiants masqués.
-
-    C'est ce qui manquait le plus au diagnostic : sans lui, un rapport d'anomalie
-    oblige à demander des copies d'écran ou des extraits de journal pour savoir ce
-    que les capteurs affichaient réellement.
-    """
+    """Return the redacted state and attributes of each entry entity."""
     registry = er.async_get(hass)
     states: dict[str, Any] = {}
 

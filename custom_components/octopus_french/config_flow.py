@@ -151,8 +151,6 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if not auth_success:
                     errors["base"] = "invalid_auth"
                 else:
-                    # Nouveau mot de passe : purge du refresh token persisté,
-                    # qui appartient à l'ancienne session.
                     data = {
                         **reauth_entry.data,
                         CONF_PASSWORD: user_input[CONF_PASSWORD],

@@ -132,13 +132,7 @@ class OctopusIntelligentBumpChargeSwitch(
 class OctopusIntelligentSmartControlSwitch(
     CoordinatorEntity[OctopusIntelligentDataUpdateCoordinator], SwitchEntity
 ):
-    """Switch to suspend/restore Octopus's automatic smart control of a device.
-
-    Unlike boost charge, suspending smart control does not incur the
-    Intelligent tariff's boost-usage cost. It stops Octopus from
-    interrupting a charging session it did not schedule itself, at the
-    cost of losing Octopus's own schedule optimisation while suspended.
-    """
+    """Switch to suspend or restore Octopus smart control of a device."""
 
     def __init__(
         self,

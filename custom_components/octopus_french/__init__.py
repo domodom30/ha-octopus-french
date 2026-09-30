@@ -22,9 +22,15 @@ from homeassistant.exceptions import (
     ConfigEntryNotReady,
     ServiceValidationError,
 )
-from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import (
+    config_validation as cv,
+)
+from homeassistant.helpers import (
+    device_registry as dr,
+)
+from homeassistant.helpers import (
+    entity_registry as er,
+)
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.service import async_register_admin_service
 from homeassistant.helpers.typing import ConfigType
@@ -83,7 +89,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                     await intelligent.async_request_refresh()
 
     def _loaded_importers() -> list:
-        """Importeurs de statistiques des entrées chargées."""
+        """Return the statistics importers of loaded entries."""
         return [
             importer
             for entry in hass.config_entries.async_entries(DOMAIN)
@@ -141,8 +147,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         handle_force_update,
         schema=vol.Schema({}),
     )
-    # Les deux suivants réécrivent ou suppriment l'historique du recorder :
-    # réservés aux administrateurs.
+
     async_register_admin_service(
         hass,
         DOMAIN,
@@ -177,9 +182,6 @@ async def async_setup_entry(
         session=session,
     )
 
-    # Réutilise le refresh token persisté (valide 7 j) : évite un full login
-    # email/mot de passe à chaque redémarrage, qui alimente le rate-limit
-    # Kraken (KT-CT-1199).
     api_client.token_manager.restore_refresh_token(
         entry.data.get(CONF_REFRESH_TOKEN),
         entry.data.get(CONF_REFRESH_TOKEN_EXPIRY),
@@ -212,13 +214,8 @@ async def async_setup_entry(
         config_entry=entry,
     )
 
-    # Ne pas envelopper : async_config_entry_first_refresh convertit déjà les
-    # UpdateFailed en ConfigEntryNotReady et doit laisser passer
-    # ConfigEntryAuthFailed pour déclencher le flow de réauthentification.
     await coordinator.async_config_entry_first_refresh()
 
-    # Import de statistiques centralisé : une passe par cycle au lieu d'une
-    # tâche par entité energy_/cost_.
     importer = OctopusStatisticsImporter(hass, coordinator)
     coordinator.statistics_importer = importer
     entry.async_on_unload(coordinator.async_add_listener(importer.schedule_import))
@@ -264,8 +261,6 @@ async def _async_authenticate(api_client: OctopusFrenchApiClient) -> None:
     try:
         authenticated = await api_client.authenticate()
     except OctopusConnectionError as err:
-        # Covers rate limiting (KT-CT-1199): transient, so let HA back off and retry
-        # instead of asking the user to re-enter valid credentials.
         raise ConfigEntryNotReady(f"Cannot connect to Octopus API: {err}") from err
 
     if not authenticated:
@@ -278,25 +273,18 @@ async def _async_setup_intelligent_coordinator(
     account_number: str,
     entry: OctopusFrenchConfigEntry,
 ) -> OctopusIntelligentDataUpdateCoordinator | None:
-    """Set up the Intelligent coordinator, returns None if not available."""
-    try:
-        coordinator = OctopusIntelligentDataUpdateCoordinator(
-            hass=hass,
-            api_client=api_client,
-            account_number=account_number,
-            config_entry=entry,
-        )
-        await coordinator.async_config_entry_first_refresh()
-        if not coordinator.data.get("devices"):
-            _LOGGER.debug("No Intelligent devices found for account %s", account_number)
-            return None
-        return coordinator
-    except ConfigEntryAuthFailed:
-        # Une erreur d'authentification doit déclencher le flow de réauthentification.
-        raise
-    except Exception as err:
-        _LOGGER.debug("Octopus Intelligent not available for this account: %s", err)
+    """Set up the Intelligent coordinator, returns None if no device is linked."""
+    coordinator = OctopusIntelligentDataUpdateCoordinator(
+        hass=hass,
+        api_client=api_client,
+        account_number=account_number,
+        config_entry=entry,
+    )
+    await coordinator.async_config_entry_first_refresh()
+    if not coordinator.data["devices"]:
+        _LOGGER.debug("No Intelligent devices found for account %s", account_number)
         return None
+    return coordinator
 
 
 async def _async_get_account_number(
@@ -313,9 +301,6 @@ async def _async_get_account_number(
         if configured_account:
             if configured_account in account_numbers:
                 return configured_account
-            # Ne jamais basculer silencieusement sur un autre compte : l'unique_id
-            # de l'entry est le numéro configuré, les entités garderaient donc son
-            # identité tout en exposant les données d'un autre compte.
             raise ConfigEntryError(
                 f"Account {configured_account} is no longer available on this "
                 "Octopus Energy login"

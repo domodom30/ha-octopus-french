@@ -1,3 +1,9 @@
+## [4.1.8] - 2026-09-28
+
+### 🐛 Correction — Label de consommation Effacement BASE non reconnu (issue [#85](https://github.com/domodom30/ha-octopus-french/issues/85))
+
+Les offres Effacement BASE publient des labels `CONSUMPTION_EFFACEMENT_BASE_1_BASE_…` dont la classe temporelle `BASE` n'était pas reconnue, seuls `HP` et `HC` l'étant. Leurs valeurs n'alimentaient ni les cumuls du mois en cours, ni les statistiques `energy_base` / `cost_base` du tableau de bord Énergie. Le segment `BASE` est désormais reconnu quelle que soit l'offre. Pour combler les jours déjà importés, lancer le service **Recalculer les statistiques**. Merci à [@lenny005](https://github.com/lenny005) pour le signalement.
+
 ## [4.1.7] - 2026-09-28
 
 ### 🐛 Correction — Contrats HP/HC deux saisons : ni tarifs, ni coûts, ni index (issue [#85](https://github.com/domodom30/ha-octopus-french/issues/85))

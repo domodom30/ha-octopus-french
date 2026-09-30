@@ -1,7 +1,5 @@
 """Data update coordinator for Octopus Intelligent features."""
 
-from __future__ import annotations
-
 import asyncio
 import logging
 from datetime import timedelta
@@ -25,20 +23,14 @@ _WEEKEND_DAYS = frozenset({"SATURDAY", "SUNDAY"})
 
 
 def _normalise_target_time(value: Any) -> Any:
-    """Ramène une heure `Time` GraphQL au format HH:MM des options du select."""
+    """Convert a GraphQL `Time` value to the select's HH:MM format."""
     if isinstance(value, str) and value.count(":") >= 2:
         return value[:5]
     return value
 
 
 def preferences_from_schedules(preferences: dict[str, Any] | None) -> dict[str, Any]:
-    """
-    Convertit les `schedules` d'un appareil en cibles semaine / week-end.
-
-    L'API expose un créneau par jour ; les entités raisonnent en semaine et
-    week-end, comme le faisait vehicleChargingPreferences. Le premier créneau
-    rencontré de chaque groupe fait foi.
-    """
+    """Convert a device's schedules into weekday and weekend targets."""
     result: dict[str, Any] = {}
     for schedule in (preferences or {}).get("schedules") or []:
         day = (schedule.get("dayOfWeek") or "").upper()
@@ -87,12 +79,7 @@ class OctopusIntelligentDataUpdateCoordinator(DataUpdateCoordinator):
         return None
 
     def get_preferences(self, device_id: str) -> dict[str, Any]:
-        """
-        Préférences de charge d'un appareil.
-
-        Les valeurs propres à l'appareil priment ; celles du compte servent de
-        repli pour les comptes dont les appareils n'exposent pas de `schedules`.
-        """
+        """Return the charging preferences of a device."""
         data = self.data or {}
         account_preferences = data.get("preferences") or {}
         device_preferences = (data.get("device_preferences") or {}).get(device_id) or {}
@@ -116,7 +103,11 @@ class OctopusIntelligentDataUpdateCoordinator(DataUpdateCoordinator):
                 self.data["devices"] = devices
                 self.async_set_updated_data(self.data)
         except (OctopusAuthError, OctopusConnectionError, RuntimeError) as err:
-            _LOGGER.error("Error refreshing device list: %s", err)
+            _LOGGER.error(
+                "Failed to refresh Octopus Intelligent devices for account %s: %s",
+                self.account_number,
+                err,
+            )
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch all intelligent data from API."""

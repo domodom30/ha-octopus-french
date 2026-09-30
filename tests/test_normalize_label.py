@@ -56,6 +56,24 @@ _CONSUMPTION_MAPPING = {
             "HEURES_CREUSES",
             id="autre_offre_hc",
         ),
+        # Labels Effacement BASE (issue #85) : segment BASE reconnu quel que
+        # soit le palier de puissance souscrite.
+        pytest.param(
+            "CONSUMPTION_EFFACEMENT_BASE_1_BASE_0.0_37.0",
+            "BASE",
+            id="effacement_base",
+        ),
+        pytest.param(
+            "CONSUMPTION_AUTRE_OFFRE_BASE_6.0_7.0",
+            "BASE",
+            id="autre_offre_base",
+        ),
+        # BASE dans le nom de l'offre ne masque pas la classe HP/HC.
+        pytest.param(
+            "CONSUMPTION_BASE_X_HP_0.0_37.0",
+            "HEURES_PLEINES",
+            id="offre_base_classe_hp",
+        ),
         # Un label inconnu est renvoyé tel quel (et signalé dans les logs).
         pytest.param("CONSUMPTION_MYSTERE_XX", "CONSUMPTION_MYSTERE_XX", id="inconnu"),
         pytest.param("ABONNEMENT", "ABONNEMENT", id="abonnement"),
@@ -128,6 +146,9 @@ def fresh_warned_labels():
         pytest.param("ABONNEMENT", id="abonnement"),
         pytest.param("CONSUMPTION_EFFACEMENT_HPHC_2_HP_0.0_37.0", id="effacement_hp"),
         pytest.param("CONSUMPTION_AUTRE_OFFRE_HC_0.0_37.0", id="autre_offre_hc"),
+        pytest.param(
+            "CONSUMPTION_EFFACEMENT_BASE_1_BASE_0.0_37.0", id="effacement_base"
+        ),
         pytest.param("CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0", id="tempo_octoflex_hpe"),
         pytest.param("TEMPO_ETE_HP", id="tempo_court_ete_hp"),
         pytest.param("TEMPO_ROUGE_HC", id="tempo_court_rouge_hc"),

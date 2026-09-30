@@ -1,7 +1,5 @@
 """Data update coordinator for Octopus French Energy."""
 
-from __future__ import annotations
-
 import asyncio
 import logging
 from datetime import timedelta
@@ -85,9 +83,6 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
         electricity_meter_ids = [
             sp.get("prm") for sp in electricity_supply_points if sp.get("prm")
         ]
-        # Chaque compteur peut vivre sur une property (logement) distincte : on
-        # route chaque PRM vers SA property, sinon les relevés du 2e compteur
-        # seraient demandés sur la property du 1er (issue #56).
         property_id_by_prm = {
             sp["prm"]: sp.get("property_id") or account_id
             for sp in electricity_supply_points
@@ -98,8 +93,6 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
         now = dt_util.now()
         today_midnight = dt_util.start_of_local_day(now)
         overlap_start = today_midnight - timedelta(days=PREVIOUS_MONTH_OVERLAP_DAYS)
-        # Relevés à J+1/J+2 : tant que le 1er relevé du mois n'est pas arrivé,
-        # les capteurs mensuels affichent encore le mois précédent en entier.
         electricity_start = min(
             today_midnight.replace(day=1) - timedelta(days=PREVIOUS_MONTH_OVERLAP_DAYS),
             overlap_start.replace(day=1),
@@ -131,14 +124,7 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
                 return prm_id, readings, index
 
         async def fetch_gas_for_pce(meter: dict[str, Any]) -> tuple[str, dict]:
-            """
-            Relevés d'un PCE, par ordre de préférence des sources.
-
-            Les buckets mensuels portent la consommation consolidée ; les relevés
-            quotidiens n'existent que pour les Gazpar communicants et servent aux
-            statistiques. Quand `measurements` ne renvoie rien, la requête
-            gasReading expose encore les relevés d'index (issue #79).
-            """
+            """Fetch a PCE's readings, trying sources in order of preference."""
             pce_ref = meter["prm"]
             property_id = meter.get("property_id") or account_id
             gas_data: dict[str, Any] = {
@@ -222,7 +208,6 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
         }
         gas_by_pce = dict(gas_results)
         account_data["gas_by_pce"] = gas_by_pce
-        # Conservée pour les diagnostics et toute lecture historique de la clé.
         account_data["gas"] = [
             reading
             for gas_data in gas_by_pce.values()

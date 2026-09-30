@@ -121,7 +121,9 @@ class OctopusElectricitySensor(
         try:
             latest_reading = max(readings, key=lambda x: x.get("startAt", ""))
         except (ValueError, TypeError, KeyError) as e:
-            _LOGGER.warning("Error getting latest reading: %s", e)
+            _LOGGER.warning(
+                "Failed to find latest reading for PRM %s: %s", self._prm_id, e
+            )
             return 0.0
 
         statistics = (latest_reading.get("metaData") or {}).get("statistics", [])
@@ -136,13 +138,7 @@ class OctopusElectricitySensor(
         return 0.0
 
     def _get_month_start(self) -> datetime:
-        """
-        Premier jour (minuit local) du mois affiché par les totaux mensuels.
-
-        Les relevés arrivent à J+1/J+2 : le mois ne bascule qu'avec le premier
-        relevé du nouveau mois, sinon ceux des derniers jours du précédent,
-        reçus après minuit le 1er, ne seraient comptés nulle part.
-        """
+        """Return local midnight of the first day of the displayed month."""
         readings = (
             self.coordinator.data.get("electricity_by_prm", {})
             .get(self._prm_id, {})
@@ -177,7 +173,11 @@ class OctopusElectricitySensor(
                 readings, key=lambda x: x.get("startAt", ""), reverse=False
             )
         except (TypeError, KeyError) as e:
-            _LOGGER.warning("Error sorting readings: %s", e)
+            _LOGGER.warning(
+                "Failed to sort readings for PRM %s, using API order: %s",
+                self._prm_id,
+                e,
+            )
             sorted_readings = readings
 
         current_month = self._get_current_month()
@@ -201,8 +201,6 @@ class OctopusElectricitySensor(
                         total += float(value)
 
                 elif key in COST_KEY_TO_LABEL and label == COST_KEY_TO_LABEL[key]:
-                    # Montant réel de l'API (centimes, au tarif du jour du
-                    # relevé) ; fallback kWh x tarif actuel s'il est absent.
                     amount = (stat.get("costInclTax") or {}).get("estimatedAmount")
                     if amount is not None:
                         total += float(amount) / 100
@@ -446,7 +444,7 @@ class OctopusElectricitySensor(
             return None
 
     def _get_contract_type(self) -> str:
-        """Retourne la famille de tarif lisible (BASE/HPHC/TEMPO)."""
+        """Return the tariff family (BASE/HPHC/TEMPO)."""
         meter = self._get_meter_data()
         if not meter:
             return "Inconnu"
@@ -533,8 +531,6 @@ class OctopusLatestReadingSensor(
             if normalized == "BASE":
                 attributes["heures_base"] = float(value) if value else None
             elif kwh_attribute := _LABEL_TO_KWH_ATTRIBUTE.get(normalized):
-                # Un contrat deux saisons publie aussi le registre de la saison
-                # inactive, à zéro : il ne doit pas effacer la valeur réelle.
                 kwh = float(value) if value else None
                 if kwh is None:
                     attributes.setdefault(kwh_attribute, None)
@@ -703,7 +699,7 @@ class OctopusElectricityIndexSensor(
 class OctopusTempoColorSensor(
     CoordinatorEntity[OctopusFrenchDataUpdateCoordinator], SensorEntity
 ):
-    """Capteur indiquant la couleur Tempo (Bleu/Blanc/Rouge) d'aujourd'hui ou de demain."""
+    """Tempo color (blue/white/red) of today or tomorrow."""
 
     def __init__(
         self,
@@ -760,8 +756,6 @@ class OctopusTempoColorSensor(
             "date": resolved["date"],
             "source": resolved["source"],
             "reading_date": resolved["reading_date"],
-            # Aucun champ de l'API n'annonce les jours de pointe : ils ne sont
-            # reconnus qu'a posteriori, via les relevés journaliers.
             "red_day_detectable": not self._is_tomorrow,
             "period_start": index_data.get("period_start"),
             "period_end": index_data.get("period_end"),
@@ -779,7 +773,7 @@ class OctopusTempoColorSensor(
 class OctopusTempoCurrentRateSensor(
     CoordinatorEntity[OctopusFrenchDataUpdateCoordinator], SensorEntity
 ):
-    """Capteur dynamique : tarif OctoTempo actif en ce moment (€/kWh)."""
+    """OctoTempo rate currently in effect (€/kWh)."""
 
     def __init__(
         self,

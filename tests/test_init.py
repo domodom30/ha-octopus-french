@@ -5,8 +5,9 @@ il utilise la vraie fixture ``hass`` et ``MockConfigEntry`` (au lieu d'un ``Magi
 monte réellement l'intégration jusqu'à l'état LOADED, puis la décharge.
 """
 
+from collections.abc import Generator
 from datetime import timedelta
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from homeassistant.config_entries import ConfigEntryState
@@ -22,7 +23,10 @@ from custom_components.octopus_french.const import (
     SERVICE_PURGE_ORPHAN_STATISTICS,
     SERVICE_RECOMPUTE_STATISTICS,
 )
-from custom_components.octopus_french.octopus_french import OctopusAuthError
+from custom_components.octopus_french.octopus_french import (
+    OctopusAuthError,
+    OctopusConnectionError,
+)
 
 _ENTRY_DATA = {
     "email": "user@example.fr",
@@ -36,6 +40,16 @@ _ACCOUNT_DATA = {
     "supply_points": {"electricity": [], "gas": []},
     "ledgers": {},
 }
+
+
+@pytest.fixture(autouse=True)
+def mock_intelligent_client() -> Generator[MagicMock]:
+    """Compte sans appareil Intelligent : une erreur de l'API ferait échouer le setup."""
+    with patch(
+        "custom_components.octopus_french.coordinator_intelligent.OctopusIntelligentApiClient",
+    ) as client_cls:
+        client_cls.return_value.get_devices = AsyncMock(return_value=[])
+        yield client_cls.return_value
 
 
 async def test_setup_and_unload_entry(recorder_mock, hass: HomeAssistant) -> None:
@@ -148,6 +162,58 @@ async def test_configured_account_missing_fails_setup(
 
     assert entry.state is ConfigEntryState.SETUP_ERROR
     client.get_account_data.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    ("side_effect", "expected_state"),
+    [
+        pytest.param(
+            OctopusConnectionError("rate limited"),
+            ConfigEntryState.SETUP_RETRY,
+            id="connection_error_retries",
+        ),
+        pytest.param(
+            OctopusAuthError("token rejected"),
+            ConfigEntryState.SETUP_ERROR,
+            id="auth_error_fails",
+        ),
+    ],
+)
+async def test_intelligent_first_refresh_error_blocks_setup(
+    recorder_mock,
+    hass: HomeAssistant,
+    mock_intelligent_client: MagicMock,
+    side_effect: Exception,
+    expected_state: ConfigEntryState,
+) -> None:
+    """Une panne Intelligent au démarrage ne doit pas désactiver Intelligent en silence."""
+    mock_intelligent_client.get_devices.side_effect = side_effect
+    entry = MockConfigEntry(domain=DOMAIN, data=_ENTRY_DATA, unique_id="A-123")
+    entry.add_to_hass(hass)
+
+    with patch(
+        "custom_components.octopus_french.OctopusFrenchApiClient",
+    ) as mock_client_cls:
+        client = mock_client_cls.return_value
+        client.authenticate = AsyncMock(return_value=True)
+        client.get_accounts = AsyncMock(return_value=[{"number": "A-123"}])
+        client.get_account_data = AsyncMock(return_value=dict(_ACCOUNT_DATA))
+        client.get_all_payment_requests = AsyncMock(return_value={})
+
+        assert not await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert entry.state is expected_state
+
+
+async def test_setup_without_intelligent_device(
+    recorder_mock, hass: HomeAssistant
+) -> None:
+    """Un compte sans appareil Intelligent monte sans coordinator Intelligent."""
+    entry = await _setup_entry(hass)
+
+    assert entry.state is ConfigEntryState.LOADED
+    assert entry.runtime_data.intelligent_coordinator is None
 
 
 async def _setup_entry(hass: HomeAssistant) -> MockConfigEntry:

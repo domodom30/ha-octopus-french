@@ -34,10 +34,8 @@ GRAPHQL_ENDPOINT = "https://api.oefr-kraken.energy/v1/graphql/"
 TOKEN_EXPIRY_BUFFER = 60
 MAX_RETRY_ATTEMPTS = 3
 RETRY_DELAY = 1
-# Garde-fou : un endCursor qui ne progresse pas ne doit pas bloquer l'event loop.
 MAX_PAGINATION_PAGES = 50
 RATE_LIMIT_ERROR_CODE = "KT-CT-1199"
-# Kraken refresh tokens last 7 days; used when the API omits refreshExpiresIn.
 DEFAULT_REFRESH_EXPIRY = 7 * 24 * 3600
 
 MUTATION_LOGIN = """
@@ -188,10 +186,6 @@ query getAccountData($accountNumber: String!, $activeAt: DateTime!) {
                   pricePerUnitWithTaxes
                   validFrom
                   validTo
-                  # NE PAS ajouter temporalClass ici : le champ n'existe pas sur
-                  # SupplyConsumptionRateType et fait échouer toute la requête
-                  # (HTTP 400). Régression déjà vue en 3.3.0 puis en 4.1.3.
-                  # Pour obtenir temporalClass, utiliser le bloc `rates` ci-dessous.
                   timeSlots {
                     startAt
                     endAt
@@ -199,10 +193,6 @@ query getAccountData($accountNumber: String!, $activeAt: DateTime!) {
                 }
               }
             }
-            # `rates` renvoie l'interface SupplyProductRateInterface : contrairement
-            # à consumptionRates, ses membres électricité portent temporalClass
-            # (code + description des plages horaires). Le gaz retombe sur
-            # SupplyConsumptionRateType, sans temporalClass.
             rates(first: 20) {
               edges {
                 node {
@@ -225,7 +215,6 @@ query getAccountData($accountNumber: String!, $activeAt: DateTime!) {
                       registerId
                     }
                   }
-                  # ElectricityConsumptionRateType n'expose PAS timeSlots (HTTP 400).
                   ... on ElectricityConsumptionRateType {
                     temporalClass {
                       code
@@ -273,10 +262,6 @@ QUERY_GET_BILLS = """
     }
 """
 
-# `first` : un contrat OctoTempo expose six registres, donc six entrées par jour.
-# 60 couvre dix jours, de quoi retrouver une journée consommée même quand les
-# derniers relevés sont vides. L'API refuse au-delà de 100
-# (« Invalid pagination parameters »).
 QUERY_GET_INDEX_ELECTRICITY = """
 query getElectricityIndex($accountNumber: String!, $prmId: String!) {
   electricityReading(
@@ -510,7 +495,6 @@ class OctopusFrenchApiClient:
                         MAX_RETRY_ATTEMPTS,
                         body,
                     )
-                    # Les 4xx (hors 429) ne se résoudront pas en réessayant.
                     if 400 <= response.status < 500 and response.status != 429:
                         raise OctopusConnectionError(
                             f"GraphQL endpoint returned HTTP {response.status}"
@@ -609,9 +593,6 @@ class OctopusFrenchApiClient:
 
     async def authenticate(self) -> bool:
         """Authenticate with the API (thread-safe)."""
-        # Refreshing is preferred over a full login: repeated email/password logins
-        # trip Kraken's dynamic rate limit (KT-CT-1199), which then rejects every
-        # further login attempt for a while.
         async with self._auth_lock:
             if self.token_manager.is_valid:
                 return True
@@ -644,8 +625,6 @@ class OctopusFrenchApiClient:
         if "errors" in result:
             error_messages = self._extract_error_messages(result)
 
-            # Checked before the auth keywords: a rate limited response can mention
-            # tokens, and retrying it as an expired token would only make it worse.
             if self._is_rate_limited(result):
                 raise OctopusRateLimitError(
                     f"Rate limited by the API ({RATE_LIMIT_ERROR_CODE}): "
@@ -660,7 +639,9 @@ class OctopusFrenchApiClient:
             )
 
             if is_auth_error and retry_count < 1:
-                _LOGGER.warning("Token expired during request, re-authenticating...")
+                _LOGGER.warning(
+                    "Access token expired during request, re-authenticating"
+                )
 
                 self.token_manager.clear()
                 return await self.execute_with_auth(
@@ -942,15 +923,7 @@ class OctopusFrenchApiClient:
     def _resolve_tempo_color(
         cls, nodes: list[dict[str, Any]]
     ) -> tuple[str | None, str | None]:
-        """
-        Return the Tempo color of the most recent consumed day, and its date.
-
-        Un contrat OctoTempo expose six registres (HPE/HCE, HPHI/HCHI, HPP/HCP)
-        et l'API renvoie une entrée par registre pour une même journée. La
-        couleur du jour est celle des registres qui portent la consommation :
-        retenir la première entrée reçue donne une couleur arbitraire, figée par
-        l'ordre de l'API (issue #84).
-        """
+        """Return the Tempo color of the most recent consumed day, and its date."""
         totals = cls._color_totals_by_date(nodes)
 
         for day in sorted(totals, reverse=True):
@@ -958,8 +931,6 @@ class OctopusFrenchApiClient:
             if consumed > 0:
                 return color, day or None
 
-        # Aucune consommation exploitable : la couleur reste sûre tant qu'un
-        # seul registre couvre la journée (contrats à `calendarTempClass`).
         for day in sorted(totals, reverse=True):
             if len(totals[day]) == 1:
                 return next(iter(totals[day])), day or None
@@ -968,14 +939,7 @@ class OctopusFrenchApiClient:
 
     @staticmethod
     def _parse_rate_nodes(energy_rate: dict[str, Any]) -> list[dict[str, Any]]:
-        """
-        Normalise les taux de consommation d'un energySupplyRate.
-
-        `rates` est privilégié sur `consumptionRates` : c'est le seul des deux
-        dont les membres électricité exposent `temporalClass` (code de classe et
-        description des plages horaires). `consumptionRates` sert de secours pour
-        les comptes où `rates` ne remonte rien.
-        """
+        """Normalize the consumption rates of an energySupplyRate."""
         edges = (energy_rate.get("rates") or {}).get("edges") or []
         if not edges:
             edges = (energy_rate.get("consumptionRates") or {}).get("edges") or []
@@ -983,8 +947,7 @@ class OctopusFrenchApiClient:
         rates: list[dict[str, Any]] = []
         for edge in edges:
             node = edge.get("node") or {}
-            # `rates` peut aussi contenir l'abonnement : seuls les taux au kWh
-            # nous intéressent ici (l'abonnement vient de standingRate).
+
             if "Standing" in (node.get("__typename") or ""):
                 continue
             try:
@@ -1009,7 +972,7 @@ class OctopusFrenchApiClient:
                     }
                 )
             except (ValueError, TypeError) as e:
-                _LOGGER.warning("Error parsing consumption rate: %s", e)
+                _LOGGER.warning("Failed to parse consumption rate, skipping it: %s", e)
 
         return rates
 
@@ -1033,7 +996,7 @@ class OctopusFrenchApiClient:
                     "unit_type": standing.get("unitType"),
                 }
             except (ValueError, TypeError) as e:
-                _LOGGER.warning("Error parsing standing rate: %s", e)
+                _LOGGER.warning("Failed to parse standing charge, skipping it: %s", e)
 
         consumption_rates = self._parse_rate_nodes(energy_rate)
 
@@ -1046,11 +1009,13 @@ class OctopusFrenchApiClient:
                     tariffs["consumption"][key] = rate
                     mapped_by_code = True
                     _LOGGER.debug(
-                        "Taux mappé via temporalClass.code='%s' → '%s'", code, key
+                        "Rate mapped from temporalClass code '%s' to key '%s'",
+                        code,
+                        key,
                     )
                 else:
                     _LOGGER.warning(
-                        "Code temporalClass inconnu '%s' — ajouter dans _TEMPORAL_CLASS_TO_KEY",
+                        "Unknown temporalClass code '%s'; add it to _TEMPORAL_CLASS_TO_KEY",
                         code,
                     )
                     tariffs["consumption"][f"unknown_{code.lower()}"] = rate
@@ -1059,7 +1024,7 @@ class OctopusFrenchApiClient:
             return tariffs
 
         _LOGGER.debug(
-            "temporalClass absent des taux — fallback par ordre de prix décroissant"
+            "No temporalClass on consumption rates, assigning them by descending price"
         )
         consumption_rates.sort(key=lambda x: x["price_ttc"], reverse=True)
 
@@ -1082,8 +1047,8 @@ class OctopusFrenchApiClient:
             for key, rate in zip(tempo_keys_fallback, rates_asc, strict=True):
                 tariffs["consumption"][key] = rate
             _LOGGER.warning(
-                "OctoTempo: 6 taux assignés par ordre de prix (fallback) — "
-                "ajouter les codes temporalClass dans _TEMPORAL_CLASS_TO_KEY"
+                "OctoTempo: 6 rates assigned by price order as temporalClass codes are "
+                "missing; add them to _TEMPORAL_CLASS_TO_KEY"
             )
 
         return tariffs
@@ -1158,14 +1123,7 @@ class OctopusFrenchApiClient:
         first: int = 100,
         energy_qualification: str | None = None,
     ) -> list[dict[str, Any]]:
-        """
-        Get gas readings using the dedicated gasReading query, fetching all pages.
-
-        Ces relevés d'index restent disponibles quand le compteur ne publie
-        aucune mesure dans `property.measurements` (issue #79). Sans filtre
-        explicite, l'API renvoie toutes les qualifications : la valeur `M`,
-        longtemps codée en dur ici, ne remonte aucun relevé.
-        """
+        """Get gas readings using the dedicated gasReading query, fetching all pages."""
         period_start = start_at[:10]
         period_end = end_at[:10]
 
@@ -1284,9 +1242,6 @@ class OctopusFrenchApiClient:
         nodes = [node for edge in edges if (node := edge.get("node"))]
         tempo_color, tempo_color_date = self._resolve_tempo_color(nodes)
 
-        # Sur 60 relevés, chaque registre revient une fois par jour : ne garder
-        # que la journée la plus récente, sinon les valeurs d'index exposées
-        # seraient celles du jour le plus ancien de la fenêtre.
         days = {day for node in nodes if (day := self._reading_date(node))}
         latest_day = max(days) if days else None
         if latest_day:
@@ -1304,7 +1259,9 @@ class OctopusFrenchApiClient:
             tc_code = temporal_class.get("code")
 
             if tc_code:
-                _LOGGER.debug("electricityReading temporalClass.code='%s'", tc_code)
+                _LOGGER.debug(
+                    "Electricity reading has temporalClass code '%s'", tc_code
+                )
 
             effective_code = tc_code or temp_class
 
@@ -1351,7 +1308,11 @@ class OctopusFrenchApiClient:
                 if not period_start:
                     period_start = node.get("periodStartAt")
                     period_end = node.get("periodEndAt")
-                _LOGGER.debug("OctoTempo: code '%s' → clé '%s'", effective_code, key)
+                _LOGGER.debug(
+                    "OctoTempo: register code '%s' mapped to key '%s'",
+                    effective_code,
+                    key,
+                )
 
             elif effective_code in TWO_SEASON_TEMPORAL_CLASS_CODES:
                 if tariff_type not in ("BASE", "TEMPO"):
@@ -1386,14 +1347,12 @@ class OctopusFrenchApiClient:
 
             elif effective_code:
                 _LOGGER.debug(
-                    "electricityReading: classe temporelle non standard ignorée "
-                    "(temporalClass.code='%s', calendarTempClass='%s')",
+                    "Ignoring electricity reading with non-standard temporal class "
+                    "(temporalClass code '%s', calendarTempClass '%s')",
                     tc_code,
                     temp_class,
                 )
 
-        # Un contrat Tempo « legacy » n'expose qu'un `calendarTempClass` par jour,
-        # sans valeur d'index : la couleur reste alors la seule donnée utile.
         if not index_data and not tempo_color:
             _LOGGER.warning("No index data found for PRM %s", prm_id)
             return None
@@ -1408,7 +1367,7 @@ class OctopusFrenchApiClient:
             result_data["tempo_color"] = tempo_color
             result_data["tempo_color_date"] = tempo_color_date
             _LOGGER.debug(
-                "OctoTempo: couleur '%s' retenue pour le %s (PRM %s)",
+                "OctoTempo: color '%s' selected for %s (PRM %s)",
                 tempo_color,
                 tempo_color_date,
                 prm_id,
