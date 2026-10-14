@@ -121,6 +121,18 @@ _CONSUMPTION_MAPPING = {
             id="no_consumption_prefix_hp",
         ),
         pytest.param("OTHER_HC", "OTHER_HC", id="no_consumption_prefix_hc"),
+        # Labels lisibles renvoyés par l'API (issue #90) : casse, espaces et
+        # accents ne comptent pas.
+        pytest.param("Base", "BASE", id="lisible_base"),
+        pytest.param("Heures Base", "BASE", id="lisible_heures_base"),
+        pytest.param("Heures Creuses", "HEURES_CREUSES", id="lisible_hc"),
+        pytest.param("Heures Pleines", "HEURES_PLEINES", id="lisible_hp"),
+        pytest.param("heures pleines", "HEURES_PLEINES", id="lisible_hp_minuscules"),
+        pytest.param(" Abonnement ", "ABONNEMENT", id="lisible_abonnement"),
+        # Libellé lisible sans équivalent → renvoyé tel quel.
+        pytest.param(
+            "Heures pleines rouge", "Heures pleines rouge", id="lisible_inconnu"
+        ),
         # Labels divers / vides → inchangés.
         pytest.param("", "", id="empty"),
     ],

@@ -2,6 +2,7 @@
 
 import logging
 import re
+import unicodedata
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -496,17 +497,27 @@ def is_electricity_meter_active(meter: dict[str, Any]) -> bool:
     return powered_status is not None and powered_status != "LIMI"
 
 
+def _readable_label_key(label: str) -> str:
+    """Return the canonical spelling of a human-readable label.
+
+    The API also sends labels such as "Base" or "Heures Creuses" (issue #90):
+    accents, case and spaces are folded so they match the canonical constants.
+    """
+    folded = unicodedata.normalize("NFKD", label.strip())
+    folded = "".join(c for c in folded if not unicodedata.combining(c))
+    return re.sub(r"[\s-]+", "_", folded).upper()
+
+
 def normalize_consumption_label(label: str) -> str:
     """Normalize API label variants to their canonical form."""
     if not label:
         return label
-    if label in ("HEURES_BASE", "BASE"):
+    readable = _readable_label_key(label)
+    if readable in ("HEURES_BASE", "BASE"):
         return "BASE"
-    if (
-        label in _CANONICAL_CONSUMPTION_LABELS
-        or label in TEMPO_STATISTICS_LABELS
-        or label in TEMPO_SHORT_LABELS
-    ):
+    if readable in _CANONICAL_CONSUMPTION_LABELS:
+        return readable
+    if label in TEMPO_STATISTICS_LABELS or label in TEMPO_SHORT_LABELS:
         return label
 
     if label.startswith("CONSUMPTION_"):
