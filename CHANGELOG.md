@@ -1,3 +1,9 @@
+## [4.1.9] - 2026-10-14
+
+### 🐛 Correction — Libellés de consommation « Heures creuses » / « Heures Pleines » non reconnus
+
+Depuis fin septembre 2026, l'API Octopus renvoie pour certains comptes HP/HC des libellés lisibles (`Heures creuses`, `Heures Pleines`) au lieu des codes `HEURES_CREUSES` / `CONSUMPTION_…_HC_…`. Ces libellés n'étaient pas reconnus : leurs kWh n'alimentaient ni les cumuls du mois en cours, ni les statistiques du tableau de bord Énergie, et une réparation « label de consommation inconnu » était levée. Les libellés sont désormais rapprochés de leur forme canonique sans tenir compte de la casse, des espaces ni des accents. Pour combler les jours déjà importés, lancer le service **Recalculer les statistiques**.
+
 ## [4.1.8] - 2026-09-30
 
 ### 🐛 Correction — Label de consommation Effacement BASE non reconnu (issue [#85](https://github.com/domodom30/ha-octopus-french/issues/85))
