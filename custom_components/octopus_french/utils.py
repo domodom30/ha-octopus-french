@@ -2,6 +2,7 @@
 
 import logging
 import re
+import unicodedata
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -496,14 +497,20 @@ def is_electricity_meter_active(meter: dict[str, Any]) -> bool:
     return powered_status is not None and powered_status != "LIMI"
 
 
-def normalize_consumption_label(label: str) -> str:
-    """Normalize API label variants to their canonical form."""
-    if not label:
-        return label
+def _fold_label(label: str) -> str:
+    """Fold a human-readable label ("Heures creuses") to its code form."""
+    decomposed = unicodedata.normalize("NFKD", label)
+    ascii_label = "".join(c for c in decomposed if not unicodedata.combining(c))
+    return re.sub(r"[\s\-_]+", "_", ascii_label.strip()).upper()
+
+
+def _match_consumption_label(label: str) -> str | None:
+    """Return the canonical form of a code label, or None if unrecognized."""
     if label in ("HEURES_BASE", "BASE"):
         return "BASE"
     if (
         label in _CANONICAL_CONSUMPTION_LABELS
+        or label in _TWO_SEASON_LABEL_ALIASES.values()
         or label in TEMPO_STATISTICS_LABELS
         or label in TEMPO_SHORT_LABELS
     ):
@@ -519,6 +526,20 @@ def normalize_consumption_label(label: str) -> str:
         for segment, canonical in _LABEL_SEGMENT_TO_CANONICAL.items():
             if segment in segments:
                 return canonical
+    return None
+
+
+def normalize_consumption_label(label: str) -> str:
+    """Normalize API label variants to their canonical form."""
+    if not label:
+        return label
+    if (canonical := _match_consumption_label(label)) is not None:
+        return canonical
+    # L'API renvoie aussi des libellés lisibles ("Heures creuses", "Heures Pleines").
+    if (folded := _fold_label(label)) != label and (
+        canonical := _match_consumption_label(folded)
+    ) is not None:
+        return canonical
 
     if label not in _UNKNOWN_LABELS_WARNED:
         _UNKNOWN_LABELS_WARNED.add(label)

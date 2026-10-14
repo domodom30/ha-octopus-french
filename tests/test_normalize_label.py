@@ -121,6 +121,14 @@ _CONSUMPTION_MAPPING = {
             id="no_consumption_prefix_hp",
         ),
         pytest.param("OTHER_HC", "OTHER_HC", id="no_consumption_prefix_hc"),
+        # Libellés lisibles renvoyés par l'API depuis septembre 2026.
+        pytest.param("Heures creuses", "HEURES_CREUSES", id="lisible_hc"),
+        pytest.param("Heures Pleines", "HEURES_PLEINES", id="lisible_hp"),
+        pytest.param("heures pleines", "HEURES_PLEINES", id="lisible_hp_minuscules"),
+        pytest.param(
+            "Heures creuses été", "HEURES_CREUSES_ETE", id="lisible_hc_ete_accent"
+        ),
+        pytest.param("Abonnement", "ABONNEMENT", id="lisible_abonnement"),
         # Labels divers / vides → inchangés.
         pytest.param("", "", id="empty"),
     ],
@@ -152,6 +160,8 @@ def fresh_warned_labels():
         pytest.param("CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0", id="tempo_octoflex_hpe"),
         pytest.param("TEMPO_ETE_HP", id="tempo_court_ete_hp"),
         pytest.param("TEMPO_ROUGE_HC", id="tempo_court_rouge_hc"),
+        pytest.param("Heures creuses", id="lisible_hc"),
+        pytest.param("Heures Pleines", id="lisible_hp"),
     ],
 )
 def test_supported_labels_emit_no_warning(
@@ -262,6 +272,23 @@ def test_two_season_labels_do_not_feed_classic_keys() -> None:
 def test_legacy_labels_still_match(key: str, expected: float) -> None:
     """Non-régression : les labels legacy HP/HC continuent de matcher."""
     stats = [("HEURES_PLEINES", 7.5), ("HEURES_CREUSES", 2.5)]
+    assert _run_label_matching(stats, key) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize(
+    ("key", "expected"),
+    [
+        pytest.param("energy_peak_hours", 3.943, id="lisible_hp"),
+        pytest.param("energy_off_peak_hours", 4.052, id="lisible_hc"),
+    ],
+)
+def test_readable_labels_match_energy_keys(key: str, expected: float) -> None:
+    """Les libellés lisibles de l'API alimentent les capteurs HP/HC."""
+    stats = [
+        ("Heures creuses", 4.052),
+        ("Heures Pleines", 3.943),
+        ("ABONNEMENT", 0.0),
+    ]
     assert _run_label_matching(stats, key) == pytest.approx(expected)
 
 

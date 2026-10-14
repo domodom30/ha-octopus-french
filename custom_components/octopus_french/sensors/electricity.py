@@ -129,7 +129,7 @@ class OctopusElectricitySensor(
         statistics = (latest_reading.get("metaData") or {}).get("statistics", [])
 
         for stat in statistics:
-            if stat.get("label") == "ABONNEMENT":
+            if normalize_consumption_label(stat.get("label", "")) == "ABONNEMENT":
                 cost_data = stat.get("costInclTax")
                 if cost_data and "estimatedAmount" in cost_data:
                     daily_cost_eur = float(cost_data.get("estimatedAmount")) / 100
@@ -325,7 +325,10 @@ class OctopusElectricitySensor(
                     if day is None or day.strftime("%Y-%m") != self._current_month:
                         continue
                     statistics = (reading.get("metaData") or {}).get("statistics", [])
-                    if any(s.get("label") == "ABONNEMENT" for s in statistics):
+                    if any(
+                        normalize_consumption_label(s.get("label", "")) == "ABONNEMENT"
+                        for s in statistics
+                    ):
                         days_with_subscription += 1
 
                 attributes.update(
@@ -538,7 +541,7 @@ class OctopusLatestReadingSensor(
                     attributes[kwh_attribute] = (
                         attributes.get(kwh_attribute) or 0.0
                     ) + kwh
-            elif label == "ABONNEMENT" and cost_incl_tax:
+            elif normalized == "ABONNEMENT" and cost_incl_tax:
                 attributes["cout_abonnement_euro"] = (
                     float(cost_incl_tax.get("estimatedAmount")) / 100
                     if cost_incl_tax.get("estimatedAmount")

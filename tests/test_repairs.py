@@ -111,6 +111,8 @@ class TestUnknownConsumptionLabels:
             pytest.param("HEURES_PLEINES", id="canonique"),
             pytest.param("ABONNEMENT", id="sans-statistique-attendue"),
             pytest.param("CONSUMPTION_OCTOFLEX_4_V4_HPE_0.0_37.0", id="tempo-connu"),
+            pytest.param("Heures creuses", id="lisible-hc"),
+            pytest.param("Heures Pleines", id="lisible-hp"),
         ],
     )
     def test_known_labels_raise_nothing(self, label: str) -> None:
