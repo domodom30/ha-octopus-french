@@ -72,6 +72,12 @@ _TWO_SEASON_LABEL_ALIASES: dict[str, str] = {
     "HCH": "HEURES_CREUSES_HIVER",
 }
 
+# Saison des libellés lisibles deux saisons : basse = été (B), haute = hiver (H).
+_READABLE_SEASONS: dict[str, str] = {
+    "BASSES": "ETE",
+    "HAUTES": "HIVER",
+}
+
 _UNKNOWN_LABELS_WARNED: set[str] = set()
 
 _MONTH_PATTERN = re.compile(
@@ -501,7 +507,12 @@ def _fold_label(label: str) -> str:
     """Fold a human-readable label ("Heures creuses") to its code form."""
     decomposed = unicodedata.normalize("NFKD", label)
     ascii_label = "".join(c for c in decomposed if not unicodedata.combining(c))
-    return re.sub(r"[\s\-_]+", "_", ascii_label.strip()).upper()
+    folded = re.sub(r"[\s\-_]+", "_", ascii_label.strip()).upper()
+    # "Heures Creuses Basses" → HEURES_CREUSES_ETE, comme "Heures creuses été".
+    head, _, season = folded.rpartition("_")
+    if head and season in _READABLE_SEASONS:
+        return f"{head}_{_READABLE_SEASONS[season]}"
+    return folded
 
 
 def _match_consumption_label(label: str) -> str | None:
