@@ -1,4 +1,4 @@
-## [4.1.10]
+## [4.1.10] - 2026-10-18
 
 ### 🐛 Correction — Capteurs « Facture électricité » et « Facture gaz » bloqués à 0 €
 
