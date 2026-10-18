@@ -1,3 +1,9 @@
+## [4.1.10]
+
+### 🐛 Correction — Capteurs « Facture électricité » et « Facture gaz » bloqués à 0 €
+
+Ces capteurs affichaient la part restant à payer de la dernière facture (`customerAmount`). Celle-ci tombe à 0 dès que le prélèvement est passé, si bien qu'ils restaient presque toujours à 0 €. Ils affichent désormais le montant total de la facture (`totalAmount`). Le reste à payer est toujours disponible dans l'attribut `customer_amount`.
+
 ## [4.1.9] - 2026-10-14
 
 ### 🐛 Correction — Libellés de consommation « Heures creuses » / « Heures Pleines » non reconnus

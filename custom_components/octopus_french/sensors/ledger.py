@@ -15,6 +15,11 @@ from .descriptions import OctopusLedgerSensorDescription
 _LOGGER = logging.getLogger(__name__)
 
 
+def _cents_to_euros(cents: float | None) -> float | None:
+    """Convert an amount in cents to euros, keeping None."""
+    return cents / 100 if cents is not None else None
+
+
 class OctopusLedgerSensor(
     CoordinatorEntity[OctopusFrenchDataUpdateCoordinator], SensorEntity
 ):
@@ -73,11 +78,15 @@ class OctopusLedgerSensor(
             last_payment = payment_requests.get(self._ledger_type)
 
             if last_payment:
-                customer_amount = last_payment.get("customerAmount")
-                if customer_amount is not None:
-                    return customer_amount / 100
+                # customerAmount is what is still due by the customer: it drops
+                # to 0 once the payment is cleared, so the bill is totalAmount.
+                amount = last_payment.get("totalAmount")
+                if amount is None:
+                    amount = last_payment.get("customerAmount")
+                if amount is not None:
+                    return amount / 100
                 _LOGGER.warning(
-                    "Payment request found but no customerAmount for %s",
+                    "Payment request found but no totalAmount for %s",
                     self._ledger_type,
                 )
             else:
@@ -102,9 +111,11 @@ class OctopusLedgerSensor(
 
             if last_payment:
                 return {
-                    "payment_status": last_payment.get("paymentStatus", "").lower(),
-                    "total_amount": last_payment.get("totalAmount", 0) / 100,
-                    "customer_amount": last_payment.get("customerAmount", 0) / 100,
+                    "payment_status": (last_payment.get("paymentStatus") or "").lower(),
+                    "total_amount": _cents_to_euros(last_payment.get("totalAmount")),
+                    "customer_amount": _cents_to_euros(
+                        last_payment.get("customerAmount")
+                    ),
                     "expected_payment_date": last_payment.get("expectedPaymentDate"),
                     "ledger_type": self._ledger_type,
                 }
