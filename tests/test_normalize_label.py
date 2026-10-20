@@ -129,6 +129,19 @@ _CONSUMPTION_MAPPING = {
             "Heures creuses été", "HEURES_CREUSES_ETE", id="lisible_hc_ete_accent"
         ),
         pytest.param("Abonnement", "ABONNEMENT", id="lisible_abonnement"),
+        # Libellés lisibles deux saisons : basse = été, haute = hiver.
+        pytest.param(
+            "Heures Pleines Basses", "HEURES_PLEINES_ETE", id="lisible_hp_basses"
+        ),
+        pytest.param(
+            "Heures Creuses Basses", "HEURES_CREUSES_ETE", id="lisible_hc_basses"
+        ),
+        pytest.param(
+            "Heures Pleines Hautes", "HEURES_PLEINES_HIVER", id="lisible_hp_hautes"
+        ),
+        pytest.param(
+            "Heures Creuses Hautes", "HEURES_CREUSES_HIVER", id="lisible_hc_hautes"
+        ),
         # Labels divers / vides → inchangés.
         pytest.param("", "", id="empty"),
     ],
@@ -162,6 +175,8 @@ def fresh_warned_labels():
         pytest.param("TEMPO_ROUGE_HC", id="tempo_court_rouge_hc"),
         pytest.param("Heures creuses", id="lisible_hc"),
         pytest.param("Heures Pleines", id="lisible_hp"),
+        pytest.param("Heures Creuses Basses", id="lisible_hc_basses"),
+        pytest.param("Heures Pleines Hautes", id="lisible_hp_hautes"),
     ],
 )
 def test_supported_labels_emit_no_warning(
@@ -287,6 +302,31 @@ def test_readable_labels_match_energy_keys(key: str, expected: float) -> None:
     stats = [
         ("Heures creuses", 4.052),
         ("Heures Pleines", 3.943),
+        ("ABONNEMENT", 0.0),
+    ]
+    assert _run_label_matching(stats, key) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize(
+    ("key", "expected"),
+    [
+        pytest.param("energy_summer_peak_hours", 5.0, id="lisible_hp_basses"),
+        pytest.param("energy_summer_off_peak_hours", 3.0, id="lisible_hc_basses"),
+        pytest.param("energy_winter_peak_hours", 8.0, id="lisible_hp_hautes"),
+        pytest.param("energy_winter_off_peak_hours", 4.0, id="lisible_hc_hautes"),
+        pytest.param("energy_peak_hours", 0.0, id="pas_de_hp_classique"),
+        pytest.param("energy_off_peak_hours", 0.0, id="pas_de_hc_classique"),
+    ],
+)
+def test_readable_two_season_labels_match_seasonal_keys(
+    key: str, expected: float
+) -> None:
+    """Les libellés lisibles deux saisons alimentent les capteurs de leur saison."""
+    stats = [
+        ("Heures Pleines Basses", 5.0),
+        ("Heures Creuses Basses", 3.0),
+        ("Heures Pleines Hautes", 8.0),
+        ("Heures Creuses Hautes", 4.0),
         ("ABONNEMENT", 0.0),
     ]
     assert _run_label_matching(stats, key) == pytest.approx(expected)
