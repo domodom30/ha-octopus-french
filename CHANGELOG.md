@@ -1,3 +1,9 @@
+## [4.1.11] - 2026-10-20
+
+### 🐛 Correction — Libellés « Heures Pleines/Creuses Basses/Hautes » non reconnus ([#92](https://github.com/domodom30/ha-octopus-french/pull/92))
+
+Sur les contrats HP/HC deux saisons, l'API Octopus renvoie désormais des libellés lisibles (`Heures Creuses Basses`, `Heures Pleines Hautes`…) au lieu des codes `CONSUMPTION_HPHC_2_SAISONS_HPB/HCB/HPH/HCH`. Ces libellés n'étaient pas reconnus : leurs kWh n'alimentaient ni les cumuls du mois en cours, ni les statistiques du tableau de bord Énergie, et une réparation « label de consommation inconnu » était levée. « Basses » est désormais rattaché à la saison basse (été) et « Hautes » à la saison haute (hiver). Pour combler les jours déjà importés, lancer le service **Recalculer les statistiques**. Merci à [@interxis](https://github.com/interxis) pour le correctif.
+
 ## [4.1.10] - 2026-10-18
 
 ### 🐛 Correction — Capteurs « Facture électricité » et « Facture gaz » bloqués à 0 €
