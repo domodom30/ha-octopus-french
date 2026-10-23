@@ -1,3 +1,13 @@
+## [4.1.12] - 2026-10-23
+
+### 🐛 Correction — Libellés OctoTempo « Heures pleines/creuses rouges » non reconnus (issue [#93](https://github.com/domodom30/ha-octopus-french/issues/93))
+
+Sur les contrats OctoTempo, l'API Octopus renvoie désormais des libellés lisibles (`Heures pleines rouges`, `Heures creuses été`, `Heures pleines hiver`…) au lieu des codes `CONSUMPTION_OCTOFLEX_4_V4_HPP/HCP/HPE/HCE/HPHI/HCHI_…`. Les libellés des jours rouges n'étaient pas reconnus : leurs kWh n'alimentaient ni les cumuls du mois en cours, ni les statistiques du tableau de bord Énergie, et une réparation « label de consommation inconnu » était levée. Ils sont désormais rattachés aux registres Tempo pointe, au singulier comme au pluriel.
+
+Plus discret, les libellés été et hiver étaient bien reconnus depuis la 4.1.9, mais rangés dans les séries des contrats HP/HC deux saisons : sur un contrat Tempo, les capteurs et statistiques Tempo Été / Hiver restaient à 0, tandis que des statistiques `…_summer_*` / `…_winter_*` étaient créées à tort. Le libellé seul étant ambigu (« Heures pleines été » existe aussi en deux saisons), le type de contrat du compteur décide désormais du rangement. Les contrats HP/HC deux saisons ne sont pas affectés.
+
+Pour combler les jours déjà importés, lancer le service **Recalculer les statistiques** depuis le 14/10/2026. Les statistiques `…_summer_*` / `…_winter_*` créées sur un compteur Tempo peuvent être supprimées depuis **Outils de développement → Statistiques**. Merci à [@DroidXAcee](https://github.com/DroidXAcee) et [@AlexandreVng](https://github.com/AlexandreVng) pour le signalement.
+
 ## [4.1.11] - 2026-10-20
 
 ### 🐛 Correction — Libellés « Heures Pleines/Creuses Basses/Hautes » non reconnus ([#92](https://github.com/domodom30/ha-octopus-french/pull/92))
