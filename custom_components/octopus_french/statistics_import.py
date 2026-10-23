@@ -25,6 +25,7 @@ from .const import COST_KEY_TO_LABEL, DOMAIN, ENERGY_KEY_TO_LABEL
 from .utils import (
     gas_daily_values,
     get_tariff_rate_for_key,
+    is_tempo_contract,
     normalize_consumption_label,
     reading_local_day,
 )
@@ -102,6 +103,7 @@ class OctopusStatisticsImporter:
         """Collect daily values of every key from the readings in one pass."""
         daily_values: dict[str, dict[datetime, float]] = {}
         rates: dict[str, float | None] = {}
+        tempo = is_tempo_contract(data, prm_id)
 
         try:
             sorted_readings = sorted(readings, key=lambda x: x.get("startAt", ""))
@@ -117,7 +119,7 @@ class OctopusStatisticsImporter:
                 continue
 
             for stat in (reading.get("metaData") or {}).get("statistics", []):
-                label = normalize_consumption_label(stat.get("label", ""))
+                label = normalize_consumption_label(stat.get("label", ""), tempo=tempo)
                 value = stat.get("value")
 
                 energy_key = _LABEL_TO_ENERGY_KEY.get(label)

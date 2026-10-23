@@ -9,6 +9,7 @@ from typing import Any
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    ENERGY_KEY_TO_LABEL,
     FRENCH_MONTH_NUMBERS,
     TARIFF_TYPE_HPHC_TWO_SEASON,
     TARIFF_TYPE_TEMPO,
@@ -76,6 +77,23 @@ _TWO_SEASON_LABEL_ALIASES: dict[str, str] = {
 _READABLE_SEASONS: dict[str, str] = {
     "BASSES": "ETE",
     "HAUTES": "HIVER",
+}
+
+# Libellés lisibles des jours rouges OctoTempo (issue #93), propres à Tempo.
+_READABLE_TEMPO_LABELS: dict[str, str] = {
+    "HEURES_PLEINES_ROUGE": ENERGY_KEY_TO_LABEL["energy_tempo_rouge_hp"],
+    "HEURES_PLEINES_ROUGES": ENERGY_KEY_TO_LABEL["energy_tempo_rouge_hp"],
+    "HEURES_CREUSES_ROUGE": ENERGY_KEY_TO_LABEL["energy_tempo_rouge_hc"],
+    "HEURES_CREUSES_ROUGES": ENERGY_KEY_TO_LABEL["energy_tempo_rouge_hc"],
+}
+
+# Sur un contrat Tempo, « Heures pleines été » désigne le registre Tempo été,
+# et non la saison d'un contrat HP/HC deux saisons.
+_TWO_SEASON_TO_TEMPO_LABEL: dict[str, str] = {
+    "HEURES_PLEINES_ETE": ENERGY_KEY_TO_LABEL["energy_tempo_ete_hp"],
+    "HEURES_CREUSES_ETE": ENERGY_KEY_TO_LABEL["energy_tempo_ete_hc"],
+    "HEURES_PLEINES_HIVER": ENERGY_KEY_TO_LABEL["energy_tempo_hiver_hp"],
+    "HEURES_CREUSES_HIVER": ENERGY_KEY_TO_LABEL["energy_tempo_hiver_hc"],
 }
 
 _UNKNOWN_LABELS_WARNED: set[str] = set()
@@ -275,7 +293,7 @@ def find_calendar_hc_ranges(
     return None
 
 
-def _is_tempo_contract(data: dict[str, Any], prm_id: str) -> bool:
+def is_tempo_contract(data: dict[str, Any], prm_id: str) -> bool:
     """Return whether the PRM is on a Tempo contract."""
     for agreement in data.get("agreements", []):
         if agreement.get("prm") != prm_id or not agreement.get("is_active"):
@@ -308,7 +326,7 @@ def resolve_hc_schedule(
     if off_peak_label := meter.get("offPeakLabel"):
         schedule = parse_off_peak_hours(off_peak_label)
         schedule["source"] = "linky"
-        if _is_tempo_contract(data, prm_id) and prm_id not in _LINKY_FALLBACK_WARNED:
+        if is_tempo_contract(data, prm_id) and prm_id not in _LINKY_FALLBACK_WARNED:
             _LINKY_FALLBACK_WARNED.add(prm_id)
 
         return schedule
@@ -369,7 +387,7 @@ def resolve_tempo_season(
     data: dict[str, Any], prm_id: str, day: date | None = None
 ) -> str | None:
     """Return the OctoTempo season (`ETE` / `HIVER`) for a date."""
-    if not _is_tempo_contract(data, prm_id):
+    if not is_tempo_contract(data, prm_id):
         return None
 
     return _season_for_day(
@@ -519,6 +537,8 @@ def _match_consumption_label(label: str) -> str | None:
     """Return the canonical form of a code label, or None if unrecognized."""
     if label in ("HEURES_BASE", "BASE"):
         return "BASE"
+    if label in _READABLE_TEMPO_LABELS:
+        return _READABLE_TEMPO_LABELS[label]
     if (
         label in _CANONICAL_CONSUMPTION_LABELS
         or label in _TWO_SEASON_LABEL_ALIASES.values()
@@ -540,16 +560,20 @@ def _match_consumption_label(label: str) -> str | None:
     return None
 
 
-def normalize_consumption_label(label: str) -> str:
-    """Normalize API label variants to their canonical form."""
+def normalize_consumption_label(label: str, *, tempo: bool = False) -> str:
+    """Normalize API label variants to their canonical form.
+
+    `tempo` routes the seasonal labels of a Tempo meter to its Tempo registers.
+    """
     if not label:
         return label
-    if (canonical := _match_consumption_label(label)) is not None:
-        return canonical
+    canonical = _match_consumption_label(label)
     # L'API renvoie aussi des libellés lisibles ("Heures creuses", "Heures Pleines").
-    if (folded := _fold_label(label)) != label and (
-        canonical := _match_consumption_label(folded)
-    ) is not None:
+    if canonical is None and (folded := _fold_label(label)) != label:
+        canonical = _match_consumption_label(folded)
+    if canonical is not None:
+        if tempo:
+            return _TWO_SEASON_TO_TEMPO_LABEL.get(canonical, canonical)
         return canonical
 
     if label not in _UNKNOWN_LABELS_WARNED:

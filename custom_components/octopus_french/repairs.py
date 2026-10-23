@@ -17,6 +17,7 @@ from .const import (
 )
 from .utils import (
     get_tempo_color_for_prm,
+    is_tempo_contract,
     normalize_consumption_label,
     resolve_hc_schedule,
 )
@@ -57,10 +58,11 @@ def _meters_on_linky_fallback(data: dict[str, Any]) -> list[str]:
 def _unknown_consumption_labels(data: dict[str, Any]) -> set[str]:
     """Return consumption labels that feed no statistic."""
     unknown = set()
-    for prm_data in (data.get("electricity_by_prm") or {}).values():
+    for prm_id, prm_data in (data.get("electricity_by_prm") or {}).items():
+        tempo = is_tempo_contract(data, prm_id)
         for reading in prm_data.get("readings") or []:
             for stat in (reading.get("metaData") or {}).get("statistics", []):
-                label = normalize_consumption_label(stat.get("label", ""))
+                label = normalize_consumption_label(stat.get("label", ""), tempo=tempo)
                 if (
                     label
                     and label not in _KNOWN_LABELS

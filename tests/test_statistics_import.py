@@ -416,6 +416,49 @@ async def test_two_season_readings_route_to_seasonal_statistics() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("paris_tz")
+async def test_octotempo_readable_labels_route_to_tempo_statistics() -> None:
+    """Les libellés lisibles OctoTempo alimentent les séries Tempo (issue #93).
+
+    « Heures creuses été » ne doit pas tomber dans les séries deux saisons, et
+    « Heures pleines rouges » doit être reconnu.
+    """
+    store = _FakeStatsStore()
+    agreement = [
+        {
+            "prm": "PRM1",
+            "is_active": True,
+            "product": {"code": "OCTOFLEX_4"},
+            "tariffs": {"consumption": {}},
+        }
+    ]
+    readings = [
+        _reading("2026-06-14T00:00:00+02:00", 4.0, label="Heures creuses été"),
+        _reading("2026-06-15T00:00:00+02:00", 6.0, label="Heures creuses été"),
+        _reading("2026-06-15T00:00:00+02:00", 2.0, label="Heures pleines rouges"),
+    ]
+    await _run_import(_make_importer(readings, agreements=agreement), store)
+
+    assert store.states("octopus_french:PRM1_energy_tempo_ete_hc") == [4.0, 6.0]
+    assert store.states("octopus_french:PRM1_energy_tempo_rouge_hp") == [2.0]
+    assert "octopus_french:PRM1_energy_summer_off_peak_hours" not in store.rows
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("paris_tz")
+async def test_two_season_readable_labels_stay_seasonal() -> None:
+    """Hors Tempo, « Heures Creuses Basses » reste une série deux saisons (#92)."""
+    store = _FakeStatsStore()
+    readings = [
+        _reading("2026-06-14T00:00:00+02:00", 3.0, label="Heures Creuses Basses"),
+    ]
+    await _run_import(_make_importer(readings), store)
+
+    assert store.states("octopus_french:PRM1_energy_summer_off_peak_hours") == [3.0]
+    assert "octopus_french:PRM1_energy_tempo_ete_hc" not in store.rows
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("paris_tz")
 async def test_mixed_offsets_across_cycles_do_not_double() -> None:
     """Régression 3.2.5 : même instant réémis avec un offset UTC différent, sans doubler."""
     store = _FakeStatsStore()

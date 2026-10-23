@@ -121,6 +121,21 @@ class TestUnknownConsumptionLabels:
         """Un label pris en charge ne doit produire aucun ticket."""
         assert _unknown_consumption_labels(_data(labels=[label])) == set()
 
+    @pytest.mark.parametrize(
+        "label",
+        [
+            pytest.param("Heures pleines rouges", id="lisible-hp-rouges"),
+            pytest.param("Heures creuses rouges", id="lisible-hc-rouges"),
+            pytest.param("Heures creuses été", id="lisible-hc-ete"),
+            pytest.param("Heures pleines hiver", id="lisible-hp-hiver"),
+        ],
+    )
+    def test_readable_tempo_labels_raise_nothing(self, label: str) -> None:
+        """Les libellés lisibles OctoTempo sont reconnus (issue #93)."""
+        data = _data(temporal_classes=_OCTOTEMPO_CLASSES, labels=[label])
+
+        assert _unknown_consumption_labels(data) == set()
+
     def test_unknown_label_is_reported(self) -> None:
         """Un label inédit signifie des kWh absents du tableau de bord Énergie."""
         data = _data(labels=["CONSUMPTION_OFFRE_INEDITE_XYZ_0.0_37.0"])

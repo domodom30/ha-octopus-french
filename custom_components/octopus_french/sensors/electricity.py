@@ -23,6 +23,7 @@ from ..utils import (
     RATE_KEY_TO_CONSUMPTION_KEY,
     get_tariff_rate_for_key,
     get_tempo_color_for_prm,
+    is_tempo_contract,
     normalize_consumption_label,
     normalize_provider_calendar,
     reading_local_day,
@@ -182,6 +183,7 @@ class OctopusElectricitySensor(
 
         current_month = self._get_current_month()
         total = 0.0
+        tempo = is_tempo_contract(self.coordinator.data, self._prm_id)
 
         for reading in sorted_readings:
             day = reading_local_day(reading.get("startAt"))
@@ -191,7 +193,7 @@ class OctopusElectricitySensor(
             statistics = (reading.get("metaData") or {}).get("statistics", [])
 
             for stat in statistics:
-                label = normalize_consumption_label(stat.get("label", ""))
+                label = normalize_consumption_label(stat.get("label", ""), tempo=tempo)
 
                 if key.startswith("energy_"):
                     expected_label = ENERGY_KEY_TO_LABEL.get(key)
@@ -522,6 +524,7 @@ class OctopusLatestReadingSensor(
 
         reading = readings[-1]
         statistics = (reading.get("metaData") or {}).get("statistics", [])
+        tempo = is_tempo_contract(self.coordinator.data, self._prm_id)
 
         attributes = {"date_releve": reading.get("startAt")}
 
@@ -530,7 +533,7 @@ class OctopusLatestReadingSensor(
             value = stat.get("value")
             cost_incl_tax = stat.get("costInclTax")
 
-            normalized = normalize_consumption_label(label)
+            normalized = normalize_consumption_label(label, tempo=tempo)
             if normalized == "BASE":
                 attributes["heures_base"] = float(value) if value else None
             elif kwh_attribute := _LABEL_TO_KWH_ATTRIBUTE.get(normalized):

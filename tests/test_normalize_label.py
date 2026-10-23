@@ -142,6 +142,22 @@ _CONSUMPTION_MAPPING = {
         pytest.param(
             "Heures Creuses Hautes", "HEURES_CREUSES_HIVER", id="lisible_hc_hautes"
         ),
+        # Libellés lisibles des jours rouges OctoTempo (issue #93).
+        pytest.param(
+            "Heures pleines rouges",
+            "CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0",
+            id="lisible_hp_rouges",
+        ),
+        pytest.param(
+            "Heures creuses rouges",
+            "CONSUMPTION_OCTOFLEX_4_V4_HCP_0.0_37.0",
+            id="lisible_hc_rouges",
+        ),
+        pytest.param(
+            "Heures pleines rouge",
+            "CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0",
+            id="lisible_hp_rouge_singulier",
+        ),
         # Labels divers / vides → inchangés.
         pytest.param("", "", id="empty"),
     ],
@@ -149,6 +165,53 @@ _CONSUMPTION_MAPPING = {
 def test_normalize_consumption_label(label: str, expected: str) -> None:
     """Le segment HP/HC est remappé quelle que soit l'offre, sauf sur Tempo."""
     assert normalize_consumption_label(label) == expected
+
+
+_SEASONAL_READABLE_LABELS = [
+    ("Heures pleines été", "HEURES_PLEINES_ETE", "HPE"),
+    ("Heures creuses été", "HEURES_CREUSES_ETE", "HCE"),
+    ("Heures pleines hiver", "HEURES_PLEINES_HIVER", "HPHI"),
+    ("Heures creuses hiver", "HEURES_CREUSES_HIVER", "HCHI"),
+    ("Heures Pleines Basses", "HEURES_PLEINES_ETE", "HPE"),
+]
+
+
+@pytest.mark.parametrize(
+    ("label", "two_season", "tempo_code"), _SEASONAL_READABLE_LABELS
+)
+def test_seasonal_readable_labels_on_tempo_route_to_tempo_registers(
+    label: str, two_season: str, tempo_code: str
+) -> None:
+    """Sur un contrat Tempo, « été »/« hiver » désignent les registres Tempo (#93).
+
+    Sans le contrat, ces libellés tombaient dans les séries HP/HC deux saisons
+    et les capteurs Tempo été/hiver restaient à 0.
+    """
+    assert (
+        normalize_consumption_label(label, tempo=True)
+        == f"CONSUMPTION_OCTOFLEX_4_V4_{tempo_code}_0.0_37.0"
+    )
+
+
+@pytest.mark.parametrize(
+    ("label", "two_season", "tempo_code"), _SEASONAL_READABLE_LABELS
+)
+def test_seasonal_readable_labels_outside_tempo_stay_two_season(
+    label: str, two_season: str, tempo_code: str
+) -> None:
+    """Hors Tempo, les libellés saisonniers restent ceux du deux saisons (#92)."""
+    assert normalize_consumption_label(label) == two_season
+
+
+def test_tempo_flag_keeps_non_seasonal_labels() -> None:
+    """Le contrat Tempo ne touche ni l'abonnement ni les codes déjà Tempo."""
+    assert normalize_consumption_label("Abonnement", tempo=True) == "ABONNEMENT"
+    assert (
+        normalize_consumption_label(
+            "CONSUMPTION_OCTOFLEX_4_V4_HCE_0.0_37.0", tempo=True
+        )
+        == "CONSUMPTION_OCTOFLEX_4_V4_HCE_0.0_37.0"
+    )
 
 
 @pytest.fixture
@@ -177,6 +240,8 @@ def fresh_warned_labels():
         pytest.param("Heures Pleines", id="lisible_hp"),
         pytest.param("Heures Creuses Basses", id="lisible_hc_basses"),
         pytest.param("Heures Pleines Hautes", id="lisible_hp_hautes"),
+        pytest.param("Heures pleines rouges", id="lisible_hp_rouges"),
+        pytest.param("Heures creuses rouges", id="lisible_hc_rouges"),
     ],
 )
 def test_supported_labels_emit_no_warning(
