@@ -297,7 +297,6 @@ class OctopusIntelligentVehicleStatusSensor(
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
-            via_device=(DOMAIN, coordinator.account_number),
             name=device_name,
             model=device_name,
         )
@@ -346,7 +345,6 @@ class OctopusIntelligentWeekdayTargetSocSensor(
         self._attr_native_unit_of_measurement = "%"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
-            via_device=(DOMAIN, coordinator.account_number),
             name=device_name,
             model=device_name,
         )
@@ -385,7 +383,6 @@ class OctopusIntelligentWeekdayTargetTimeSensor(
         self._attr_icon = "mdi:clock-outline"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
-            via_device=(DOMAIN, coordinator.account_number),
             name=device_name,
             model=device_name,
         )
@@ -426,7 +423,6 @@ class OctopusIntelligentWeekendTargetSocSensor(
         self._attr_native_unit_of_measurement = "%"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
-            via_device=(DOMAIN, coordinator.account_number),
             name=device_name,
             model=device_name,
         )
@@ -465,7 +461,6 @@ class OctopusIntelligentWeekendTargetTimeSensor(
         self._attr_icon = "mdi:clock-outline"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
-            via_device=(DOMAIN, coordinator.account_number),
             name=device_name,
             model=device_name,
         )
@@ -505,7 +500,6 @@ class OctopusIntelligentPlannedDispatchesSensor(
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
-            via_device=(DOMAIN, coordinator.account_number),
             name=device_name,
             model=device_name,
         )

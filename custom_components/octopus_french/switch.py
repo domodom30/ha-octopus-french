@@ -64,7 +64,6 @@ class OctopusIntelligentBumpChargeSwitch(
         self._attr_translation_key = "bump_charge"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
-            via_device=(DOMAIN, coordinator.account_number),
             name=device_name,
             model=device_name,
         )
@@ -149,7 +148,6 @@ class OctopusIntelligentSmartControlSwitch(
         self._attr_entity_category = EntityCategory.CONFIG
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
-            via_device=(DOMAIN, coordinator.account_number),
             name=device_name,
             model=device_name,
         )

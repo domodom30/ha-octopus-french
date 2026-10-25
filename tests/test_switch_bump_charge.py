@@ -76,7 +76,6 @@ def test_bump_charge_switch_is_attached_to_vehicle_device(bump_charge_switch):
     """Test that the boost switch appears on the Intelligent vehicle device."""
     assert bump_charge_switch.device_info == {
         "identifiers": {("octopus_french", "abc-123")},
-        "via_device": ("octopus_french", "A-XXXX"),
         "name": "Tesla Model 3",
         "model": "Tesla Model 3",
     }

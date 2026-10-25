@@ -3,6 +3,8 @@
 import logging
 from typing import Any
 
+# HA >= 2026.10 redirige voluptuous vers probatio à l'exécution, mais pyright voit
+# deux types de Schema distincts : d'où les « pyright: ignore » sur les schémas.
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlowResult
@@ -79,7 +81,7 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema(
+            data_schema=vol.Schema(  # pyright: ignore[reportArgumentType]
                 {
                     vol.Required(CONF_EMAIL): str,
                     vol.Required(CONF_PASSWORD): str,
@@ -121,7 +123,7 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="account",
-            data_schema=vol.Schema(
+            data_schema=vol.Schema(  # pyright: ignore[reportArgumentType]
                 {
                     vol.Required(CONF_ACCOUNT_NUMBER): vol.In(account_list),
                 }
@@ -168,6 +170,6 @@ class OctopusFrenchConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="reauth_confirm",
-            data_schema=vol.Schema({vol.Required(CONF_PASSWORD): str}),
+            data_schema=vol.Schema({vol.Required(CONF_PASSWORD): str}),  # pyright: ignore[reportArgumentType]
             errors=errors,
         )

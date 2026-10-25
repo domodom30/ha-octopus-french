@@ -5,6 +5,8 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import datetime, time
 
+# HA >= 2026.10 redirige voluptuous vers probatio à l'exécution, mais pyright voit
+# deux types de Schema distincts : d'où les « pyright: ignore » sur les schémas.
 import voluptuous as vol
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
@@ -145,7 +147,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         DOMAIN,
         SERVICE_FORCE_UPDATE,
         handle_force_update,
-        schema=vol.Schema({}),
+        schema=vol.Schema({}),  # pyright: ignore[reportArgumentType]
     )
 
     async_register_admin_service(
@@ -153,7 +155,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         DOMAIN,
         SERVICE_RECOMPUTE_STATISTICS,
         handle_recompute_statistics,
-        schema=vol.Schema(
+        schema=vol.Schema(  # pyright: ignore[reportArgumentType]
             {
                 vol.Required("start_date"): cv.date,
                 vol.Optional("prm"): cv.string,
@@ -165,7 +167,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         DOMAIN,
         SERVICE_PURGE_ORPHAN_STATISTICS,
         handle_purge_orphan_statistics,
-        schema=vol.Schema({vol.Optional("confirm", default=False): cv.boolean}),
+        schema=vol.Schema({vol.Optional("confirm", default=False): cv.boolean}),  # pyright: ignore[reportArgumentType]
         supports_response=SupportsResponse.OPTIONAL,
     )
     return True
@@ -369,20 +371,35 @@ async def _async_create_intelligent_devices(
 ) -> None:
     """Create vehicle devices for Octopus Intelligent."""
     device_registry = dr.async_get(hass)
+    # async_get_or_create renvoie l'appareil compte créé par _async_create_devices :
+    # async_get_device est déprécié depuis HA 2026.10 et son remplaçant n'existe pas
+    # avant.
+    account_device = (
+        device_registry.async_get_or_create(
+            config_entry_id=entry.entry_id,
+            identifiers={(DOMAIN, str(account_number))},
+        )
+        if account_number
+        else None
+    )
+    via_device_id = account_device.id if account_device else None
 
     for device in coordinator.data.get("devices", []):
         device_id = device.get("id")
         if not device_id:
             continue
 
-        device_registry.async_get_or_create(
+        vehicle = device_registry.async_get_or_create(
             config_entry_id=entry.entry_id,
             identifiers={(DOMAIN, str(device_id))},
             name=device.get("name") or device_id,
             manufacturer=device.get("chargePointMake"),
             model=device.get("chargePointModel"),
-            via_device=(DOMAIN, str(account_number)) if account_number else None,
         )
+        # via_device est déprécié depuis HA 2026.10 et via_device_id n'existe pas
+        # dans async_get_or_create avant : on passe par async_update_device.
+        if vehicle.via_device_id != via_device_id:
+            device_registry.async_update_device(vehicle.id, via_device_id=via_device_id)
 
 
 async def async_unload_entry(

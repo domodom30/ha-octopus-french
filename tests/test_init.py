@@ -13,10 +13,12 @@ import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers import device_registry as dr
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.octopus_french import _async_create_intelligent_devices
 from custom_components.octopus_french.const import (
     DOMAIN,
     SERVICE_FORCE_UPDATE,
@@ -324,3 +326,35 @@ async def test_purge_deletes_only_once_confirmed(
         )
 
     purge.assert_awaited_once_with(orphans)
+
+
+@pytest.mark.parametrize(
+    ("account_number", "linked"),
+    [
+        pytest.param("A-123", True, id="avec-compte"),
+        pytest.param("", False, id="sans-compte"),
+    ],
+)
+async def test_intelligent_device_linked_to_account(
+    hass: HomeAssistant, account_number: str, linked: bool
+) -> None:
+    """Le véhicule est rattaché au compte via via_device_id, sans via_device déprécié."""
+    entry = MockConfigEntry(domain=DOMAIN, data=_ENTRY_DATA, unique_id="A-123")
+    entry.add_to_hass(hass)
+    registry = dr.async_get(hass)
+    account = registry.async_get_or_create(
+        config_entry_id=entry.entry_id, identifiers={(DOMAIN, "A-123")}
+    )
+    coordinator = MagicMock(data={"devices": [{"id": "veh-1", "name": "Zoé"}]})
+
+    await _async_create_intelligent_devices(hass, entry, coordinator, account_number)
+    # Un second passage (rechargement) ne doit rien changer.
+    await _async_create_intelligent_devices(hass, entry, coordinator, account_number)
+
+    vehicles = [
+        device
+        for device in dr.async_entries_for_config_entry(registry, entry.entry_id)
+        if (DOMAIN, "veh-1") in device.identifiers
+    ]
+    assert len(vehicles) == 1
+    assert vehicles[0].via_device_id == (account.id if linked else None)

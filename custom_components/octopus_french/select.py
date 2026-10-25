@@ -64,7 +64,6 @@ class OctopusIntelligentTargetTimeSelect(
         self._attr_options = TIME_OPTIONS
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
-            via_device=(DOMAIN, coordinator.account_number),
             name=device_name,
             model=device_name,
         )
