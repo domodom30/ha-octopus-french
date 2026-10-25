@@ -102,6 +102,11 @@ _MONTH_PATTERN = re.compile(
     "|".join(sorted(FRENCH_MONTH_NUMBERS, key=len, reverse=True)), re.IGNORECASE
 )
 
+# Segment saisonnier d'une description HC : « Du 01/11 au 31/03 : ... » (issue #94).
+_DATED_SEGMENT_PATTERN = re.compile(
+    r"\bdu\s*(\d{1,2})/(\d{1,2})\s*au\s*(\d{1,2})/(\d{1,2})", re.IGNORECASE
+)
+
 
 def parse_off_peak_hours(off_peak_label: str | None) -> dict[str, Any]:
     """Parse off-peak hours label and extract time ranges."""
@@ -266,8 +271,45 @@ def _find_electricity_meter(data: dict[str, Any], prm_id: str) -> dict[str, Any]
     return None
 
 
+def _current_dated_segment(description: str | None, day: date) -> str | None:
+    """Return the part of a description whose « Du JJ/MM au JJ/MM » covers the day.
+
+    A description without dated segments, or whose segments do not cover the
+    day, is returned unchanged.
+    """
+    if not description:
+        return description
+
+    matches = list(_DATED_SEGMENT_PATTERN.finditer(description))
+    current = (day.month, day.day)
+    for index, match in enumerate(matches):
+        start_day, start_month, end_day, end_month = (int(g) for g in match.groups())
+        start, end = (start_month, start_day), (end_month, end_day)
+        covered = (
+            start <= current <= end
+            if start <= end
+            else current >= start or current <= end
+        )
+        if covered:
+            stop = (
+                matches[index + 1].start()
+                if index + 1 < len(matches)
+                else len(description)
+            )
+            return description[match.end() : stop]
+
+    if matches:
+        _LOGGER.debug(
+            "No dated segment of '%s' covers %s, keeping all ranges", description, day
+        )
+    return description
+
+
 def find_calendar_hc_ranges(
-    data: dict[str, Any], prm_id: str, tempo_color: str | None = None
+    data: dict[str, Any],
+    prm_id: str,
+    tempo_color: str | None = None,
+    day: date | None = None,
 ) -> dict[str, Any] | None:
     """Derive off-peak ranges from the meter's provider calendar."""
     meter = _find_electricity_meter(data, prm_id)
@@ -283,7 +325,11 @@ def find_calendar_hc_ranges(
     for temporal_class in meter.get("provider_temporal_classes") or []:
         if (temporal_class.get("code") or "").upper() != wanted:
             continue
-        schedule = parse_off_peak_hours(temporal_class.get("description"))
+        schedule = parse_off_peak_hours(
+            _current_dated_segment(
+                temporal_class.get("description"), day or dt_util.now().date()
+            )
+        )
         if schedule["range_count"] > 0:
             schedule["type"] = "HC"
             schedule["source"] = "calendar"
@@ -526,7 +572,6 @@ def _fold_label(label: str) -> str:
     decomposed = unicodedata.normalize("NFKD", label)
     ascii_label = "".join(c for c in decomposed if not unicodedata.combining(c))
     folded = re.sub(r"[\s\-_]+", "_", ascii_label.strip()).upper()
-    # "Heures Creuses Basses" → HEURES_CREUSES_ETE, comme "Heures creuses été".
     head, _, season = folded.rpartition("_")
     if head and season in _READABLE_SEASONS:
         return f"{head}_{_READABLE_SEASONS[season]}"

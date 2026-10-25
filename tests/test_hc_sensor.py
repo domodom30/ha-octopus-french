@@ -464,3 +464,82 @@ class TestTwoSeasonHcSchedule:
             consumption={"heures_creuses": {"time_slots": []}},
         )
         assert resolve_two_season(data, "PRM1", date(2026, 1, 15)) is None
+
+
+# Description réelle d'un contrat HP/HC option « Ballon » (issue #94).
+_BALLON_HC_DESCRIPTION = (
+    "Du 01/11 au 31/03 : de 22h00 à 06h00 - "
+    "Du 01/04 au 31/10 : de 01h00 à 06h00 et de 12h00 à 15h00"
+)
+
+_BALLON_SUMMER_RANGES = [("01:00", "06:00"), ("12:00", "15:00")]
+_BALLON_WINTER_RANGES = [("22:00", "06:00")]
+
+
+def _make_ballon_data(description: str = _BALLON_HC_DESCRIPTION) -> dict:
+    """coordinator.data d'un contrat HP/HC Ballon, sans créneaux au contrat."""
+    return _make_two_season_data(
+        temporal_classes=[
+            {"code": "HC", "description": description},
+            {"code": "HP", "description": ""},
+        ],
+        consumption={"heures_creuses": {"time_slots": []}},
+    )
+
+
+class TestDatedSegmentHcSchedule:
+    """Plages HC d'une description découpée en segments « Du JJ/MM au JJ/MM »."""
+
+    @pytest.mark.parametrize(
+        ("day", "expected"),
+        [
+            pytest.param(date(2026, 10, 24), _BALLON_SUMMER_RANGES, id="ete"),
+            pytest.param(date(2026, 1, 15), _BALLON_WINTER_RANGES, id="hiver"),
+            pytest.param(date(2026, 3, 31), _BALLON_WINTER_RANGES, id="fin-mars"),
+            pytest.param(date(2026, 4, 1), _BALLON_SUMMER_RANGES, id="debut-avril"),
+            pytest.param(date(2026, 10, 31), _BALLON_SUMMER_RANGES, id="fin-octobre"),
+            pytest.param(date(2026, 11, 1), _BALLON_WINTER_RANGES, id="debut-novembre"),
+        ],
+    )
+    def test_only_current_segment_ranges(
+        self, day: date, expected: list[tuple[str, str]]
+    ) -> None:
+        """Seules les plages du segment couvrant le jour sont retenues."""
+        schedule = find_calendar_hc_ranges(_make_ballon_data(), "PRM1", day=day)
+
+        assert schedule is not None
+        assert schedule["source"] == "calendar"
+        assert [(r["start"], r["end"]) for r in schedule["ranges"]] == expected
+        assert schedule["total_hours"] == 8.0
+
+    @pytest.mark.parametrize(
+        ("now", "expected"),
+        [
+            pytest.param(_SUMMER_NOW, _BALLON_SUMMER_RANGES, id="ete"),
+            pytest.param(_WINTER_NOW, _BALLON_WINTER_RANGES, id="hiver"),
+        ],
+    )
+    def test_resolve_hc_schedule_uses_today(
+        self, now: datetime, expected: list[tuple[str, str]]
+    ) -> None:
+        """Sans date explicite, la saison est celle du jour courant."""
+        with patch.object(utils.dt_util, "now", return_value=now):
+            schedule = resolve_hc_schedule(_make_ballon_data(), "PRM1")
+
+        assert schedule["source"] == "calendar"
+        assert [(r["start"], r["end"]) for r in schedule["ranges"]] == expected
+
+    def test_uncovered_day_keeps_all_ranges(self) -> None:
+        """Si aucun segment ne couvre le jour, toutes les plages sont conservées."""
+        data = _make_ballon_data(
+            "Du 01/04 au 30/06 : de 01h00 à 06h00 - "
+            "Du 01/07 au 31/10 : de 12h00 à 15h00"
+        )
+
+        schedule = find_calendar_hc_ranges(data, "PRM1", day=date(2026, 1, 15))
+
+        assert schedule is not None
+        assert [(r["start"], r["end"]) for r in schedule["ranges"]] == [
+            ("01:00", "06:00"),
+            ("12:00", "15:00"),
+        ]
