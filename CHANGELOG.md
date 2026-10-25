@@ -1,3 +1,13 @@
+## [4.1.13] - 2026-10-25
+
+### 🐛 Correction — Option « Ballon » : plages HC été et hiver cumulées (issue [#94](https://github.com/domodom30/ha-octopus-french/issues/94))
+
+Sur les contrats HP/HC « À fond les ballons », le calendrier Octopus décrit les heures creuses par période (`Du 01/11 au 31/03 : de 22h00 à 06h00 - Du 01/04 au 31/10 : de 01h00 à 06h00 et de 12h00 à 15h00`). Le capteur **Heures creuses actives** retenait les plages des deux saisons à la fois (16 h au lieu de 8 h) : il passait à `on` dès 22:00 en été, et le serait aussi resté de 12:00 à 15:00 en hiver. Seules les plages de la période couvrant la date du jour sont désormais retenues. Les descriptions sans période datée (HP/HC classique, Tempo, deux saisons) ne sont pas affectées. Merci à [@traplettip](https://github.com/traplettip) pour le signalement et l'analyse.
+
+### 🛠️ Maintenance — Compatibilité Home Assistant 2026.10
+
+Home Assistant 2026.10 déprécie le rattachement d'un appareil par `via_device`, supprimé en 2027.8 : les appareils véhicules Octopus Intelligent sont désormais rattachés au compte par `via_device_id`, ce qui supprime l'avertissement de dépréciation du journal. Le rattachement reste compatible avec la version minimale de Home Assistant prise en charge. Les tests tournent désormais sur Home Assistant 2026.10.2.
+
 ## [4.1.12] - 2026-10-23
 
 ### 🐛 Correction — Libellés OctoTempo « Heures pleines/creuses rouges » non reconnus (issue [#93](https://github.com/domodom30/ha-octopus-french/issues/93))
