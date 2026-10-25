@@ -2,7 +2,9 @@
 #   pip install -r requirements_test.txt
 #
 # pytest-homeassistant-custom-component épingle exactement homeassistant et pytest.
-# La version ci-dessous correspond à Home Assistant 2026.3.2 (schéma 0.13.PATCH).
+# La version ci-dessous correspond à Home Assistant 2026.10.2 (schéma 0.13.PATCH),
+# celle de l'image du devcontainer : pyright lit aussi /usr/src/homeassistant
+# (extraPaths), les deux doivent rester alignés.
 # NB : Home Assistant >= 2026.3 exige Python >= 3.14.2 (les tests ne tournent donc
 # plus sous Python 3.13).
 # Pour la mettre à jour, aligner sur la version de HA visée puis :
@@ -11,7 +13,7 @@
 # NB : on n'installe pas le projet en editable (pip install -e .) — pytest importe
 # custom_components via `pythonpath = ["."]` (voir pyproject.toml). Un `-e .` échoue
 # de toute façon ici à cause du dossier config/ (flat-layout ambigu pour setuptools).
-homeassistant==2026.3.2
-pytest-homeassistant-custom-component==0.13.318
+homeassistant==2026.10.2
+pytest-homeassistant-custom-component==0.13.373
 ruff
 pyright

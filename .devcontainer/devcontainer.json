@@ -20,7 +20,7 @@
     }
   },
 
-  "postCreateCommand": "apk add --no-cache nodejs npm && pip install --no-cache-dir debugpy ruff black pytest && npm install -g @anthropic-ai/claude-code && npx -y ccstatusline",
+  "postCreateCommand": "apk add --no-cache nodejs npm && pip install --no-cache-dir debugpy ruff black pytest && uv venv --clear .venv --python /usr/local/bin/python3 && uv pip install --python .venv/bin/python --index-strategy unsafe-best-match -r requirements_test.txt && npm install -g @anthropic-ai/claude-code && npx -y ccstatusline",
   "customizations": {
     "vscode": {
       "extensions": [
