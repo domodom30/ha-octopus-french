@@ -53,12 +53,6 @@ pythonVersion = "3.14"
 # strict ajoutait ~700 remontées "type inconnu" sans valeur ici (HA partiellement typé + mocks).
 typeCheckingMode = "basic"
 
-# Home Assistant est installé en editable (PEP 660) dans le devcontainer HA core ;
-# pyright ne suit pas l'import-hook, d'où extraPaths vers la source. Sans effet ailleurs
-# (chemin inexistant ignoré) : en CI et chez les contributeurs, HA est un wheel classique
-# résolu nativement via site-packages.
-extraPaths = ["/usr/src/homeassistant"]
-
 # On type-check le code livré, pas les tests (saturés de Mock/AsyncMock et de TypedDict
 # NotRequired de HA, qui génèrent des faux positifs sans intérêt).
 include = [
