@@ -3,8 +3,10 @@
 from datetime import datetime, time
 from typing import Any
 
+# HA >= 2026.10 déplace BinarySensorDeviceClass dans binary_sensor.const, absent
+# des versions antérieures : on garde l'import historique, toujours réexporté.
 from homeassistant.components.binary_sensor import (
-    BinarySensorDeviceClass,
+    BinarySensorDeviceClass,  # pyright: ignore[reportPrivateImportUsage]
     BinarySensorEntity,
 )
 from homeassistant.config_entries import ConfigEntry
