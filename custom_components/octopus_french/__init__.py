@@ -48,6 +48,7 @@ from .const import (
     SERVICE_RECOMPUTE_STATISTICS,
 )
 from .coordinator import OctopusFrenchDataUpdateCoordinator
+from .coordinator_fan_club import OctopusFanClubDataUpdateCoordinator
 from .coordinator_intelligent import OctopusIntelligentDataUpdateCoordinator
 from .octopus_french import OctopusConnectionError, OctopusFrenchApiClient
 from .statistics_import import OctopusStatisticsImporter
@@ -62,6 +63,9 @@ class OctopusFrenchRuntimeData:
     coordinator: OctopusFrenchDataUpdateCoordinator
     account_number: str
     intelligent_coordinator: OctopusIntelligentDataUpdateCoordinator | None = field(
+        default=None
+    )
+    fan_club_coordinator: OctopusFanClubDataUpdateCoordinator | None = field(
         default=None
     )
 
@@ -89,6 +93,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 intelligent = entry.runtime_data.intelligent_coordinator
                 if intelligent is not None:
                     await intelligent.async_request_refresh()
+                fan_club = entry.runtime_data.fan_club_coordinator
+                if fan_club is not None:
+                    await fan_club.async_request_refresh()
 
     def _loaded_importers() -> list:
         """Return the statistics importers of loaded entries."""
@@ -226,11 +233,15 @@ async def async_setup_entry(
     intelligent_coordinator = await _async_setup_intelligent_coordinator(
         hass, api_client, account_number, entry
     )
+    fan_club_coordinator = await _async_setup_fan_club_coordinator(
+        hass, api_client, account_number, entry
+    )
 
     entry.runtime_data = OctopusFrenchRuntimeData(
         coordinator=coordinator,
         account_number=account_number,
         intelligent_coordinator=intelligent_coordinator,
+        fan_club_coordinator=fan_club_coordinator,
     )
 
     await er.async_migrate_entries(
@@ -285,6 +296,38 @@ async def _async_setup_intelligent_coordinator(
     await coordinator.async_config_entry_first_refresh()
     if not coordinator.data["devices"]:
         _LOGGER.debug("No Intelligent devices found for account %s", account_number)
+        return None
+    return coordinator
+
+
+async def _async_setup_fan_club_coordinator(
+    hass: HomeAssistant,
+    api_client: OctopusFrenchApiClient,
+    account_number: str,
+    entry: OctopusFrenchConfigEntry,
+) -> OctopusFanClubDataUpdateCoordinator | None:
+    """Set up the Fan Club coordinator, returns None if the offer is not active.
+
+    Fan Club is an optional extra: a failure here disables it instead of
+    blocking the whole integration.
+    """
+    coordinator = OctopusFanClubDataUpdateCoordinator(
+        hass=hass,
+        api_client=api_client,
+        account_number=account_number,
+        config_entry=entry,
+    )
+    await coordinator.async_refresh()
+    if not coordinator.last_update_success:
+        _LOGGER.warning(
+            "Fan Club status unavailable for account %s, "
+            "Fan Club sensors disabled until next reload: %s",
+            account_number,
+            coordinator.last_exception,
+        )
+        return None
+    if not coordinator.data["statuses"]:
+        _LOGGER.debug("No Fan Club offer found for account %s", account_number)
         return None
     return coordinator
 

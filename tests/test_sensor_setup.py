@@ -40,6 +40,7 @@ def _make_entry(data: dict) -> SimpleNamespace:
             coordinator=coordinator,
             account_number="A-123",
             intelligent_coordinator=None,
+            fan_club_coordinator=None,
         )
     )
 

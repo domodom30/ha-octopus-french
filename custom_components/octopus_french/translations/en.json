@@ -1337,6 +1337,26 @@
             "name": "Ledger type"
           }
         }
+      },
+      "fan_club_discount": {
+        "name": "Fan Club discount",
+        "state_attributes": {
+          "discount_source": {
+            "name": "Discount source"
+          },
+          "current_start": {
+            "name": "Current period start"
+          },
+          "next_discount": {
+            "name": "Next discount"
+          },
+          "next_discount_start": {
+            "name": "Next discount start"
+          },
+          "forecast": {
+            "name": "Forecast"
+          }
+        }
       }
     },
     "binary_sensor": {

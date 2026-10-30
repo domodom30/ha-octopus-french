@@ -9,6 +9,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import (
     CURRENCY_EURO,
+    PERCENTAGE,
     EntityCategory,
     UnitOfApparentPower,
     UnitOfEnergy,
@@ -521,4 +522,12 @@ LEDGER_SENSORS: tuple[OctopusLedgerSensorDescription, ...] = (
         native_unit_of_measurement=CURRENCY_EURO,
         suggested_display_precision=2,
     ),
+)
+
+FAN_CLUB_DISCOUNT_SENSOR = SensorEntityDescription(
+    key="fan_club_discount",
+    icon="mdi:wind-turbine",
+    state_class=SensorStateClass.MEASUREMENT,
+    native_unit_of_measurement=PERCENTAGE,
+    suggested_display_precision=0,
 )
