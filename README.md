@@ -60,9 +60,13 @@ Cette intégration ajoute le support complet de cette fonctionnalité dans Home 
 
 > **Contributeur** : [@jeremygovi](https://github.com/jeremygovi) via [PR #31](https://github.com/domodom30/ha-octopus-french/pull/31)
 
+### 🌬️ Fan Club (réduction éolienne locale)
+
+Pour les clients de l'offre **Octopus Fan Club**, un capteur **Réduction Fan Club** affiche la réduction en cours (0 %, 20 % ou 50 %) accordée selon la production du parc éolien local, ainsi que la prévision des prochaines demi-heures. Le capteur n'est créé que si l'offre est active sur le compte.
+
 ### ⚙️ Fonctionnalités avancées
 
-- **Mise à jour automatique** toutes les 60 minutes (5 minutes pour les données Intelligent)
+- **Mise à jour automatique** toutes les 60 minutes (5 minutes pour les données Intelligent, 15 minutes pour le Fan Club)
 - **Service de mise à jour forcée** pour rafraîchir immédiatement
 - **Compatible avec le tableau de bord Énergie** de Home Assistant
 - **Gestion automatique de l'authentification** : rafraîchissement des tokens, conservés entre les redémarrages
@@ -107,7 +111,7 @@ Cette intégration ajoute le support complet de cette fonctionnalité dans Home 
 
 ### Fréquence de rafraîchissement
 
-Les données sont rafraîchies automatiquement toutes les **60 minutes** (5 minutes pour Octopus Intelligent). Le service `octopus_french.force_update` permet un rafraîchissement immédiat.
+Les données sont rafraîchies automatiquement toutes les **60 minutes** (5 minutes pour Octopus Intelligent, 15 minutes pour le Fan Club). Le service `octopus_french.force_update` permet un rafraîchissement immédiat.
 
 ---
 
@@ -120,6 +124,7 @@ Les données sont rafraîchies automatiquement toutes les **60 minutes** (5 minu
 | Solde cagnotte      | Capteur | Monetary | Solde de la cagnotte (POT_LEDGER)          |
 | Facture électricité | Capteur | Monetary | Montant de la dernière facture électricité |
 | Facture gaz         | Capteur | Monetary | Montant de la dernière facture gaz         |
+| Réduction Fan Club  | Capteur | %        | Réduction éolienne en cours (offre Fan Club, un capteur par parc) |
 
 **Attributs des factures :**
 
@@ -127,6 +132,30 @@ Les données sont rafraîchies automatiquement toutes les **60 minutes** (5 minu
 - `total_amount` : Montant total de la facture
 - `customer_amount` : Part client
 - `expected_payment_date` : Date de paiement prévue
+
+**Attributs de la réduction Fan Club :**
+
+- `discount_source` : Parc éolien à l'origine de la réduction (ex. `#1 Fan (FRA): Les Touches 2`)
+- `current_start` : Début de la demi-heure en cours
+- `next_discount` / `next_discount_start` : Prochaine réduction différente prévue et son heure de début
+- `forecast` : Prévision des réductions (`valid_time`, `discount` en %)
+
+**Exemple : lancer le chauffe-eau dès que la réduction atteint 20 %**
+
+```yaml
+automation:
+  - alias: "Chauffe-eau sur réduction Fan Club"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.compte_octopus_energy_reduction_fan_club
+        above: 19
+    action:
+      - service: switch.turn_on
+        target:
+          entity_id: switch.chauffe_eau
+```
+
+L'identifiant exact de l'entité dépend du nom de l'appareil compte : le vérifier dans **Paramètres → Entités**.
 
 ---
 

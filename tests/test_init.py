@@ -54,6 +54,16 @@ def mock_intelligent_client() -> Generator[MagicMock]:
         yield client_cls.return_value
 
 
+@pytest.fixture(autouse=True)
+def mock_fan_club_client() -> Generator[MagicMock]:
+    """Compte sans offre Fan Club."""
+    with patch(
+        "custom_components.octopus_french.coordinator_fan_club.OctopusFanClubApiClient",
+    ) as client_cls:
+        client_cls.return_value.get_fan_club_status = AsyncMock(return_value=[])
+        yield client_cls.return_value
+
+
 async def test_setup_and_unload_entry(recorder_mock, hass: HomeAssistant) -> None:
     """L'entry monte jusqu'à LOADED puis se décharge proprement."""
     entry = MockConfigEntry(domain=DOMAIN, data=_ENTRY_DATA, unique_id="A-123")

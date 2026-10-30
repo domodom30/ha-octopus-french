@@ -24,10 +24,12 @@ from .const import (
     TWO_SEASON_TEMPORAL_CLASS_CODES,
 )
 from .coordinator import OctopusFrenchDataUpdateCoordinator
+from .coordinator_fan_club import OctopusFanClubDataUpdateCoordinator
 from .coordinator_intelligent import OctopusIntelligentDataUpdateCoordinator
 from .sensors.descriptions import (
     ELECTRICITY_INDEX_SENSORS,
     ELECTRICITY_SENSORS,
+    FAN_CLUB_DISCOUNT_SENSOR,
     GAS_SENSORS,
     LATEST_READING_SENSOR,
     LEDGER_SENSORS,
@@ -40,6 +42,7 @@ from .sensors.electricity import (
     OctopusTempoColorSensor,
     OctopusTempoCurrentRateSensor,
 )
+from .sensors.fan_club import OctopusFanClubDiscountSensor
 from .sensors.gas import OctopusGasSensor
 from .sensors.ledger import OctopusLedgerSensor
 from .utils import is_electricity_meter_active, normalize_consumption_label
@@ -181,6 +184,20 @@ async def async_setup_entry(
         for gas_meter in supply_points.get("gas", [])
         for sensor_config in GAS_SENSORS
     )
+
+    fan_club_coordinator: OctopusFanClubDataUpdateCoordinator | None = (
+        entry.runtime_data.fan_club_coordinator
+    )
+    if fan_club_coordinator and fan_club_coordinator.data:
+        entities.extend(
+            OctopusFanClubDiscountSensor(
+                fan_club_coordinator,
+                account_number,
+                discount_source,
+                FAN_CLUB_DISCOUNT_SENSOR,
+            )
+            for discount_source in fan_club_coordinator.data["statuses"]
+        )
 
     intelligent_coordinator: OctopusIntelligentDataUpdateCoordinator | None = (
         entry.runtime_data.intelligent_coordinator

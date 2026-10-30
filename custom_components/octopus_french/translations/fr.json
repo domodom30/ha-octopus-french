@@ -1337,6 +1337,26 @@
             "name": "Type de registre"
           }
         }
+      },
+      "fan_club_discount": {
+        "name": "Réduction Fan Club",
+        "state_attributes": {
+          "discount_source": {
+            "name": "Source de la réduction"
+          },
+          "current_start": {
+            "name": "Début de la période en cours"
+          },
+          "next_discount": {
+            "name": "Prochaine réduction"
+          },
+          "next_discount_start": {
+            "name": "Début de la prochaine réduction"
+          },
+          "forecast": {
+            "name": "Prévisions"
+          }
+        }
       }
     },
     "binary_sensor": {

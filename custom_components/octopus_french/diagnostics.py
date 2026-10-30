@@ -99,6 +99,7 @@ async def async_get_config_entry_diagnostics(
     """Return diagnostics for a config entry."""
     runtime = entry.runtime_data
     intelligent = runtime.intelligent_coordinator
+    fan_club = runtime.fan_club_coordinator
     coordinator_data, meter_mapping = _redact_meter_keys(runtime.coordinator.data)
 
     return {
@@ -109,6 +110,9 @@ async def async_get_config_entry_diagnostics(
         "coordinator_data": async_redact_data(coordinator_data, TO_REDACT),
         "intelligent_data": (
             async_redact_data(intelligent.data, TO_REDACT) if intelligent else None
+        ),
+        "fan_club_data": (
+            async_redact_data(fan_club.data, TO_REDACT) if fan_club else None
         ),
         "entities": async_redact_data(
             _entity_states(hass, entry, meter_mapping), TO_REDACT

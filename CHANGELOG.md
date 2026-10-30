@@ -1,3 +1,11 @@
+## [4.2.0] - 2026-10-30
+
+### ✨ Nouveauté — Offre Fan Club : réduction éolienne locale (issue [#95](https://github.com/domodom30/ha-octopus-french/issues/95))
+
+Les clients de l'offre **Octopus Fan Club** disposent d'un nouveau capteur **Réduction Fan Club** sur l'appareil Compte : il affiche la réduction en cours (0 %, 20 % ou 50 %) accordée selon la production du parc éolien local, de quoi déclencher recharge du véhicule, chauffe-eau ou lave-linge dès que la réduction s'active. Les attributs indiquent le parc à l'origine de la réduction (`discount_source`), le début de la demi-heure en cours, la prochaine réduction différente prévue (`next_discount`, `next_discount_start`) et la prévision complète (`forecast`). La réduction est rafraîchie toutes les 15 minutes, ainsi que par le service `octopus_french.force_update`, et figure dans le diagnostic.
+
+Le capteur n'est créé que si l'offre est active : un compte sans Fan Club ne voit aucun changement. Un compte rattaché à plusieurs parcs obtient un capteur par parc. Si l'API Fan Club ne répond pas au démarrage, l'intégration se charge normalement et le capteur revient au prochain rechargement. Merci à [@sam44850](https://github.com/sam44850) pour la demande et la structure des données.
+
 ## [4.1.13] - 2026-10-25
 
 ### 🐛 Correction — Option « Ballon » : plages HC été et hiver cumulées (issue [#94](https://github.com/domodom30/ha-octopus-french/issues/94))
