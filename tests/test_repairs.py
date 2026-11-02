@@ -14,6 +14,7 @@ import re
 from typing import Any
 
 import pytest
+from freezegun.api import FrozenDateTimeFactory
 
 from custom_components.octopus_french.diagnostics import (
     _redact_identifiers,
@@ -30,6 +31,8 @@ PRM = "12345678901234"
 _OCTOTEMPO_CLASSES = [
     {"code": "HPE", "description": "Avril à octobre, de 7h à 11h et de 17h à 21h"},
     {"code": "HCE", "description": "Avril à octobre, 21h à 7h et de 11h à 17h"},
+    {"code": "HPHI", "description": "Novembre à mars, de 7h à 21h"},
+    {"code": "HCHI", "description": "Novembre à mars, de 21h à 7h"},
     {"code": "HPP", "description": "Heures pleines en jour rouge, de 7h à 21h"},
     {"code": "HCP", "description": "Heures creuses en jour rouge, de 21h à 7h"},
 ]
@@ -88,8 +91,18 @@ class TestLinkyFallbackDetection:
 
         assert _meters_on_linky_fallback(data) == [PRM]
 
-    def test_usable_calendar_raises_nothing(self) -> None:
-        """Un calendrier lisible donne les bonnes plages : aucun ticket."""
+    @pytest.mark.parametrize(
+        "today",
+        [
+            pytest.param("2026-07-15T12:00:00+02:00", id="ete"),
+            pytest.param("2026-12-15T12:00:00+01:00", id="hiver"),
+        ],
+    )
+    def test_usable_calendar_raises_nothing(
+        self, freezer: FrozenDateTimeFactory, today: str
+    ) -> None:
+        """Un calendrier lisible donne les bonnes plages, en toute saison."""
+        freezer.move_to(today)
         data = _data(_OCTOTEMPO_CLASSES, off_peak_label="HC (22H00-6H00)")
 
         assert _meters_on_linky_fallback(data) == []
