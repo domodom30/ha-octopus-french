@@ -542,3 +542,45 @@ async def test_statistics_are_imported_for_every_pce() -> None:
     assert list(imported[f"octopus_french:{PCE_B}_cost"].values()) == [
         pytest.approx(2.0)
     ]
+
+
+def _meter_data(**meter: Any) -> dict:
+    data = _gas_sensor_data({PCE_A: {}})
+    data["supply_points"] = {"gas": [{"prm": PCE_A, **meter}]}
+    return data
+
+
+def test_annual_consumption_reads_car_of_the_pce() -> None:
+    """La CAR du PCE est l'état, la prochaine CAR un attribut."""
+    data = _meter_data(annualConsumption=9075, nextAnnualConsumption=8800)
+
+    sensor = _make_sensor("gas_annual_consumption", data)
+
+    assert sensor._compute_native_value() == 9075
+    assert sensor._compute_attributes() == {"next_annual_consumption": 8800}
+
+
+def test_price_level_exposes_tariff_zone_and_option() -> None:
+    """Le niveau de prix (zone tarifaire) est l'état, l'option T1..T4 un attribut."""
+    data = _meter_data(priceLevel=1, tariffOption="T2")
+
+    sensor = _make_sensor("gas_price_level", data)
+
+    assert sensor._compute_native_value() == "1"
+    assert sensor._compute_attributes() == {"tariff_option": "T2"}
+
+
+def test_meter_sensors_are_empty_without_meter_or_value() -> None:
+    """Sans PCE ou sans valeur API, les capteurs restent indisponibles."""
+    no_value = _meter_data(priceLevel=None, annualConsumption=None)
+    assert _make_sensor("gas_price_level", no_value)._compute_native_value() is None
+    assert (
+        _make_sensor("gas_annual_consumption", no_value)._compute_native_value() is None
+    )
+
+    no_meter = _gas_sensor_data({PCE_A: {}})
+    no_meter["supply_points"] = {"gas": []}
+    for key in ("gas_price_level", "gas_annual_consumption"):
+        sensor = _make_sensor(key, no_meter)
+        assert sensor._compute_native_value() is None
+        assert sensor._compute_attributes() == {}

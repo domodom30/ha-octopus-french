@@ -1,3 +1,14 @@
+## [4.3.0] - 2026-11-05
+
+### ✨ Nouveauté — Gaz : Consommation annuelle de référence et zone tarifaire
+
+L'appareil Compteur Gaz gagne deux capteurs de diagnostic :
+
+- **Consommation annuelle de référence** : la CAR du PCE (kWh) fixée par GRDF, qui sert de base aux estimations et au calcul de l'abonnement. L'attribut `next_annual_consumption` indique la prochaine CAR estimée, quand l'API la fournit.
+- **Zone tarifaire** : le niveau de prix du PCE (1 à 6), qui dépend de la commune desservie et détermine le tarif d'acheminement. L'attribut `tariff_option` indique l'option tarifaire d'acheminement (T1, T2, T3, T4, TP).
+
+La CAR restait déjà disponible dans l'attribut `annual_consumption` du capteur Contrat, qui n'est pas modifié.
+
 ## [4.2.0] - 2026-10-30
 
 ### ✨ Nouveauté — Offre Fan Club : réduction éolienne locale (issue [#95](https://github.com/domodom30/ha-octopus-french/issues/95))
