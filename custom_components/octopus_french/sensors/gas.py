@@ -162,6 +162,15 @@ class OctopusGasSensor(
                 self._current_month = current_month
             return self._calculate_monthly_cost()
 
+        if key == "gas_annual_consumption":
+            meter = self._get_meter()
+            return meter.get("annualConsumption") if meter else None
+
+        if key == "gas_price_level":
+            meter = self._get_meter()
+            price_level = meter.get("priceLevel") if meter else None
+            return str(price_level) if price_level is not None else None
+
         if key == "gas_latest_reading":
             if latest := self._latest_reading():
                 return round(float(latest[1].get("value") or 0), 2)
@@ -282,6 +291,18 @@ class OctopusGasSensor(
 
             return {"status": "No agreement found"}
 
+        if key == "gas_annual_consumption":
+            meter = self._get_meter()
+            if not meter:
+                return {}
+            return {"next_annual_consumption": meter.get("nextAnnualConsumption")}
+
+        if key == "gas_price_level":
+            meter = self._get_meter()
+            if not meter:
+                return {}
+            return {"tariff_option": meter.get("tariffOption")}
+
         if key == "gas_latest_reading":
             latest = self._latest_reading()
             if latest is None:
@@ -318,11 +339,14 @@ class OctopusGasSensor(
             self.coordinator.data, self._pce_ref, "rate_base"
         )
 
+    def _get_meter(self) -> dict[str, Any] | None:
+        """Return the gas supply point matching this PCE."""
+        gas_points = self.coordinator.data.get("supply_points", {}).get("gas", [])
+        return next((m for m in gas_points if m.get("prm") == self._pce_ref), None)
+
     def _get_contract_status(self) -> str:
         """Get a human-readable contract status."""
-        supply_points = self.coordinator.data.get("supply_points", {})
-        gas_points = supply_points.get("gas", [])
-        meter = next((m for m in gas_points if m.get("prm") == self._pce_ref), None)
+        meter = self._get_meter()
 
         if not meter:
             return "Inconnu"

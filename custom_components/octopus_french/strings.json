@@ -868,6 +868,22 @@
           }
         }
       },
+      "gas_annual_consumption": {
+        "name": "Annual reference consumption",
+        "state_attributes": {
+          "next_annual_consumption": {
+            "name": "Next annual consumption"
+          }
+        }
+      },
+      "gas_price_level": {
+        "name": "Tariff zone",
+        "state_attributes": {
+          "tariff_option": {
+            "name": "Tariff option"
+          }
+        }
+      },
       "electricity_bill": {
         "name": "Electricity bill",
         "state_attributes": {

@@ -131,6 +131,9 @@ query getAccountData($accountNumber: String!, $activeAt: DateTime!) {
                 id
                 gasNature
                 annualConsumption
+                nextAnnualConsumption
+                priceLevel
+                tariffOption
                 isSmartMeter
                 poweredStatus
                 serial
@@ -799,6 +802,9 @@ class OctopusFrenchApiClient:
                     meter_point.setdefault("serial", None)
                     meter_point.setdefault("contractualStatus", None)
                     meter_point.setdefault("cutDate", None)
+                    meter_point.setdefault("nextAnnualConsumption", None)
+                    meter_point.setdefault("priceLevel", None)
+                    meter_point.setdefault("tariffOption", None)
                     supply_points["gas"].append(meter_point)
 
         return supply_points

@@ -364,6 +364,8 @@ L'identifiant exact de l'entité dépend du nom de l'appareil compte : le vérif
 | Tarif        | Capteur | -        | -           | Prix du kWh gaz (€/kWh, diagnostic)  |
 | Contrat      | Capteur | -        | -           | Type de contrat et informations      |
 | Dernier relevé | Capteur | Energy | -           | Valeur du dernier relevé du compteur (diagnostic) |
+| Consommation annuelle de référence | Capteur | Energy | - | CAR du PCE en kWh (diagnostic) |
+| Zone tarifaire | Capteur | - | - | Niveau de prix du PCE, 1 à 6 (diagnostic) |
 
 **Attributs du contrat gaz :**
 
@@ -380,6 +382,11 @@ L'identifiant exact de l'entité dépend du nom de l'appareil compte : le vérif
 - `readings_count` : Nombre de relevés disponibles, toutes sources confondues
 - `source` : Origine des relevés — `measurements` (mesures Gazpar) ou `gasReading` (relevés d'index)
 - `tariff_eur_kwh` : Prix du kWh appliqué (capteur Coût)
+
+**Attributs de la consommation annuelle de référence et de la zone tarifaire :**
+
+- `next_annual_consumption` : Prochaine CAR estimée (kWh), si l'API la fournit
+- `tariff_option` : Option tarifaire d'acheminement (T1, T2, T3, T4, TP)
 
 > **Note :** la série journalière superpose les sources du moins précis au plus précis — cumuls mensuels, relevés d'index, puis mesures quotidiennes, publiées pour les seuls compteurs Gazpar communicants. Les périodes irrégulières sont réparties sur les jours qu'elles couvrent, un jour sans consommation est conservé à `0`, et rien n'est extrapolé au-delà de la dernière mesure connue (GrDF publie avec quelques jours de retard).
 

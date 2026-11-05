@@ -494,6 +494,19 @@ GAS_SENSORS: tuple[SensorEntityDescription, ...] = (
         suggested_display_precision=2,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
+    SensorEntityDescription(
+        key="gas_annual_consumption",
+        icon="mdi:chart-bar",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=0,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    SensorEntityDescription(
+        key="gas_price_level",
+        icon="mdi:map-marker-radius",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
 )
 
 LEDGER_SENSORS: tuple[OctopusLedgerSensorDescription, ...] = (
