@@ -6,6 +6,14 @@
 
 Intégration Octopus Energy France (non officiel) pour Home Assistant.
 
+<p align="center">
+  <img src="assets/octopus-demo.gif" width="800" alt="Dashboard Home Assistant construit avec les capteurs Octopus Energy France : consommation électrique HP/HC et gaz jour par jour, avec les coûts">
+  <br>
+  <sub>Exemple de dashboard construit avec les capteurs de l'intégration (valeurs floutées).</sub>
+</p>
+
+⭐ **L'intégration vous sert ? Une étoile sur le dépôt aide d'autres utilisateurs à la trouver.**
+
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/A1V11ZZTPI)
 
 ---
