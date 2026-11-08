@@ -213,6 +213,14 @@ ELECTRICITY_SENSORS: tuple[SensorEntityDescription, ...] = (
         suggested_display_precision=4,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
+    SensorEntityDescription(
+        key="current_rate",
+        icon="mdi:cash-clock",
+        native_unit_of_measurement=f"{CURRENCY_EURO}/{UnitOfEnergy.KILO_WATT_HOUR}",
+        suggested_display_precision=4,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
 )
 
 LATEST_READING_SENSOR = SensorEntityDescription(

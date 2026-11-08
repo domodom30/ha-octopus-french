@@ -737,6 +737,20 @@
           }
         }
       },
+      "current_rate": {
+        "name": "Tarif en cours",
+        "state_attributes": {
+          "period_type": {
+            "name": "Période (HP/HC)"
+          },
+          "hc_source": {
+            "name": "Source des horaires HC"
+          },
+          "prm_id": {
+            "name": "Référence PRM"
+          }
+        }
+      },
       "latest_reading": {
         "name": "Dernier relevé",
         "state_attributes": {
