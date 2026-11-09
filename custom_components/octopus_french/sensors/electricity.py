@@ -1,7 +1,7 @@
 """Electricity sensor entities for Octopus Energy France."""
 
 import logging
-from datetime import datetime, time
+from datetime import datetime
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
@@ -23,12 +23,14 @@ from ..utils import (
     RATE_KEY_TO_CONSUMPTION_KEY,
     get_tariff_rate_for_key,
     get_tempo_color_for_prm,
+    is_off_peak_at,
     is_tempo_contract,
     normalize_consumption_label,
     normalize_provider_calendar,
     reading_local_day,
     resolve_hc_schedule,
     resolve_tempo_color,
+    resolve_two_season,
 )
 from .descriptions import OctopusIndexSensorDescription
 
@@ -864,28 +866,88 @@ class OctopusTempoCurrentRateSensor(
 
     def _is_currently_hc(self) -> bool:
         """Return True if the current time falls within an HC (off-peak) period."""
-        schedule = self._resolve_hc_schedule()
-        if not schedule.get("ranges"):
-            return False
+        return is_off_peak_at(self._resolve_hc_schedule(), dt_util.now().time())
 
-        now = dt_util.now().time()
-        return any(
-            self._is_time_in_range(now, r["start"], r["end"])
-            for r in schedule["ranges"]
+
+class OctopusCurrentRateSensor(
+    CoordinatorEntity[OctopusFrenchDataUpdateCoordinator], SensorEntity
+):
+    """Peak/off-peak rate currently in effect (€/kWh) for HPHC contracts."""
+
+    def __init__(
+        self,
+        coordinator: OctopusFrenchDataUpdateCoordinator,
+        prm_id: str,
+        sensor_config: SensorEntityDescription,
+    ) -> None:
+        """Initialize the current rate sensor."""
+        super().__init__(coordinator)
+        self._prm_id = prm_id
+        self._sensor_config = sensor_config
+        self._attr_unique_id = f"{DOMAIN}_{prm_id}_{sensor_config.key}"
+        self._attr_translation_key = sensor_config.key
+        self._attr_has_entity_name = True
+        self._attr_icon = sensor_config.icon
+        self._attr_native_unit_of_measurement = sensor_config.native_unit_of_measurement
+        self._attr_suggested_display_precision = (
+            sensor_config.suggested_display_precision
+        )
+        self._attr_entity_category = sensor_config.entity_category
+        self._attr_entity_registry_enabled_default = (
+            sensor_config.entity_registry_enabled_default
+        )
+        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, prm_id)})
+        self._update_attrs()
+
+    async def async_added_to_hass(self) -> None:
+        """When entity is added to hass."""
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            async_track_time_change(self.hass, self._async_update_state, second=0)
         )
 
-    @staticmethod
-    def _is_time_in_range(current_time: time, start_str: str, end_str: str) -> bool:
-        """Check if current_time is within [start_str, end_str] (handles overnight ranges)."""
-        try:
-            sh, sm = start_str.split(":")[:2]
-            eh, em = end_str.split(":")[:2]
-            start_min = int(sh) * 60 + int(sm)
-            end_min = int(eh) * 60 + int(em)
-            cur_min = current_time.hour * 60 + current_time.minute
-        except (ValueError, IndexError):
-            return False
+    async def _async_update_state(self, now: datetime | None = None) -> None:
+        """Refresh state on each minute tick."""
+        self._update_attrs()
+        self.async_write_ha_state()
 
-        if end_min <= start_min:
-            return cur_min >= start_min or cur_min <= end_min
-        return start_min <= cur_min <= end_min
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Recompute derived attributes when coordinator data changes."""
+        self._update_attrs()
+        super()._handle_coordinator_update()
+
+    def _update_attrs(self) -> None:
+        """Refresh the rate and HC/HP period from data and current time."""
+        data = self.coordinator.data or {}
+        schedule = resolve_hc_schedule(data, self._prm_id)
+        is_hc = (
+            is_off_peak_at(schedule, dt_util.now().time())
+            if schedule["ranges"]
+            else None
+        )
+
+        rate_key = _current_rate_key(data, self._prm_id, is_hc)
+        self._attr_native_value = (
+            get_tariff_rate_for_key(data, self._prm_id, rate_key) if rate_key else None
+        )
+        self._attr_extra_state_attributes = {
+            "period_type": None if is_hc is None else ("HC" if is_hc else "HP"),
+            "hc_source": schedule["source"],
+            "prm_id": self._prm_id,
+        }
+
+
+def _current_rate_key(
+    data: dict[str, Any], prm_id: str, is_hc: bool | None
+) -> str | None:
+    """Return the rate sensor key for the current HC/HP period and season."""
+    if is_hc is None:
+        return None
+
+    season = resolve_two_season(data, prm_id)
+    if season == "ETE":
+        return "rate_summer_off_peak_hours" if is_hc else "rate_summer_peak_hours"
+    if season == "HIVER":
+        return "rate_winter_off_peak_hours" if is_hc else "rate_winter_peak_hours"
+    return "rate_off_peak_hours" if is_hc else "rate_peak_hours"

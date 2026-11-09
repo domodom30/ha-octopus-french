@@ -3,7 +3,7 @@
 import logging
 import re
 import unicodedata
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from homeassistant.util import dt as dt_util
@@ -384,6 +384,34 @@ def resolve_hc_schedule(
         "range_count": 0,
         "source": "none",
     }
+
+
+def _clock_minutes(value: str) -> int:
+    """Return the minutes since midnight of an `HH:MM` string."""
+    hours, minutes = value.split(":")[:2]
+    return int(hours) * 60 + int(minutes)
+
+
+def is_time_in_range(current: time, start: str, end: str) -> bool:
+    """Return whether a time falls in `[start, end)`, wrapping past midnight."""
+    try:
+        start_min = _clock_minutes(start)
+        end_min = _clock_minutes(end)
+    except (ValueError, IndexError):
+        return False
+
+    current_min = current.hour * 60 + current.minute
+    if end_min <= start_min:
+        return current_min >= start_min or current_min < end_min
+    return start_min <= current_min < end_min
+
+
+def is_off_peak_at(schedule: dict[str, Any], current: time) -> bool:
+    """Return whether a time falls in one of the schedule's off-peak ranges."""
+    return any(
+        is_time_in_range(current, slot["start"], slot["end"])
+        for slot in schedule.get("ranges") or []
+    )
 
 
 def _parse_season_months(description: str | None) -> tuple[int, int] | None:

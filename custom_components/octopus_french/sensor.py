@@ -36,6 +36,7 @@ from .sensors.descriptions import (
     TEMPO_SENSORS,
 )
 from .sensors.electricity import (
+    OctopusCurrentRateSensor,
     OctopusElectricityIndexSensor,
     OctopusElectricitySensor,
     OctopusLatestReadingSensor,
@@ -81,6 +82,13 @@ async def async_setup_entry(
 
         for sensor_config in ELECTRICITY_SENSORS:
             sensor_key = sensor_config.key
+
+            if sensor_key == "current_rate":
+                if tariff_type in ("HPHC", TARIFF_TYPE_HPHC_TWO_SEASON):
+                    entities.append(
+                        OctopusCurrentRateSensor(coordinator, prm_id, sensor_config)
+                    )
+                continue
 
             if (
                 sensor_key in {"contract", "subscription", "subscribed_power"}

@@ -737,6 +737,20 @@
           }
         }
       },
+      "current_rate": {
+        "name": "Current rate",
+        "state_attributes": {
+          "period_type": {
+            "name": "Period type (HP/HC)"
+          },
+          "hc_source": {
+            "name": "Off-peak schedule source"
+          },
+          "prm_id": {
+            "name": "PRM reference"
+          }
+        }
+      },
       "latest_reading": {
         "name": "Latest reading",
         "state_attributes": {

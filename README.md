@@ -191,6 +191,19 @@ L'identifiant exact de l'entité dépend du nom de l'appareil compte : le vérif
 | Abonnement      | Capteur | Monetary | Total       | Coût mensuel de l'abonnement      |
 | Contrat         | Capteur | -        | -           | Type de contrat et informations   |
 
+**Capteur de diagnostic HPHC (désactivé par défaut) :**
+
+| Entité        | Type    | Classe | Description                                                            |
+| ------------- | ------- | ------ | ------------------------------------------------------------------------ |
+| Tarif en cours| Capteur | -      | €/kWh actif à l'instant (HP ou HC selon l'heure), mis à jour chaque minute |
+
+> À activer dans **Paramètres → Entités** si votre installation n'expose qu'une
+> seule entité de consommation réseau combinée (ex. ZLinky TIC) : sélectionnez
+> alors ce capteur comme « Entité avec le prix actuel » dans le suivi des coûts
+> du tableau de bord Énergie. Si vous disposez de deux entités de consommation
+> séparées (heures pleines / heures creuses), préférez plutôt `rate_peak_hours`
+> et `rate_off_peak_hours`, chacune associée à sa propre source.
+
 **Pour les contrats OctoTempo :**
 
 | Entité                | Type    | Classe   | State Class | Description                                  |

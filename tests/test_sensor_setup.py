@@ -63,6 +63,9 @@ async def test_tempo_setup_has_no_duplicate_unique_ids() -> None:
     # Le setup Tempo expose bien les sensors spécifiques.
     assert "octopus_french_PRM1_tempo_color_today" in unique_ids
 
+    # Tempo a déjà son tarif en cours dédié (tempo_current_rate) : pas de doublon.
+    assert "octopus_french_PRM1_current_rate" not in unique_ids
+
 
 _CLASSIC_HPHC_DATA = {
     "supply_points": {
@@ -174,6 +177,7 @@ async def test_classic_hphc_meter_gets_only_classic_sensors() -> None:
     assert keys >= _CLASSIC_ONLY_INDEX_KEYS
     assert not (_TWO_SEASON_ONLY_KEYS & keys)
     assert not (_TWO_SEASON_ONLY_INDEX_KEYS & keys)
+    assert "current_rate" in keys
 
 
 async def test_two_season_meter_gets_only_seasonal_sensors() -> None:
@@ -194,3 +198,4 @@ async def test_two_season_meter_gets_only_seasonal_sensors() -> None:
     assert keys >= _TWO_SEASON_ONLY_INDEX_KEYS
     assert not (_CLASSIC_ONLY_KEYS & keys)
     assert not (_CLASSIC_ONLY_INDEX_KEYS & keys)
+    assert "current_rate" in keys

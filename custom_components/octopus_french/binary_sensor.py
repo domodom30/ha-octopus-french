@@ -1,6 +1,6 @@
 """Binary sensors for OctopusFrench Energy integration."""
 
-from datetime import datetime, time
+from datetime import datetime
 from typing import Any
 
 # HA >= 2026.10 déplace BinarySensorDeviceClass dans binary_sensor.const, absent
@@ -19,7 +19,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .coordinator import OctopusFrenchDataUpdateCoordinator
-from .utils import get_tempo_color_for_prm, resolve_hc_schedule
+from .utils import get_tempo_color_for_prm, is_off_peak_at, resolve_hc_schedule
 
 PARALLEL_UPDATES = 0
 
@@ -134,26 +134,7 @@ class OctopusFrenchHcBinarySensor(
             now = dt_util.now().time()
         except (AttributeError, ValueError):
             return False
-        return any(
-            self._is_time_in_range(now, r["start"], r["end"])
-            for r in schedule["ranges"]
-        )
-
-    @staticmethod
-    def _is_time_in_range(current_time: time, start_str: str, end_str: str) -> bool:
-        """Check if current_time is within [start_str, end_str] (handles overnight)."""
-        try:
-            sh, sm = start_str.split(":")[:2]
-            eh, em = end_str.split(":")[:2]
-            start_min = int(sh) * 60 + int(sm)
-            end_min = int(eh) * 60 + int(em)
-            cur_min = current_time.hour * 60 + current_time.minute
-        except (ValueError, IndexError):
-            return False
-
-        if end_min <= start_min:
-            return cur_min >= start_min or cur_min <= end_min
-        return start_min <= cur_min <= end_min
+        return is_off_peak_at(schedule, now)
 
     def _compute_attributes(self) -> dict[str, Any]:
         """Return HC schedule information."""
