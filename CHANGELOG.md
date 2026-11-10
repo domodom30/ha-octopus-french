@@ -1,3 +1,19 @@
+## [4.3.1] - 2026-11-10
+
+### ✨ Nouveauté — Électricité : capteur « Tarif en cours » pour les contrats HP/HC (issue [#100](https://github.com/domodom30/ha-octopus-french/issues/100), [#101](https://github.com/domodom30/ha-octopus-french/pull/101))
+
+Les contrats HP/HC et HP/HC deux saisons gagnent un capteur de diagnostic **Tarif en cours** (€/kWh), qui bascule automatiquement entre heures pleines et heures creuses, et entre été et hiver le cas échéant, sur le modèle du tarif en cours OctoTempo. Les attributs indiquent la période active (`period_type`), la source des horaires HC (`hc_source`) et le PRM. Sans horaires HC connus, le capteur n'affiche pas de tarif.
+
+Désactivé par défaut, il est à activer dans **Paramètres → Entités** quand l'installation n'expose qu'une seule entité de consommation réseau combinée (ZLinky TIC par exemple) : il se sélectionne alors comme « Entité avec le prix actuel » dans le suivi des coûts du tableau de bord Énergie. Avec deux entités de consommation séparées HP / HC, `rate_peak_hours` et `rate_off_peak_hours` restent préférables. Merci à [@lboue](https://github.com/lboue) pour le correctif.
+
+### 🐛 Correction — Fin de plage d'heures creuses comptée en heures creuses
+
+La minute de fin d'une plage HC était considérée comme creuse : pour une plage 22:00 – 06:00, le capteur **Heures creuses actives** et le tarif en cours OctoTempo restaient en heures creuses jusqu'à 06:00 inclus. La fin de plage est désormais exclue, 06:00 relevant des heures pleines.
+
+### 📝 Documentation
+
+Le README présente un aperçu animé du tableau de bord ([#99](https://github.com/domodom30/ha-octopus-french/pull/99)).
+
 ## [4.3.0] - 2026-11-05
 
 ### ✨ Nouveauté — Gaz : Consommation annuelle de référence et zone tarifaire
