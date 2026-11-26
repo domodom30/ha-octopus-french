@@ -3,7 +3,7 @@
 import logging
 import re
 import unicodedata
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, tzinfo
 from typing import Any
 
 from homeassistant.util import dt as dt_util
@@ -20,6 +20,7 @@ from .const import (
     TEMPO_STATISTICS_LABELS,
     TEMPO_TEMPORAL_CLASS_CODES,
     TEMPO_TEMPORAL_CLASS_TO_COLOR,
+    TEMPO_TIME_ZONE,
     TWO_SEASON_DEFAULT_SEASON_MONTHS,
     TWO_SEASON_TEMPORAL_CLASS_CODES,
     TWO_SEASON_TEMPORAL_CLASS_TO_SEASON,
@@ -524,7 +525,7 @@ def tempo_color_from_measurements(
     totals: dict[date, dict[str, float]] = {}
 
     for reading in readings or []:
-        local_day = reading_local_day(reading.get("startAt"))
+        local_day = reading_local_day(reading.get("startAt"), TEMPO_TIME_ZONE)
         if local_day is None or (day is not None and local_day.date() != day):
             continue
         for stat in (reading.get("metaData") or {}).get("statistics", []):
@@ -550,13 +551,25 @@ def resolve_tempo_color(
     data: dict[str, Any], prm_id: str, days_ahead: int = 0
 ) -> dict[str, Any]:
     """Return the Tempo color of a day and its source."""
-    target = dt_util.now().date() + timedelta(days=days_ahead)
+    target = dt_util.now().astimezone(TEMPO_TIME_ZONE).date() + timedelta(
+        days=days_ahead
+    )
+    target_iso = target.isoformat()
+    code = (
+        data.get("tempo_day_codes", {}).get(target_iso)
+        if is_tempo_contract(data, prm_id)
+        else None
+    )
     result: dict[str, Any] = {
         "color": None,
         "source": None,
-        "date": target.isoformat(),
+        "date": target_iso,
         "reading_date": None,
+        "red_day_detectable": code in (1, 2, 3),
     }
+
+    if days_ahead > 0 and not result["red_day_detectable"]:
+        return result
 
     if days_ahead == 0:
         readings = (
@@ -565,18 +578,35 @@ def resolve_tempo_color(
         color, reading_date = tempo_color_from_measurements(readings, target)
         result["reading_date"] = reading_date
         if color == "ROUGE":
-            return result | {"color": color, "source": "measurements"}
+            return result | {
+                "color": color,
+                "source": "measurements",
+                "red_day_detectable": True,
+            }
+
+    if code == 3:
+        return result | {"color": "ROUGE", "source": "calendrier_tempo"}
 
     if season := resolve_tempo_season(data, prm_id, target):
         return result | {"color": season, "source": "season"}
 
+    if days_ahead > 0:
+        # A confirmed non-red tomorrow uses default season bounds if the
+        # provider's descriptions only cover part of the year.
+        season = _season_for_day({}, {}, TEMPO_DEFAULT_SEASON_MONTHS, target)
+        return result | {"color": season, "source": "season"}
+
     index_data = data.get("electricity_by_prm", {}).get(prm_id, {}).get("index") or {}
     color = index_data.get("tempo_color")
-    if isinstance(color, str):
+    if isinstance(color, str) and (
+        color != "ROUGE"
+        or (days_ahead == 0 and index_data.get("tempo_color_date") == target_iso)
+    ):
         return result | {
             "color": color,
             "source": "index",
             "reading_date": index_data.get("tempo_color_date"),
+            "red_day_detectable": result["red_day_detectable"] or color == "ROUGE",
         }
 
     return result
@@ -744,14 +774,16 @@ def convert_sensor_date(date_string: str | None) -> str | None:
     return dt.strftime("%Y-%m-%d")
 
 
-def reading_local_day(start_at: str | None) -> datetime | None:
+def reading_local_day(
+    start_at: str | None, timezone: tzinfo | None = None
+) -> datetime | None:
     """Return local midnight of a reading's calendar day."""
     if not start_at:
         return None
     try:
         return (
             datetime.fromisoformat(start_at)
-            .astimezone(dt_util.DEFAULT_TIME_ZONE)
+            .astimezone(timezone or dt_util.DEFAULT_TIME_ZONE)
             .replace(hour=0, minute=0, second=0, microsecond=0)
         )
     except (ValueError, TypeError, AttributeError) as err:

@@ -233,22 +233,23 @@ L'identifiant exact de l'entité dépend du nom de l'appareil compte : le vérif
 | Tarif hiver HC           | Capteur | -      | Tarif Hiver Heures Creuses (€/kWh)                                                       |
 | Tarif rouge HP           | Capteur | -      | Tarif Rouge Heures Pleines (€/kWh)                                                       |
 | Tarif rouge HC           | Capteur | -      | Tarif Rouge Heures Creuses (€/kWh)                                                       |
-| Couleur Tempo aujourd'hui| Capteur | -      | Couleur du jour : saison (ETE / HIVER), requalifiée en ROUGE une fois le relevé arrivé   |
-| Couleur Tempo demain     | Capteur | -      | Saison de demain (ETE / HIVER) — ne vaut jamais ROUGE, voir la limite ci-dessous          |
+| Couleur Tempo aujourd'hui| Capteur | -      | ROUGE si annoncé ou confirmé par un relevé du jour, ETE / HIVER sinon                   |
+| Couleur Tempo demain     | Capteur | -      | ROUGE, ETE ou HIVER si la couleur est confirmée ; indisponible sinon                     |
 | Tarif Tempo en cours     | Capteur | -      | €/kWh actif à l'instant (couleur du jour × HC/HP), mis à jour chaque minute              |
 
-> **Les jours de pointe (ROUGE) ne sont pas annoncés à l'avance.**
-> L'API Octopus n'expose aucun calendrier de couleurs : la saison se déduit des
-> bornes du calendrier fournisseur (« Avril à octobre », « Novembre à mars »),
-> mais un jour de pointe n'est reconnaissable qu'a posteriori, quand le relevé
-> journalier correspondant arrive — environ deux jours plus tard. Octopus annonce
-> les jours de pointe hors API (courriel, application).
+> **Annonce des jours rouges.** Octopus indique que les jours rouges de son
+> [offre OctoSaisons](https://octopusenergy.fr/octosaisons) sont les mêmes que ceux de Tempo.
+> L'intégration lit les annonces du jour et du lendemain via l'API publique de
+> [Calendrier Tempo](https://www.calendrier-tempo.fr/api-tempo) (CC BY 4.0), sans
+> clé ni autre intégration Home Assistant. Seuls la date (Europe/Paris) et le code
+> couleur sont utilisés ; les prix et les heures pleines/creuses restent ceux du contrat Octopus.
 >
-> Conséquences : `Couleur Tempo demain` ne vaut jamais ROUGE, et
-> `Tarif Tempo en cours` affiche le tarif de la saison un jour de pointe.
-> L'attribut `source` de chaque capteur indique d'où vient la couleur
-> (`season`, `measurements` ou `index`), et `reading_date` la date du relevé
-> qui l'a confirmée.
+> Sans annonce valide pour demain, le capteur est **Indisponible** (`unavailable`).
+> Sans annonce ni relevé rouge pour aujourd'hui, la couleur et le tarif en cours
+> restent basés sur la saison : ce repli ne confirme pas l'absence d'un jour rouge
+> (`red_day_detectable: false`). L'attribut `source` indique la provenance de la
+> couleur (`calendrier_tempo`, `season`, `measurements` ou `index`), et
+> `reading_date` la date du relevé, s'il existe.
 
 ---
 
@@ -651,34 +652,27 @@ automation:
                state_attr('sensor.linky_XXXXXX_latest_reading', 'cout_heures_creuses_euro') | float(0) }} €
 ```
 
-### OctoTempo — Changement de saison
+### OctoTempo — Alerte de jour rouge pour demain
 
-Le capteur `tempo_color_tomorrow` porte la saison du lendemain, jamais ROUGE : les
-jours de pointe ne sont pas exposés par l'API. Il sert donc à anticiper le
-changement de plages horaires, qui diffèrent entre l'été et l'hiver.
+Le capteur `tempo_color_tomorrow` indique la couleur du lendemain après son
+annonce. L'exemple ci-dessous déclenche une notification lorsque le capteur
+passe à `ROUGE`, y compris depuis l'état indisponible.
 
 ```yaml
 automation:
-  - alias: "OctoTempo — Changement de saison demain"
+  - alias: "OctoTempo — Jour rouge demain"
     trigger:
       - platform: state
         entity_id: sensor.linky_XXXXXX_tempo_color_tomorrow
-    condition:
-      - condition: template
-        value_template: >
-          {{ trigger.from_state.state not in ['unknown', 'unavailable']
-             and trigger.to_state.state != trigger.from_state.state }}
+        to: "ROUGE"
     action:
       - service: notify.mobile_app_votre_telephone
         data:
-          title: "OctoTempo — changement de saison"
-          message: >
-            Demain passe en {{ trigger.to_state.state }}.
-            Les plages heures creuses changent en conséquence.
+          title: "OctoTempo — Jour rouge demain"
+          message: "Un jour rouge est annoncé pour demain."
 ```
 
-Pour être alerté d'un jour de pointe, appuyez-vous sur les notifications
-d'Octopus : l'intégration ne peut que le constater après coup.
+Les notifications d'Octopus restent utiles si le calendrier externe est indisponible.
 
 ### OctoTempo — Suivi du tarif en cours
 

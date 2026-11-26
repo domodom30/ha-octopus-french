@@ -17,6 +17,7 @@ from ..const import (
     ENERGY_KEY_TO_LABEL,
     LEDGER_TYPE_ELECTRICITY,
     TEMPO_SHORT_LABELS,
+    TEMPO_TIME_ZONE,
 )
 from ..coordinator import OctopusFrenchDataUpdateCoordinator
 from ..utils import (
@@ -729,6 +730,20 @@ class OctopusTempoColorSensor(
         self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, prm_id)})
         self._update_attrs()
 
+    async def async_added_to_hass(self) -> None:
+        """Refresh the date as it rolls over, independently of coordinator polls."""
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            async_track_time_change(self.hass, self._async_update_date, second=0)
+        )
+
+    @callback
+    def _async_update_date(self, now: datetime) -> None:
+        """Publish a new state when the Paris calendar day changes."""
+        if now.astimezone(TEMPO_TIME_ZONE).date() != self._resolved_on:
+            self._update_attrs()
+            self.async_write_ha_state()
+
     @callback
     def _handle_coordinator_update(self) -> None:
         """Recompute derived attributes when coordinator data changes."""
@@ -737,6 +752,7 @@ class OctopusTempoColorSensor(
 
     def _update_attrs(self) -> None:
         """Refresh the cached attribute values from coordinator data."""
+        self._resolved_on = dt_util.now().astimezone(TEMPO_TIME_ZONE).date()
         self._attr_native_value = self._compute_native_value()
         self._attr_extra_state_attributes = self._compute_attributes()
 
@@ -764,7 +780,7 @@ class OctopusTempoColorSensor(
             "date": resolved["date"],
             "source": resolved["source"],
             "reading_date": resolved["reading_date"],
-            "red_day_detectable": not self._is_tomorrow,
+            "red_day_detectable": resolved["red_day_detectable"],
             "period_start": index_data.get("period_start"),
             "period_end": index_data.get("period_end"),
             "tariff_type": index_data.get("tariff_type"),
@@ -774,7 +790,9 @@ class OctopusTempoColorSensor(
     def available(self) -> bool:
         """Return True when coordinator data is fresh."""
         return (
-            self.coordinator.last_update_success and self.coordinator.data is not None
+            self.coordinator.last_update_success
+            and self.coordinator.data is not None
+            and (not self._is_tomorrow or self.native_value is not None)
         )
 
 

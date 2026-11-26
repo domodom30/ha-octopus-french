@@ -14,10 +14,13 @@ from unittest.mock import AsyncMock
 
 import pytest
 from freezegun.api import FrozenDateTimeFactory
+from homeassistant.core import HomeAssistant
+from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.octopus_french.coordinator import (
     OctopusFrenchDataUpdateCoordinator,
 )
+from custom_components.octopus_french.utils import resolve_tempo_color
 
 
 def _make_coordinator(
@@ -77,6 +80,91 @@ async def test_electricity_scoped_per_prm() -> None:
     assert by_prm["PRM_B"]["readings"][0]["prm"] == "PRM_B"
     assert by_prm["PRM_A"]["index"]["prm"] == "PRM_A"
     assert by_prm["PRM_B"]["index"]["prm"] == "PRM_B"
+
+
+@pytest.mark.parametrize("code", [1, 2, 3, 0, True, "3", 3.0])
+async def test_tempo_calendar_validates_payload_and_keeps_octopus_data(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    freezer: FrozenDateTimeFactory,
+    code: int | str,
+) -> None:
+    """Only a valid announcement for the exact Paris date is used."""
+    freezer.move_to("2026-11-25T23:30:00Z")
+    aioclient_mock.get(
+        "https://www.calendrier-tempo.fr/api/today",
+        json={"status": "ok", "date": "2026-11-26", "code": code},
+    )
+    aioclient_mock.get(
+        "https://www.calendrier-tempo.fr/api/tomorrow",
+        json={"status": "ok", "date": "2026-11-26", "code": 3},
+    )
+    coordinator = _make_coordinator(
+        {
+            "account_id": "ID-1",
+            "account_number": "ACC-123",
+            "supply_points": {
+                "electricity": [
+                    {"prm": "PRM_A", "provider_temporal_classes": [{"code": "HPP"}]},
+                    {"prm": "PRM_B"},
+                ]
+            },
+        }
+    )
+    coordinator.hass = hass
+    data = await coordinator._async_update_data()
+    assert data["electricity_by_prm"]["PRM_A"]["readings"]
+    today = resolve_tempo_color(data, "PRM_A")
+    assert today["color"] == ("ROUGE" if type(code) is int and code == 3 else "HIVER")
+    assert today["red_day_detectable"] is (type(code) is int and code in (1, 2, 3))
+    assert resolve_tempo_color(data, "PRM_A", 1)["red_day_detectable"] is False
+    assert resolve_tempo_color(data, "PRM_B")["color"] is None
+    await coordinator._async_update_data()
+    assert len(aioclient_mock.mock_calls) == 2
+
+
+async def test_tempo_calendar_outage_does_not_roll_red_forward(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """Reuse an announced day after midnight but never apply it to a different date."""
+    freezer.move_to("2026-11-25T20:00:00Z")
+    today_url = "https://www.calendrier-tempo.fr/api/today"
+    tomorrow_url = "https://www.calendrier-tempo.fr/api/tomorrow"
+    aioclient_mock.get(
+        today_url, json={"status": "ok", "date": "2026-11-25", "code": 2}
+    )
+    aioclient_mock.get(
+        tomorrow_url, json={"status": "ok", "date": "2026-11-26", "code": 3}
+    )
+    coordinator = _make_coordinator(
+        {
+            "account_id": "ID-1",
+            "account_number": "ACC-123",
+            "supply_points": {
+                "electricity": [
+                    {"prm": "PRM_A", "provider_temporal_classes": [{"code": "HPP"}]}
+                ]
+            },
+        }
+    )
+    coordinator.hass = hass
+    data = await coordinator._async_update_data()
+    assert resolve_tempo_color(data, "PRM_A", 1)["color"] == "ROUGE"
+
+    freezer.move_to("2026-11-26T00:00:00Z")
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(today_url, status=503)
+    aioclient_mock.get(tomorrow_url, json={"status": "unavailable", "code": 0})
+    data = await coordinator._async_update_data()
+    assert resolve_tempo_color(data, "PRM_A")["color"] == "ROUGE"
+    assert resolve_tempo_color(data, "PRM_A", 1)["red_day_detectable"] is False
+
+    freezer.move_to("2026-11-27T00:00:00Z")
+    data = await coordinator._async_update_data()
+    assert resolve_tempo_color(data, "PRM_A")["color"] == "HIVER"
+    assert resolve_tempo_color(data, "PRM_A")["red_day_detectable"] is False
 
 
 @pytest.mark.parametrize(

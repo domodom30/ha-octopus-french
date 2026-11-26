@@ -8,19 +8,23 @@ from typing import TYPE_CHECKING, Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
+from homeassistant.util.hass_dict import HassKey
 
 from .const import DEFAULT_SCAN_INTERVAL, PREVIOUS_MONTH_OVERLAP_DAYS
 from .octopus_french import OctopusAuthError, OctopusConnectionError
 from .repairs import async_update_issues
-from .utils import is_electricity_meter_active
+from .tempo_calendar import TempoCalendar
+from .utils import is_electricity_meter_active, is_tempo_contract
 
 if TYPE_CHECKING:
     from .octopus_french import OctopusFrenchApiClient
     from .statistics_import import OctopusStatisticsImporter
 
 _LOGGER = logging.getLogger(__name__)
+_TEMPO_CALENDAR: HassKey[TempoCalendar] = HassKey("octopus_french_tempo_calendar")
 
 
 class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
@@ -57,6 +61,14 @@ class OctopusFrenchDataUpdateCoordinator(DataUpdateCoordinator):
             raise
         except Exception as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
+
+        if any(is_tempo_contract(data, prm) for prm in data["electricity_by_prm"]):
+            calendar = self.hass.data.get(_TEMPO_CALENDAR)
+            if calendar is None:
+                calendar = self.hass.data[_TEMPO_CALENDAR] = TempoCalendar(
+                    async_get_clientsession(self.hass)
+                )
+            data["tempo_day_codes"] = await calendar.async_day_codes()
 
         async_update_issues(self.hass, data)
         return data

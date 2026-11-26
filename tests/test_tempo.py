@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 from zoneinfo import ZoneInfo
 
 import pytest
+from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.util import dt as dt_util
 
 from custom_components.octopus_french.const import (
@@ -878,7 +879,14 @@ class TestTempoCurrentRateSensor:
         coordinator.data = {
             "electricity_by_prm": {
                 prm_id: {
-                    "index": {"tempo_color": tempo_color} if tempo_color else {},
+                    "index": {
+                        "tempo_color": tempo_color,
+                        "tempo_color_date": dt_util.now(ZoneInfo("Europe/Paris"))
+                        .date()
+                        .isoformat(),
+                    }
+                    if tempo_color
+                    else {},
                 }
             },
             "agreements": [
@@ -1352,20 +1360,60 @@ class TestTempoColorSensor:
         return sensor
 
     def test_tomorrow_is_available_and_follows_the_season(self) -> None:
-        """La couleur du lendemain vient de la saison, plus d'un relevé daté du futur."""
-        sensor = self._make_sensor(_octoflex_data(), is_tomorrow=True)
+        """A confirmed non-red tomorrow uses the Octopus season, not EDF color."""
+        data = _octoflex_data()
+        data["tempo_day_codes"] = {"2026-06-16": 1}
+        sensor = self._make_sensor(data, is_tomorrow=True)
 
         with patch(
             "custom_components.octopus_french.utils.dt_util.now",
             return_value=datetime(2026, 6, 15, 12, 0, tzinfo=ZoneInfo("Europe/Paris")),
         ):
+            sensor._update_attrs()
             assert sensor.available is True
             assert sensor._compute_native_value() == "ETE"
             attrs = sensor._compute_attributes()
 
         assert attrs["date"] == "2026-06-16"
         assert attrs["source"] == "season"
-        assert attrs["red_day_detectable"] is False
+        assert attrs["red_day_detectable"] is True
+
+    @pytest.mark.parametrize("codes", [{}, {"2026-11-26": 3}, {"2026-11-27": 0}])
+    def test_tomorrow_state_unavailable_without_matching_announcement(
+        self, codes: dict
+    ) -> None:
+        """Home Assistant publishes unavailable, not unknown or a season guess."""
+        data = _octoflex_data(index={"tempo_color": "HIVER"})
+        data["tempo_day_codes"] = codes
+        sensor = self._make_sensor(data, is_tomorrow=True)
+        with patch.object(
+            dt_util,
+            "now",
+            return_value=datetime.fromisoformat("2026-11-26T12:00:00+01:00"),
+        ):
+            sensor._update_attrs()
+            assert sensor.available is False
+            assert sensor.native_value is None
+            assert sensor._stringify_state(sensor.available) == STATE_UNAVAILABLE
+
+    def test_tomorrow_expires_at_paris_midnight(self) -> None:
+        """The next day's state is recomputed even without a coordinator update."""
+        data = _octoflex_data()
+        data["tempo_day_codes"] = {"2026-11-26": 3}
+        sensor = self._make_sensor(data, is_tomorrow=True)
+        before = datetime.fromisoformat("2026-11-25T22:59:00+00:00")
+        after = datetime.fromisoformat("2026-11-25T23:00:00+00:00")
+        with patch.object(dt_util, "now", return_value=before):
+            sensor._update_attrs()
+            assert sensor.available is True
+            assert sensor.native_value == "ROUGE"
+        with (
+            patch.object(dt_util, "now", return_value=after),
+            patch.object(sensor, "async_write_ha_state") as write_state,
+        ):
+            sensor._async_update_date(after)
+        write_state.assert_called_once()
+        assert sensor._stringify_state(sensor.available) == STATE_UNAVAILABLE
 
     def test_today_is_requalified_red_by_a_daily_reading(self) -> None:
         """Un relevé du jour sur HPP/HCP l'emporte sur la saison."""
@@ -1374,7 +1422,9 @@ class TestTempoColorSensor:
                 "2026-01-15", {"CONSUMPTION_OCTOFLEX_4_V4_HPP_0.0_37.0": "9.0"}
             )
         ]
-        sensor = self._make_sensor(_octoflex_data(readings), is_tomorrow=False)
+        data = _octoflex_data(readings)
+        data["tempo_day_codes"] = {"2026-01-15": 2}
+        sensor = self._make_sensor(data, is_tomorrow=False)
 
         with patch(
             "custom_components.octopus_french.utils.dt_util.now",
@@ -1397,9 +1447,54 @@ class TestTempoColorSensor:
             assert sensor._compute_native_value() == "HIVER"
             assert sensor._compute_attributes()["source"] == "season"
 
+    def test_tomorrow_red_does_not_override_today(self) -> None:
+        """Only the matching Paris date can requalify a day as red."""
+        data = _octoflex_data()
+        data["tempo_day_codes"] = {"2026-11-25": 3, "2026-11-27": 3}
+        today = self._make_sensor(data, is_tomorrow=False)
+        tomorrow = self._make_sensor(data, is_tomorrow=True)
+
+        with patch.object(
+            dt_util,
+            "now",
+            return_value=datetime.fromisoformat("2026-11-25T23:30:00+00:00"),
+        ):
+            assert today._compute_native_value() == "HIVER"
+            assert today._compute_attributes()["date"] == "2026-11-26"
+            assert today._compute_attributes()["red_day_detectable"] is False
+            assert tomorrow._compute_native_value() == "ROUGE"
+            assert tomorrow._compute_attributes()["source"] == "calendrier_tempo"
+            assert tomorrow._compute_attributes()["red_day_detectable"] is True
+
 
 class TestTempoRateFollowsResolvedColor:
     """Le tarif en cours suit la couleur résolue, pas la couleur d'index (issue #84)."""
+
+    @pytest.mark.parametrize(
+        ("hour", "price", "period"), [(9, 0.6466, "HP"), (21, 0.1572, "HC")]
+    )
+    def test_announced_red_selects_octopus_rate_and_hours(
+        self, hour: int, price: float, period: str
+    ) -> None:
+        """The announcement supplies a color, not EDF hours or prices."""
+        data = _octoflex_data(index={"tempo_color": "HIVER"})
+        data["tempo_day_codes"] = {"2026-11-26": 3, "2026-11-27": 2}
+        data["agreements"][0]["tariffs"]["consumption"] = {
+            "tempo_hiver_hp": {"price_ttc": 0.1869},
+            "tempo_rouge_hp": {"price_ttc": 0.6466},
+            "tempo_rouge_hc": {"price_ttc": 0.1572},
+        }
+        sensor = OctopusTempoCurrentRateSensor.__new__(OctopusTempoCurrentRateSensor)
+        sensor.coordinator = MagicMock(data=data)
+        sensor._prm_id = _OCTOFLEX_PRM
+
+        with patch.object(
+            dt_util,
+            "now",
+            return_value=datetime(2026, 11, 26, hour, tzinfo=ZoneInfo("Europe/Paris")),
+        ):
+            assert sensor._compute_native_value() == pytest.approx(price)
+            assert sensor._compute_attributes()["period_type"] == period
 
     def test_rate_uses_the_season_not_the_stale_index_color(self) -> None:
         """Un index resté sur ROUGE ne doit plus imposer le tarif Rouge en hiver."""

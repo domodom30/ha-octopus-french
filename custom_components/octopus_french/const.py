@@ -1,5 +1,7 @@
 """Constants for the OEFR Energy integration."""
 
+from zoneinfo import ZoneInfo
+
 DOMAIN = "octopus_french"
 
 CONF_ACCOUNT_NUMBER = "account_number"
@@ -24,6 +26,7 @@ ISSUE_HC_FALLBACK_LINKY = "hc_fallback_linky_{}"
 ISSUE_UNKNOWN_CONSUMPTION_LABEL = "unknown_consumption_label_{}"
 
 TARIFF_TYPE_TEMPO = "TEMPO"
+TEMPO_TIME_ZONE = ZoneInfo("Europe/Paris")
 TARIFF_TYPE_HPHC_TWO_SEASON = "HPHC_2_SAISONS"
 
 TEMPO_STATISTICS_LABELS: frozenset[str] = frozenset(
